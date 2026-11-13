@@ -58,6 +58,9 @@ A2. **Step 2** (498) — ON SINCE 13 NOVEMBER (500, 501): GeoCalista,
    publishing without a token, main protected. Left: Marina as a
    second PyPI owner, and the first release through release.yml.
    From now on every change lands through a green pull request.
+A3. **How the team works** (502) — GOVERNANCE.md and the additions to
+   CONTRIBUTING.md, proposed for the board's first meeting. Adopting it
+   moves the backlog to GitHub issues.
 B. **Four rulings (483 a)** — DONE in 1.64.0, the same day: 484
    (percentiles), 485 (the first reference rung), 486 ("no decay" in
    Pro), 487 (equipop_run level with equipop).
@@ -3717,6 +3720,51 @@ because machine 3 stores tiles that way and says so in its manifest.
   the suite would pass. That is the guard written after inventory.py
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
+
+- 502 | PROPOSED 13 NOVEMBER 2026, FOR THE BOARD'S FIRST MEETING | HOW
+  THE TEAM WORKS. John: "how one user could develop a section, and
+  deliver it for us to rule during the board meetings (we schedule one
+  per week) ... how do we designate work-areas, how do the users
+  upload, and how do we validate ... do we share all, or do we have
+  several systems? ... how do we make sure we do not develop
+  conflicting code, or code/or edit in the same .py".
+  GOVERNANCE.md, new: roles (two owners, the board, the method lead,
+  area owners with backups); areas as folders, the owners for the
+  board to name; a new tool from proposal to release, with a
+  regression tool as the example - its own folders, small weekly pull
+  requests, in main as EXPERIMENTAL from the first merge and promoted
+  by the board, wiring into the shared files last and small; what the
+  board checks (the nine checks, reference results as tests, door
+  parity, a hand check from the pull request's own CI download); two
+  lanes - an area owner merges a fix that moves no number, everything
+  else waits for the board; the weekly meeting as an issue.
+  ONE PLACE FOR EACH KIND OF RECORD, and the backlog moves to GitHub
+  issues: BACKLOG.md is one person's tool, and with five people two
+  of them take the same number on the same day and every entry is an
+  edit at the same place in the same file. This entry is the last
+  number handed out here if the board agrees; 1 to 502 stay valid
+  references.
+  CONTRIBUTING.md: section 8, how an AI session runs (from a green main
+  or a tag, one issue and one branch, the rules handed over, a patch
+  that does not apply is redone and not merged by hand, notes at the
+  end in docs/tools/); 9, working in parallel (own files, a draft pull
+  request as the claim, the table of files everyone touches - with
+  dispatch() and the 6,000-line Pro toolbox the two worst - and only a
+  release edits MANUAL.md); 10, the commands for the Anaconda Prompt.
+  NEW FILES: .github/CODEOWNERS (John on everything until the board
+  names owners; the areas written in, commented out);
+  ISSUE_TEMPLATE new-tool, task, board-meeting; the pull-request
+  template asks for the area, files outside it, the commit started
+  from, a changes/ note, and what the board is asked; changes/ with
+  its README; docs/tools/TEMPLATE.md; tests/test_changes_notes.py
+  (every waiting note carries numbers, runs, doors; checked on good
+  and bad notes, so it cannot pass by finding nothing). The RULINGS
+  test now accepts an issue (#n) as a ruling's source.
+  OPEN, FOR THE BOARD: the empty owner cells; and how a new tool's Pro
+  door goes in without editing EquiPop.pyt (a module per tool that the
+  toolbox imports, or something else) - before the first one is built.
+  ALSO 13 NOVEMBER: Marina Toger is the second owner of the equipop
+  project on PyPI; Umut Türk joined GeoCalista.
 
 - 501 | DONE (repository settings, no release), 13 NOVEMBER 2026 | MAIN
   IS PROTECTED: STEP 2 OF 498 IS ON. Repository Settings -> Rules ->
