@@ -157,7 +157,15 @@ John included. A patch goes on a branch (`git switch -c fix/what`,
 Squash and merge. Left: Marina as a second PyPI owner (her PyPI
 account name is awaited) and as a reviewer of the "pypi" environment;
 the old PyPI token deleted after the first release through
-release.yml.
+release.yml. (By the evening Marina was the second PyPI owner and
+Umut had joined GeoCalista.)
+
+**How the team will work** (BACKLOG 502): GOVERNANCE.md, proposed for
+the board's first meeting. If the board adopts it, new work is a
+GitHub issue and not a BACKLOG entry; a pull request writes a note in
+changes/ and not a MANUAL row; and a tool keeps its own notes in
+docs/tools/<tool>.md. A session that works on a tool reads that file
+first and updates its *Where the work stands* last.
 
 **How this stretch worked, for whoever continues.**
 - Each fix was broken again on purpose to see that a test notices:

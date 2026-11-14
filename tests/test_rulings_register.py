@@ -86,8 +86,12 @@ def test_the_sources_exist(rid, title, fields, body):
         for h in re.findall(r"HANDOVER_(\d+)", src):
             assert os.path.exists(os.path.join(ROOT, f"HANDOVER_{h}.md")), (
                 f"{rid}: HANDOVER_{h}.md not found")
-    assert "BACKLOG" in src or "HANDOVER" in src, (
-        f"{rid}: say where it was decided")
+    # from 13 November 2026 new work is a GitHub issue (GOVERNANCE.md,
+    # section 6), so a ruling may be sourced to one: "#42"
+    assert ("BACKLOG" in src or "HANDOVER" in src
+            or re.search(r"(?<![\w#&])#\d+\b", src)), (
+        f"{rid}: say where it was decided: BACKLOG n, HANDOVER_n, or "
+        f"the issue #n")
 
 
 @pytest.mark.parametrize("rid,title,fields,body", ENTRIES, ids=IDS)

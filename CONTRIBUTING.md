@@ -1,7 +1,7 @@
 # Working on EquiPop
 
 **For anyone changing the code, the documents or the teaching material.**
-Read this first, then [RULINGS.md](RULINGS.md), the method decisions you must not change by accident.
+Read this first, then [GOVERNANCE.md](GOVERNANCE.md), which says who decides what, and [RULINGS.md](RULINGS.md), the method decisions you must not change by accident. Section 10 has the commands.
 *Written 12 November 2026, at 1.64.1.*
 
 ---
@@ -62,10 +62,10 @@ A red check is a stop: fix it, or say in the pull request why it is not yours. N
 
 ## 4. How a change gets in
 
-1. **Start from an issue**, or open one. Anything that can move a number starts as a **method decision** issue (template provided): the rule today, the rule proposed, an example, and which numbers change.
-2. **Work on a branch** from `main`: `fix/empty-group-columns`, `docs/teaching-week-3`. Nobody pushes to `main` directly, the maintainers included: GitHub refuses it. A patch file goes on a branch too: `git switch -c fix/what`, `git am the.patch`, `git push -u origin fix/what`.
-3. **Open a pull request early**, as a draft if unfinished. The template asks what problem it solves, what numbers change, which doors are affected, and what was tested where.
-4. **Review.** Checks green and one approving review. A change to a method rule also needs the method lead (John). Releases, packaging and credentials need two approvals. *(Until a second developer reviews, the ruleset asks for 0 approvals: GitHub never lets authors approve their own pull request, so 1 would block John's. It goes to 1 then. BACKLOG 501.)*
+1. **Start from an issue**, or open one, and assign it to yourself. Anything that can move a number starts as a **method decision** issue (template provided): the rule today, the rule proposed, an example, and which numbers change.
+2. **Work on a branch** from `main`, named after the area and the issue: `regress/42-ols-core`, `stata/57-help-wording`, `docs/60-teaching-week-3`. Nobody pushes to `main` directly, the maintainers included: GitHub refuses it. A patch file goes on a branch too: `git switch -c fix/what`, `git am the.patch`, `git push -u origin fix/what`.
+3. **Open a draft pull request the day you start.** It shows everyone which files you are in (section 9). Write "Fixes #42" in it, so the issue closes when it merges. The template asks what problem it solves, what numbers change, which doors are affected, and what was tested where.
+4. **Review.** Which changes go to the weekly board and which an area owner merges on any day: GOVERNANCE.md, section 4. Checks green and one approving review. A change to a method rule also needs the method lead (John). Releases, packaging and credentials need two approvals. *(Until a second developer reviews, the ruleset asks for 0 approvals: GitHub never lets authors approve their own pull request, so 1 would block John's. It goes to 1 then. BACKLOG 501.)*
 5. **Merge** with *Squash and merge*, and delete the branch.
 
 ## 5. House rules
@@ -89,7 +89,7 @@ Each was learned from a fault that reached users. The number is the BACKLOG entr
 Today John makes the releases. The steps, in order:
 
 1. `python tools/bump_version.py X.Y.Z`, then `python tools/make_sthlp.py`.
-2. A new row in MANUAL.md's version table and the BACKLOG entries for the release. Update the stamps at the top of TEACHING.md and PROPOSALS.md.
+2. A new row in MANUAL.md's version table, written from the notes in `changes/`, which the release then deletes. Update the stamps at the top of TEACHING.md and PROPOSALS.md.
 3. The full suite green, and the CI run green.
 4. `bash tools/make_bundle.sh X.Y.Z <folder outside the repository>`, or take CI's bundle download.
 5. The hand checks in the MANUAL row: ArcGIS Pro and Stata on Windows, Stata on macOS.
@@ -101,13 +101,120 @@ Today John makes the releases. The steps, in order:
 
 | File | What it holds |
 |---|---|
+| GitHub **issues** | The backlog: ideas, bugs and tasks, each with an area label. `#42` is an issue (or a pull request). |
+| `GOVERNANCE.md` | Roles, areas, the weekly board, and where each kind of record lives. |
 | `RULINGS.md` | Method decisions in force: what the code must do and why. |
-| `BACKLOG.md` | Every finding and change, numbered, newest first. A number is never reused. |
+| `changes/` | One note per pull request that changes what a user gets, until the release gathers them. |
+| `docs/tools/` | One file per tool: what it computes, its status, its validation, and where the work stands. |
+| `BACKLOG.md` | Every finding and change up to 13 November 2026 (entries 1 to 502), newest first. A number is never reused. New work is an issue. |
 | `MANUAL.md` | The user manual, and one row per release saying what changed. |
-| `HANDOVER_15.md` | Notes from one working session to the next. Its section 0 is the latest. |
+| `HANDOVER_15.md` | Notes from one of John's working sessions to the next. Its section 0 is the latest. |
 | `TEACHING.md`, `PROPOSALS.md` | What each release means for courses and for funding texts. |
 | `CITATION.cff` | How to cite EquiPop. |
 
 ## 8. AI-assisted work
 
 Much of EquiPop was written with an AI assistant, and that will continue. Its work follows the same rules as anyone's: a test for every fix, a review, and the numbers that change stated. The person who opens the pull request answers for it. Name the assistant in the commit (a `Co-Authored-By:` line), so the history shows how a change was made.
+
+**How a session runs:**
+
+1. **Start from a good version.** That is the current `main`, which is always green because nothing merges otherwise, or a release tag such as `v1.64.1`. Never start from a zip, an old download, or a folder whose state you do not know. Give the assistant that version, and write its first line of `git log -1 --oneline` in the pull request under *Started from*.
+2. **One session, one issue, one branch.** Tell the assistant the issue, the area, and the files it may change. It must name anything outside the area, and any shared file (section 9), before changing it.
+3. **Give it the rules:** this file, RULINGS.md, and the tool's `docs/tools/<tool>.md`. RULINGS.md is the list that stops an assistant from "fixing" a decision that was made on purpose.
+4. **Its output is commits or a patch on that branch**, never on main. Apply the patch with `git am` on the branch, push, and open a pull request. Review it as you would a colleague's.
+5. **If a patch does not apply** because main has moved, run `git am --abort`, bring main into your branch (section 10 E), and have the assistant redo the work on that version. Do not merge an AI patch by hand.
+6. **End with notes.** The session's last step updates *Where the work stands* in `docs/tools/<tool>.md`. The next session, whether yours, a colleague's or an assistant's, then starts from there and not from memory.
+
+## 9. Working in parallel
+
+Several people, and their assistants, can work at once without getting in each other's way if three things hold.
+
+**Everyone works in their own files.** An area is a set of folders (GOVERNANCE.md, section 2), and a new tool gets its own (GOVERNANCE.md, section 3). Two people need the same file only by exception.
+
+**Claim before you start.** Assign the issue to yourself and open a draft pull request on the first day (section 10 C). The pull request lists every file you have changed, so anyone can see who is in which file. Before you start, look through the open pull requests: if someone is already in a file you need, talk first, or wait.
+
+**The files everyone touches** are where conflicts happen. Keep changes to them small, and put them in a pull request of their own:
+
+| File | Why everyone touches it |
+|---|---|
+| `equipop/stata_bridge.py` | `dispatch()`, every door's way into the engine: one `if engine == ...` per engine |
+| `arcgis/EquiPop.pyt` | every Pro tool, in one file of about 6,000 lines |
+| `qgis/equipop_qgis/provider.py` | the list of QGIS tools |
+| `equipop/__init__.py`, `pyproject.toml` | what the package exports; its version and dependencies |
+| `stata/equipop.pkg`, `stata/stata.toc` | what `net install` delivers |
+| `MANUAL.md`, `RULINGS.md`, `BACKLOG.md` | the records |
+
+**Only a release edits MANUAL.md and the version.** A pull request writes a note in `changes/` instead (its README says how). That rule alone removes most conflicts.
+
+**Bring main into your branch once a week**, before the board meets (section 10 E). A conflict found within a week is a few lines; found after a month, it can take a day to sort out.
+
+## 10. Commands (Anaconda Prompt)
+
+The same commands work in any Windows command prompt where `git` and `python` are found. Replace `C:\work\EquiPop` with your own folder, and `regress/42-ols-core` with your branch.
+
+**A. Once: set up.** You need Git for Windows (git-scm.com); the first push opens a browser to sign in to GitHub.
+```
+conda create -n equipop python=3.12 -y
+conda activate equipop
+git clone https://github.com/GeoCalista/EquiPop.git C:\work\EquiPop
+cd /d C:\work\EquiPop
+python -m pip install -e ".[test,geo,io]" matplotlib
+python -m pytest -q -p no:cacheprovider tests
+git config --global user.name "Your Name"
+git config --global user.email "the address your GitHub account uses"
+```
+
+**B. Every time: start in the right place.**
+```
+conda activate equipop
+cd /d C:\work\EquiPop
+```
+
+**C. Start a piece of work** (issue #42), from the newest main:
+```
+git switch main
+git pull
+git switch -c regress/42-ols-core
+```
+After your first commit and push (D), open the repository on GitHub, click **Compare & pull request**, and choose **Create draft pull request** from the green button's arrow.
+
+**D. Save and share, daily.** Pushing is the upload, and it is also your backup.
+```
+python -m pytest -q -p no:cacheprovider tests -k regress
+git status
+git add equipop\regress tests\test_regress_ols.py changes\42-ols-core.md
+git commit -m "OLS core: coefficients and standard errors (#42)"
+git push -u origin regress/42-ols-core
+```
+After the first time, `git push` is enough.
+
+**E. Weekly, before the board: bring main in.**
+```
+git fetch origin
+git merge origin/main
+python -m pytest -q -p no:cacheprovider tests
+git push
+```
+If git reports `CONFLICT`, run `git merge --abort` to put everything back, and ask the owner of that file.
+
+**F. Ready for the board.** On the pull request's page, click **Ready for review** and add the label `board` (right-hand column). Do this by the day before the meeting.
+
+**G. Try someone's pull request on your own machine** (#42), for a hand check:
+```
+git fetch origin pull/42/head:pr-42
+git switch pr-42
+python -m pytest -q -p no:cacheprovider tests -k regress
+```
+EquiPop is installed from this folder (`-e`), so Python, and Stata through it, now runs the pull request's code. When you are done, go back to main:
+```
+git switch main
+git branch -D pr-42
+```
+
+**H. After your pull request is merged:**
+```
+git switch main
+git pull
+git branch -D regress/42-ols-core
+```
+`-D` is needed because *Squash and merge* gives the work a new commit.

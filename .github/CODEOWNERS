@@ -1,0 +1,44 @@
+# Who GitHub asks to review a pull request, by the files it changes.
+#
+# The areas are in GOVERNANCE.md, section 2: the board names an owner
+# and a backup for each, and this file follows. Until an area has its
+# owner, John reviews it (the first line).
+#
+# The LAST line that matches a file wins, so the catch-all comes first
+# and the narrower lines below it. A name here needs Write access to
+# the repository. Remove the "# " in front of a line once its owners
+# are named.
+
+*                               @GeoJohnSwe
+
+# Engine and shared door logic
+# /equipop/                     @GeoJohnSwe @<backup>
+# /equipop/doors/               @GeoJohnSwe @<backup>
+# /equipop/stata_bridge.py      @GeoJohnSwe @<backup>
+
+# Stata door
+# /stata/                       @<owner> @<backup>
+# /equipop_test_pass.do         @<owner> @<backup>
+
+# QGIS door
+# /qgis/                        @<owner> @<backup>
+# /tests_real_qgis/             @<owner> @<backup>
+
+# ArcGIS Pro door
+# /arcgis/                      @GeoJohnSwe @<backup>
+
+# Book and teaching
+# /docs/book/                   @<owner> @<backup>
+# /examples/                    @<owner> @<backup>
+
+# A new tool: its own folders, its developer first (GOVERNANCE.md, section 3)
+# /equipop/regress/             @<developer> @<backup>
+# /tests/test_regress_*         @<developer> @<backup>
+# /stata/equipop_regress.*      @<developer> @<backup>
+# /qgis/equipop_qgis/alg_regress.py  @<developer> @<backup>
+# /docs/tools/regress.md        @<developer> @<backup>
+
+# The records and the rules of the game: the board, through John
+/GOVERNANCE.md                  @GeoJohnSwe
+/RULINGS.md                     @GeoJohnSwe
+/.github/                       @GeoJohnSwe
