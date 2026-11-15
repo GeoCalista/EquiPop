@@ -436,10 +436,18 @@ def load_folder(folders, compose: dict | None = None,
     # reads a file; this module alone did not.
     try:
         import rasterio
-    except ImportError as e:                        # pragma: no cover
+    except ImportError as e:
+        import sys
+        if isinstance(e, ModuleNotFoundError) and e.name == "rasterio":
+            raise ImportError(
+                "Reading a folder of rasters needs rasterio, and this "
+                f"Python cannot find it ({sys.executable}). Install it "
+                "into this Python with pip install rasterio (INSTALL.md "
+                "says how for QGIS, Pro and Stata).") from e
         raise ImportError(
-            "Reading a folder of rasters needs rasterio: "
-            "pip install rasterio") from e
+            "Reading a folder of rasters needs rasterio. It is "
+            "installed but could not be loaded in this Python "
+            f"({sys.executable}): {e}") from e
 
     paths = _tif_paths(folders)
     if not paths:

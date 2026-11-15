@@ -275,7 +275,9 @@ class _Hide:
 
     def find_spec(self, fullname, path=None, target=None):
         if fullname == self.name or fullname.startswith(self.name + "."):
-            raise ImportError(f"{self.name} is hidden for this test")
+                       # what a really missing module raises (issue #7)
+            raise ModuleNotFoundError(f"No module named {fullname!r}",
+                                      name=fullname)
         return None
 
 
