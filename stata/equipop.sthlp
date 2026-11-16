@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.64.1}{...}
+{* *! version 1.64.2}{...}
 {vieweralsosee "equipop_run" "help equipop_run"}{...}
 {vieweralsosee "equipop_knn" "help equipop_knn"}{...}
 {viewerjumpto "Syntax" "equipop##syntax"}{...}
@@ -12,7 +12,7 @@
 {title:Title}
 
 {phang}
-{bf:equipop} {hline 2} k-nearest neighbour context variables (EquiPop 1.64.1)
+{bf:equipop} {hline 2} k-nearest neighbour context variables (EquiPop 1.64.2)
 
 {marker syntax}{...}
 {title:Syntax}
