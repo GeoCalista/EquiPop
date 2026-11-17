@@ -44,8 +44,9 @@ Everything below is aimed at those two problems.
   what we already know. Anything with an item number is known; please
   do not spend time re-deriving it, but **do** tell us if our
   description of it is wrong or our priority is.
-- **The current `HANDOVER_*.md`**, which carries the conventions and
-  the rulings.
+- **`RULINGS.md` and `CONTRIBUTING.md`**, which carry the method
+  decisions and the conventions. (The old session handovers are in
+  `docs/archive/`.)
 - **The `MANUAL.md` version table**, which is the change history in
   prose — it is long, but it is where the *reasoning* behind odd
   decisions lives.

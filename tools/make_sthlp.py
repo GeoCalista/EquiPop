@@ -479,7 +479,7 @@ def build():
     add("{pstd}")
     # BACKLOG 330: _smcl, not _wrap - {help python} is meant to be a
     # LINK. And the pointer went to TESTING_STATA.md, which has not
-    # existed outside stata/historical/ since 1.36: a help file that
+    # existed outside the retired guides (now docs/archive/stata/) since 1.36: a help file that
     # names a missing file is worse than one that names none, and
     # this one is on SSC now.
     # BACKLOG 459: the floor, and the Mac case that met Kit Baum. The

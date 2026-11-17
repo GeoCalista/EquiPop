@@ -173,9 +173,9 @@ python tools/make_release_zip.py "$V" "$WORK" \
     > "$LOGS/tree_zip.log" 2>&1 || { cat "$LOGS/tree_zip.log" >&2; exit 1; }
 
 # ---- 8. the documents -----------------------------------------------
-HAND=$(ls -1 HANDOVER_*.md | sed 's/HANDOVER_\([0-9]*\)\.md/\1 &/' \
-       | sort -n | tail -1 | cut -d' ' -f2)
-cp BACKLOG.md MANUAL.md INSTALL.md "$HAND" "$WORK/"
+# 17 November 2026: no handover any more - the session notes are
+# archived (docs/archive/) and live in issues and pull requests.
+cp BACKLOG.md MANUAL.md INSTALL.md "$WORK/"
 # v1.61.0: the formulas of machine 4's rates, where a reader looks
 cp METHODS_RATES.md "$WORK/"
 cp arcgis/ARCGIS_GUIDE.md "$WORK/"

@@ -6,7 +6,7 @@ point happens to fall in — and writes what that neighbourhood contains
 back into your dataset as new variables.
 
 **This is the only current Stata document besides `help equipop`.**
-Anything in `stata/historical/` describes a command that no longer
+Anything in `docs/archive/stata/` describes a command that no longer
 exists and must not be followed.
 
 ---
