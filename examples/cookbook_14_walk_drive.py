@@ -51,23 +51,13 @@ ax[0].set_title("the network: river, railway, motorway, roads", fontsize=10)
 ax[0].legend(loc="lower right", fontsize=7, frameon=False)
 vmax = max(acc["walk"].A.max(), acc["drive"].A.max())
 
-def on_a_wall(d, mode):
-    """Homes whose own square is a wall (friction 50) for this mode.
-    A 100 m square cannot tell 'beside the railway' from 'on it', and
-    the trip home pays the wall - the pitfall in Book chapter 9."""
-    fr = g[f"friction_{mode}"]
-    walls = set(zip(fr.x[fr.friction >= 50], fr.y[fr.friction >= 50]))
-    return np.array([k in walls for k in zip(d.x, d.y)])
-
 
 for a, mode, title in ((ax[1], "walk", "job access on foot (A)"),
                        (ax[2], "drive", "job access by car (A)")):
     d = acc[mode]
-    wall = on_a_wall(d, mode)
-    s = a.scatter(d.x[~wall] / 1000, d.y[~wall] / 1000, c=d.A[~wall], s=5,
-                  cmap="cividis", vmin=0, vmax=vmax)
-    a.scatter(d.x[wall] / 1000, d.y[wall] / 1000, s=5, color="#d0d0d0")
-    a.set_title(title + "\n(grey: a home on a wall square)", fontsize=10)
+    s = a.scatter(d.x / 1000, d.y / 1000, c=d.A, s=5, cmap="cividis",
+                  vmin=0, vmax=vmax)
+    a.set_title(title, fontsize=10)
     plt.colorbar(s, ax=a, shrink=.85)
 for a in ax:
     a.set_xlim(0, 6); a.set_ylim(0, 4)
@@ -76,7 +66,6 @@ for a in ax:
 fig.tight_layout()
 fig.savefig("docs/book/figs/ch09_walk_drive.png", dpi=140)
 for mode, d in acc.items():
-    d = d[~on_a_wall(d, mode)]
     print(f"{mode:5s}: mean A west of the river {d[d.x < 3000].A.mean():.3f}, "
           f"east of the motorway {d[d.x > 4600].A.mean():.3f}")
 print("ch09 walk/drive figure saved")

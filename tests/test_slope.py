@@ -127,6 +127,11 @@ def test_slope_friction_scales_with_step_length():
     and the scaling rule is never exercised. Friction 1 here is cheap
     enough that the diagonal THROUGH it is the shortest path, which
     is what makes the two rules distinguishable.
+
+    R-52 (17 November 2026): the square a trip ENDS in costs ordinary
+    ground, so the friction cell must be passed THROUGH: walls on the
+    four side cells leave the diagonal via (1, 1) as the only way to
+    (2, 2).
     """
     from equipop.friction import FrictionGrid
     from equipop.slope import SlopeGrid
@@ -135,7 +140,9 @@ def test_slope_friction_scales_with_step_length():
     ys = [0, U, 2 * U, 0, U, 2 * U, 0, U, 2 * U]
     pop = pd.DataFrame({"x": xs, "y": ys,
                         "count_all": 1.0, "count_group": 0.0})
-    fr = pd.DataFrame({"x": [U], "y": [U], "friction": [1.0]})
+    fr = pd.DataFrame({"x": [U, U, 0, 2 * U, U],
+                       "y": [U, 0, U, U, 2 * U],
+                       "friction": [1.0, 50.0, 50.0, 50.0, 50.0]})
     flat = np.zeros(9)
 
     root2 = 2.0 ** 0.5
@@ -148,14 +155,15 @@ def test_slope_friction_scales_with_step_length():
     origin = int(fg.node_of(0.0, 0.0))
     want = fg.rounds_from(np.array([origin]))[0]
 
-    # the absolute truth, independent of the friction engine
-    assert np.isclose(want[idx[(1, 1)]], root2 * 2.0, rtol=1e-12)
+    # the absolute truth, independent of the friction engine: through
+    # (1, 1) at sqrt(2)*(1+1), then a diagonal on ordinary ground
+    assert np.isclose(want[idx[(2, 2)]], root2 * 3.0, rtol=1e-12)
 
     for model in SLOPE_MODELS:
         sg = SlopeGrid(pop, fr, unit_size=U, altitude=flat, model=model)
         got = sg.rounds_from(np.array([origin]))[0]
         assert np.allclose(got, want, rtol=0, atol=1e-9), (
             f"flat DEM must reproduce friction EXACTLY, model={model}")
-        assert np.isclose(got[idx[(1, 1)]], root2 * 2.0, rtol=1e-12), (
-            f"diagonal into friction 1 must cost sqrt(2)*(1+1), "
+        assert np.isclose(got[idx[(2, 2)]], root2 * 3.0, rtol=1e-12), (
+            f"a diagonal through friction 1 must cost sqrt(2)*(1+1), "
             f"model={model}")

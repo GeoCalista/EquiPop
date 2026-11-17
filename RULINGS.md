@@ -85,6 +85,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-49 | A correctness fix ships at once | In force |
 | R-50 | Dead code is deleted, not commented out | In force |
 | R-51 | The sample data stays as it is until a publication leans on it | In force |
+| R-52 | A trip's start and end squares count as ordinary ground | In force |
 
 ---
 
@@ -485,4 +486,15 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John: "it is not an ethical issue as of now, but it could become if we push in publications etc."
 **Source.** BACKLOG 482 (11 November 2026).
 **Pinned by.** none yet
+**Status.** In force.
+
+## D, continued. Distance, decay and effort
+
+*A ruling keeps its number for good, so one made after the register began sits here, after the last number, rather than in its section.*
+
+### R-52 · A trip's start and end squares count as ordinary ground
+**Rule.** On an effort grid a trip pays the friction of the cells it passes through. The cell it starts in and the cell it ends in cost what ordinary ground costs there (a step on the flat, the climb on a slope), with no barrier, facilitator or friction. This holds for every friction value, positive or negative, and in every effort engine: k-nearest by friction or slope, FCA and access by effort, one way or round trip.
+**Why.** John, 17 November 2026: "I think it makes sense to free from friction in the start and end square", and for facilitators too, "same everywhere (for logic)". A 100 m cell cannot tell a home beside the railway from one on it. Before this, the trip home paid the whole wall, so 537 of Gridby's 19,036 residents had almost no job access on foot, and a home beside the motorway was reached at motorway speed.
+**Source.** BACKLOG 502 (found), 505 (built).
+**Pinned by.** `tests/test_start_and_end_are_ordinary_ground.py::test_the_way_home_to_a_wall_square_costs_ordinary_ground`
 **Status.** In force.

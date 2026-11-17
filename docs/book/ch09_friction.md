@@ -88,6 +88,10 @@ to that one. So:
 | −0.9 | a tenth of a round | a motorway |
 | −1 | nothing at all | refused |
 
+Those costs are for crossing a square. The square a trip starts in
+and the square it ends in always cost ordinary ground: a home on the
+riverbank is not inside the river (see Pitfalls).
+
 Read the top row again, because it is the whole idea: at friction
 three, one square costs four rounds — *as if the river were four
 squares wide*. That is why crossing it twice costs eight, and why a
@@ -258,16 +262,15 @@ same amount, which changes almost nothing except the runtime.
 Effort measures are about *contrast*: what is dear next to what is
 cheap. A dial applied uniformly has no contrast left to measure.
 
-One trap is new with walls on a fine grid. A 100-metre square cannot
-tell a house *beside* the railway from a house *on* it, so the people
-who share a square with a wall live inside the wall as far as the
-grid knows. Their own neighbourhood search starts outside the wall,
-because a square's cost is paid on the way *in*, but every trip that
-ends at their door pays the full wall. In the figure they are the
-grey line along the railway and the motorway: about one Gridby
-resident in thirty-five, given almost no job access on foot because
-the journey home costs fifty rounds. Real road data does this on a
-large scale: code every motorway square as a wall and everyone living
-along one looks cut off. Look at who lives on your wall squares
-before you trust their numbers. A finer grid, or a wall drawn along
-the edge of the squares it separates, keeps them out.
+A trip pays the friction of the squares it *passes through*, not of
+the square it starts in or the one it ends in: those two count as
+ordinary ground (rule R-52). The reason is the grid. A 100-metre
+square cannot tell a house *beside* the railway from a house *on* it,
+and without the rule the people who share a square with a wall would
+live inside the wall as far as the grid knows: every trip ending at
+their door would pay the whole wall, and about one Gridby resident in
+thirty-five would get almost no job access on foot. The rule works the
+same way for roads, so a home beside the motorway is not reached at
+motorway speed. It covers one square at each end and no more, so a
+wall drawn several squares wide still traps everyone living inside
+it. Draw walls as lines, as thin as the grid allows.

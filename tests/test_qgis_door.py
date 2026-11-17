@@ -693,7 +693,11 @@ def test_a_facilitator_pulls_distant_people_closer():
     """The accessibility counterpart to a barrier. Entering a cell
     costs 1 + friction, so -0.9 makes a cell a tenth of the usual
     effort - a motorway. B is farther in metres and nearer in
-    ROUNDS, so it joins the neighbourhood ahead of A."""
+    ROUNDS, so it joins the neighbourhood ahead of A.
+
+    R-52: B's own square is where the trip ends, so it costs a full
+    round; the six road squares before it a tenth each - 1.6, against
+    A's three rounds over open ground."""
     from equipop.friction import points_to_friction
     from equipop.stata_bridge import dispatch
     x = np.array([0.0, 150.0, 0.0])
@@ -708,7 +712,7 @@ def test_a_facilitator_pulls_distant_people_closer():
                     weight=w, friction_file=road)
     assert np.asarray(plain["Dist_2"])[0] == pytest.approx(150.0)
     assert np.asarray(fast["Dist_2"])[0] == pytest.approx(350.0)
-    assert np.asarray(fast["Rounds_2"])[0] < 1.0
+    assert np.asarray(fast["Rounds_2"])[0] == pytest.approx(1.6)
 
 
 def test_fractional_friction_is_not_truncated():
@@ -726,9 +730,10 @@ def test_fractional_friction_is_not_truncated():
     res = dispatch("friction", x, y, unit_size=50.0, k_values=[3],
                    weight=np.ones(3), friction_file=road)
     rounds = float(np.asarray(res["Rounds_3"])[0])
-    # four steps at 0.25 each, not four steps at 1 each: a truncated
-    # grid would give a whole number
-    assert rounds < 3.0, f"friction was truncated: Rounds_3 = {rounds}"
+    # open, road at 0.25, open, and the end square at a full round
+    # (R-52): 3.25. A truncated grid gives 4, a whole number
+    assert rounds == pytest.approx(3.25), (
+        f"friction was truncated: Rounds_3 = {rounds}")
     assert rounds != round(rounds), "looks like an integer grid"
 
 

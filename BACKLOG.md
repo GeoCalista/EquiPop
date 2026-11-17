@@ -3735,6 +3735,47 @@ because machine 3 stores tiles that way and says so in its manifest.
   by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
   release attaches gridby.gpkg (with the release automation).
 
+- 505 | BUILT 17 NOVEMBER 2026, pull request, not released | R-52:
+  A TRIP'S START AND END SQUARES COUNT AS ORDINARY GROUND. John, 17
+  November, on 502's finding (a): "free from friction in the start and
+  end square", and for fast roads too, "same everywhere (for logic)".
+  ONE PLACE: FrictionGrid.effort_from (trips from an origin) and
+  effort_to (trips back to it). Each builds, once per grid, the
+  movement graph with an ARRIVAL copy of every square that only the
+  last step enters, at that step's ordinary cost (step on the flat,
+  step x penalty on a slope); the way home uses a DEPARTURE copy in the
+  reversed graph. The copies have no other edges, so no other path
+  changes. rounds_from (k-NN by friction and slope), SlopeGrid's round
+  trip, fca._effort_matrix and access.effort_potential all go through
+  them; the four direct Dijkstra calls are gone.
+  NUMBERS THAT CHANGE: every effort result where a trip ends on a
+  square with friction - people living on barrier or road squares,
+  jobs or mass on them, and the way home in every round trip. On open
+  ground and on squares only passed through, nothing moves. In
+  Gridby: railway homes' walking job access goes from near zero to
+  that of their neighbours; ch09's ratios stay (0.28 on foot, 0.53 by
+  car); 503's reinforced negative stays (0.84 on foot, 0.91 by car).
+  Tests: tests/test_start_and_end_are_ordinary_ground.py (a five-
+  square strip worked by hand: a wall passed and ended on, the way
+  home to a wall square, a home beside the motorway, the last climb on
+  a slope, FCA and effort_potential round trips, Gridby's railway
+  homes); broken on purpose twice - effort_from as plain Dijkstra (3
+  fail), effort_to as the plain reversed Dijkstra (4 fail). Five older
+  tests rebuilt so the friction cell is PASSED THROUGH, as their
+  point needs: the BACKLOG 139 step-scaling tests (friction and slope;
+  walls on the side cells force the diagonal through it, mutants
+  re-checked red), the BACKLOG 447 ring test (a 6 x 6 town where a
+  last-bit tie survives), and two door facilitator tests (1.6 and
+  3.25 rounds, worked out in their docstrings). The Gridby motorway
+  lesson now leaves the motorway's own column out of both sides.
+  Book ch09: the table of costs says it is for crossing a square, the
+  pitfall became the rule, and the figure lost its grey line of
+  trapped homes. Door help (barriertable) and MANUAL say it too.
+  COST: the doubled graph is searched in quarters of each chunk and
+  keeps only the target columns, so peak memory stays below a plain
+  Dijkstra's; on Gridby k-NN by friction takes 5.8 s (was 5.2) and an
+  FCA round trip 1.7 s (was 1.1).
+
 - 503 | BUILT 17 NOVEMBER 2026, pull request, not released | JOHN'S
   RULINGS 2 AND 3 OF 17 NOVEMBER. (2) A REINFORCED NEGATIVE IN GRIDBY:
   "if we have a minority and a slight over representation of low

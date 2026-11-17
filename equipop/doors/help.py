@@ -260,7 +260,10 @@ HELP = {
                     "is open ground, and a NEGATIVE value down to -1 "
                     "is a facilitator - -0.9 makes a cell a tenth of "
                     "a round, which is how a motorway is modelled. "
-                    "-1 and below are refused. Several "
+                    "-1 and below are refused. That is the cost of "
+                    "crossing a cell: the cell a trip starts in and "
+                    "the cell it ends in count as open ground, so a "
+                    "home beside a railway is not inside it. Several "
                     "sources combine per the overlap rule, so a "
                     "river, a railway and a lake can be given "
                     "together.",
