@@ -207,7 +207,7 @@ def main(argv):
     print()
     print("[bump] NOT TOUCHED, on purpose: " + ", ".join(NEVER))
     print("       Their version line says a HUMAN HAS READ THEM.")
-    print("[bump] code comments, BACKLOG.md and MANUAL.md are left")
+    print("[bump] code comments, BACKLOG.md and CHANGELOG.md are left")
     print("       alone: a version in prose is a FACT ABOUT THE PAST.")
     if not check:
         print("\n[bump] regenerate what is derived:")
@@ -225,8 +225,15 @@ def main(argv):
         # stata/equipop.ado. What remains true whatever the floor
         # says: a doctor or engine fix lives in the PYTHON PACKAGE,
         # so an ado-only update changes nothing the reporter can see.
+        # 17 November 2026: the history moved to CHANGELOG.md, and
+        # test_the_changelog_names_this_release fails until the row
+        # for this version is at the top of it.
+        print(f"\n[bump] write the row for {new} at the top of "
+              "CHANGELOG.md")
+        print("       (the suite fails until it is there)")
         print("\n[bump] RELEASE ORDER, if this version is going out:")
-        print("       1. PyPI  (the engine)   - twine upload")
+        print(f"       1. PyPI  (the engine)   - GitHub release, tag "
+              f"v{new}")
         print("       2. SSC   (the commands) - email Baum")
         print("       The engine first: anything fixed in equipop/ -")
         print("       the doctor's whole report, for instance - does")

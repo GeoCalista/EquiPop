@@ -1,6 +1,6 @@
 # EquiPop — The Function Matrix
 
-*Version-free by intention (BACKLOG 121). The version table in MANUAL.md is the change history; a second, staler number here only misled.*
+*Version-free by intention (BACKLOG 121). CHANGELOG.md is the change history; a second, staler number here only misled.*
 
 *Who uses whom, who replaces whom, and where the dials live.*
 
