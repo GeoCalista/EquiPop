@@ -4,6 +4,22 @@ const fs = require("fs");
 const path = require("path");
 const D = require("docx");
 
+// The pixel size of a PNG or JPEG, read from its header (no packages).
+function imageSize(buf) {
+  if (buf.readUInt32BE(0) === 0x89504e47)               // PNG: IHDR
+    return {type: "png", w: buf.readUInt32BE(16), h: buf.readUInt32BE(20)};
+  if (buf[0] === 0xff && buf[1] === 0xd8) {               // JPEG: SOFn
+    let o = 2;
+    while (o < buf.length) {
+      const marker = buf[o + 1], len = buf.readUInt16BE(o + 2);
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+        return {type: "jpg", h: buf.readUInt16BE(o + 5), w: buf.readUInt16BE(o + 7)};
+      o += 2 + len;
+    }
+  }
+  throw new Error("not a PNG or JPEG figure");
+}
+
 const files = process.argv.slice(2, -1);
 const outPath = process.argv[process.argv.length - 1];
 const children = [];
@@ -41,11 +57,17 @@ for (const f of files) {
     const img = L.match(/^!\[(.*)\]\((.*)\)/);
     if (img) {
       const p = path.join(path.dirname(f), img[2]);
+      // 17 November 2026: every figure used to be stretched to 620 x 230
+      // and declared PNG, whatever it was. Now the type comes from the
+      // file and the height keeps the picture's own proportions.
+      const data = fs.readFileSync(p);
+      const size = imageSize(data);
+      const width = 620;
       children.push(new D.Paragraph({
         alignment: D.AlignmentType.CENTER,
-        children: [new D.ImageRun({type: "png",
-          data: fs.readFileSync(p),
-          transformation: {width: 620, height: 230}})]}));
+        children: [new D.ImageRun({type: size.type, data: data,
+          transformation: {width: width,
+                           height: Math.round(width * size.h / size.w)}})]}));
       children.push(new D.Paragraph({
         alignment: D.AlignmentType.CENTER,
         children: [new D.TextRun({italics: true, size: 18,
@@ -76,12 +98,16 @@ for (const f of files) {
   }
 }
 
-function inline(t) {                                  // **bold** `code`
+function inline(t) {                         // **bold** *italic* `code`
+  // 17 November 2026: *italic* was printed with its asterisks; the
+  // chapters use it about seventy times.
   const runs = [];
-  for (const part of t.split(/(\*\*[^*]+\*\*|`[^`]+`)/)) {
+  for (const part of t.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/)) {
     if (!part) continue;
     if (part.startsWith("**"))
       runs.push(new D.TextRun({bold: true, text: part.slice(2, -2)}));
+    else if (part.startsWith("*"))
+      runs.push(new D.TextRun({italics: true, text: part.slice(1, -1)}));
     else if (part.startsWith("`"))
       runs.push(new D.TextRun({font: "Consolas", size: 20,
                                text: part.slice(1, -1)}));
