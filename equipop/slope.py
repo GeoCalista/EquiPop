@@ -186,8 +186,9 @@ class SlopeGrid(FrictionGrid):
         self.altitude = alt
         self.roundtrip = bool(roundtrip)
 
-        # rebuild the graph with directed slope costs
-        rows, cols, data = [], [], []
+        # rebuild the graph with directed slope costs; `arrive` is the
+        # same move without the friction of the square entered (R-52)
+        rows, cols, data, arrive = [], [], [], []
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 if dx == 0 and dy == 0:
@@ -206,10 +207,12 @@ class SlopeGrid(FrictionGrid):
                 s = (alt[dst] - alt[src]) / run
                 rows.append(src); cols.append(dst)
                 data.append(step * (penalty(s) + self.friction[dst]))
+                arrive.append(step * penalty(s))
         self.graph = csr_matrix(
             (np.concatenate(data),
              (np.concatenate(rows), np.concatenate(cols))),
             shape=(self.nx * self.ny,) * 2)
+        self._set_arrival(rows, cols, arrive)
         smax = np.abs(np.concatenate(data)).max()
         print(f"[slope] directed graph rebuilt, model '{model}', "
               f"max edge cost {smax:.3f}"
@@ -226,9 +229,7 @@ class SlopeGrid(FrictionGrid):
         fwd = super().rounds_from(origin_nodes)
         if not self.roundtrip:
             return fwd
-        from scipy.sparse.csgraph import dijkstra
-        back = dijkstra(self.graph.T, directed=True,
-                        indices=origin_nodes)[:, self.pop_idx]
+        back = self.effort_to(origin_nodes, self.pop_idx)
         return 0.5 * (fwd + back)
 
 

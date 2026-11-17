@@ -71,7 +71,6 @@ def _effort_matrix(demand, supply, altitude, model, roundtrip,
     """Demand x supply EFFORT matrix from the slope engine (round-trip
     optional). Domain spans both sides; supply cells carry zero pop."""
     from .slope import SlopeGrid
-    from scipy.sparse.csgraph import dijkstra
 
     dom = pd.concat([
         demand.rename(columns={demand.columns[0]: "x",
@@ -95,12 +94,13 @@ def _effort_matrix(demand, supply, altitude, model, roundtrip,
     E = np.empty((len(dn), len(sn)))
     for a in range(0, len(dn), chunk):
         b = min(a + chunk, len(dn))
-        eff = dijkstra(grid.graph, directed=True, indices=dn[a:b])
+        # R-52: the square a trip ends in - the job's, and on the way
+        # back the home's - is charged as ordinary ground
+        eff = grid.effort_from(dn[a:b], sn)
         if roundtrip:
-            back = dijkstra(grid.graph.T, directed=True,
-                            indices=dn[a:b])
+            back = grid.effort_to(dn[a:b], sn)
             eff = 0.5 * (eff + back)
-        E[a:b] = eff[:, sn]
+        E[a:b] = eff
         print(f"[fca] effort rows {b}/{len(dn)}")
     return E
 

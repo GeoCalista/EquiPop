@@ -182,14 +182,12 @@ def effort_potential(pop: pd.DataFrame, mass: pd.DataFrame,
     origins = np.arange(n_pop) if origins is None \
         else np.asarray(origins)
     rows = []
-    from scipy.sparse.csgraph import dijkstra
     for start in range(0, len(origins), chunk):
         sel = origins[start:min(start + chunk, len(origins))]
-        eff = dijkstra(grid.graph, directed=True,
-                       indices=grid.pop_idx[sel])[:, mass_nodes]
+        # R-52: the square a trip ends in is charged as ordinary ground
+        eff = grid.effort_from(grid.pop_idx[sel], mass_nodes)
         if roundtrip:
-            back = dijkstra(grid.graph.T, directed=True,
-                            indices=grid.pop_idx[sel])[:, mass_nodes]
+            back = grid.effort_to(grid.pop_idx[sel], mass_nodes)
             eff = 0.5 * (eff + back)
         w = np.where(np.isfinite(eff),
                      decay_effort.weight_vec(np.where(

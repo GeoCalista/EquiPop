@@ -15,6 +15,15 @@ inclusion. Neighbourhoods therefore grow fast along low-friction
 paths and refuse to jump across barriers (water, motorways) unless
 waiting out the delay.
 
+THE START AND THE END ARE ORDINARY GROUND (R-52, 17 November 2026):
+the formula above holds for every square a trip PASSES THROUGH. The
+square a trip starts in was never charged; the square it ends in is
+reached for `step` alone - no friction, barrier or road. A 100 m
+square cannot tell a home beside the railway from one on it, and
+before this the trip home paid the whole wall and a home beside the
+motorway was reached at motorway speed. FrictionGrid.effort_from
+and effort_to are the one place the rule lives.
+
 WHY step-scaled (BACKLOG 139): before v1.29.9 every move cost the
 same, so eight moves in any direction reached the same round and the
 reachable set on open ground was the SQUARE Chebyshev ball rather
@@ -279,7 +288,9 @@ class FrictionGrid:
         self.pop_y = pop["y"].to_numpy()
 
         # --- graph: 8-neighbour moves; entering node j costs 1+friction(j) ---
-        rows, cols, data = [], [], []
+        # R-52: ... except the square a trip ENDS in, which costs 1 -
+        # `arrive` holds that last step's cost (see _set_arrival)
+        rows, cols, data, arrive = [], [], [], []
         gx, gy = np.meshgrid(np.arange(self.nx), np.arange(self.ny),
                              indexing="ij")
         gx, gy = gx.ravel(), gy.ravel()
@@ -302,10 +313,12 @@ class FrictionGrid:
                 # the answer.
                 step = np.hypot(dx, dy)
                 data.append(step * (1 + self.friction[dst]))
+                arrive.append(np.full(len(dst), step))
         self.graph = csr_matrix(
             (np.concatenate(data),
              (np.concatenate(rows), np.concatenate(cols))),
             shape=(n, n))
+        self._set_arrival(rows, cols, arrive)
 
     def cols_rows(self, x, y):
         """Column and row of each position WITHIN THE DOMAIN (0 is the
@@ -322,11 +335,93 @@ class FrictionGrid:
         i, j = self.cols_rows(x, y)
         return np.asarray(i * self.ny + j, dtype=np.int64)
 
+    # ------------------------------------------------------------ R-52
+    # John, 17 November 2026: "free from friction in the start and end
+    # square ... same everywhere (for logic)". A trip pays the friction
+    # of the squares it PASSES THROUGH. The square it starts in was
+    # never charged (a square's cost is paid on the way in); the square
+    # it ENDS in now costs what ordinary ground costs - a step on the
+    # flat, the climb on a slope - with no friction, barrier or road.
+    # A 100 m square cannot tell a home beside the railway from one on
+    # it, and before this the trip home paid the whole wall; a home
+    # beside the motorway was reached at motorway speed.
+    #
+    # How: every square gets an ARRIVAL copy that can only be entered,
+    # by the last step, at that step's ordinary cost. Dijkstra to the
+    # copy is the cheapest trip that ends there. For a trip TO an
+    # origin (the way home), the origin gets a DEPARTURE copy in the
+    # reversed graph instead. The copies have no other edges, so they
+    # change no other path.
+    def _set_arrival(self, rows, cols, arrive):
+        """Keep each move's ordinary cost - what it costs when the
+        square it enters is where the trip ends."""
+        self._edge_src = np.concatenate(rows)
+        self._edge_dst = np.concatenate(cols)
+        self._edge_arrive = np.concatenate(arrive)
+        self._fwd2 = self._rev2 = None
+
+    def _doubled(self, reverse: bool):
+        n = self.nx * self.ny
+        g = (self.graph.T if reverse else self.graph).tocoo()
+        if reverse:      # departure copy n+o -> i, for each move i -> o
+            r = n + self._edge_dst
+            c = self._edge_src
+        else:            # move i -> arrival copy n+j, for each move i -> j
+            r = self._edge_src
+            c = n + self._edge_dst
+        return csr_matrix(
+            (np.concatenate([g.data, self._edge_arrive]),
+             (np.concatenate([g.row, r]), np.concatenate([g.col, c]))),
+            shape=(2 * n, 2 * n))
+
+    def _effort(self, reverse, origin_nodes, targets):
+        """Shared by effort_from and effort_to. The doubled graph's
+        Dijkstra returns twice the squares, so the origins go in
+        quarters and only the TARGET columns are kept: the peak memory
+        stays below what one plain Dijkstra over all origins took."""
+        n = self.nx * self.ny
+        if reverse:
+            if self._rev2 is None:
+                self._rev2 = self._doubled(reverse=True)
+            graph, shift, cols = self._rev2, n, slice(0, n)
+        else:
+            if self._fwd2 is None:
+                self._fwd2 = self._doubled(reverse=False)
+            graph, shift, cols = self._fwd2, 0, slice(n, 2 * n)
+        o = np.atleast_1d(np.asarray(origin_nodes, dtype=np.int64))
+        t = (np.arange(n) if targets is None
+             else np.atleast_1d(np.asarray(targets, dtype=np.int64)))
+        out = np.empty((len(o), len(t)))
+        step = max(1, -(-len(o) // 4))
+        for a in range(0, len(o), step):
+            b = min(a + step, len(o))
+            d = dijkstra(graph, directed=True, indices=shift + o[a:b])
+            out[a:b] = d[:, cols][:, t]
+        # an origin's own square: 0, not a step out and back
+        hit = o[:, None] == t[None, :]
+        out[hit] = 0.0
+        return out
+
+    def effort_from(self, origin_nodes, targets=None) -> np.ndarray:
+        """Effort of the cheapest trip from each origin to each target
+        square (all squares when targets is None), the square it ends in
+        charged as ordinary ground (R-52). Shape: (origins, targets);
+        an origin's own square is 0."""
+        return self._effort(False, origin_nodes, targets)
+
+    def effort_to(self, origin_nodes, targets=None) -> np.ndarray:
+        """Effort of the cheapest trip from each target square (all when
+        None) back to each origin - the way home - the origin's square
+        charged as ordinary ground and the square left from free, as
+        always (R-52). Shape: (origins, targets); an origin's own
+        square is 0."""
+        return self._effort(True, origin_nodes, targets)
+
     def rounds_from(self, origin_nodes: np.ndarray) -> np.ndarray:
         """Included-round of EVERY populated cell from each origin
-        (chunk of origins), via Dijkstra. Shape: (len(origins), n_pop)."""
-        d = dijkstra(self.graph, directed=True, indices=origin_nodes)
-        return d[:, self.pop_idx]
+        (chunk of origins), via Dijkstra. Shape: (len(origins), n_pop).
+        The cell reached is charged as ordinary ground (R-52)."""
+        return self.effort_from(origin_nodes, self.pop_idx)
 
 
 def _count_from_grid(grid, pop, k_values, id_col, chunk, origins=None,

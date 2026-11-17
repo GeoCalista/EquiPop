@@ -262,7 +262,9 @@ res = run_knn_friction(pop_df, k_values=[12, 25, ..., 12800], fr=fr,
 
 **The model** (Östh & Türk 2020): growth moves to the eight surrounding
 cells one round per move; a cell with friction f sits out f extra rounds
-before inclusion: `round(j) = round(i) + 1 + friction(j)`. Implemented as
+before inclusion: `round(j) = round(i) + 1 + friction(j)`. The cell a
+trip starts in and the cell it ends in count as open ground (rule R-52):
+friction is paid only on the cells a trip passes through. Implemented as
 exact Dijkstra on the grid graph (scipy, C speed) - mathematically identical
 to round-by-round simulation, dramatically faster. Cells are counted in
 included-round order; equal rounds form an atomic ring (same tie convention
