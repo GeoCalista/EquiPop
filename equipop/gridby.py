@@ -29,7 +29,12 @@ demonstrate exactly one phenomenon:
      that carries cars and fences walkers out.
   6. A JOB MARKET by education: the same people and the same jobs,
      split into low-education workers and jobs, in the columns of
-     load("municipality") so the FCA examples run on either.
+     load("municipality") so the FCA examples run on either, plus the
+     minority's own workers (Working_group, LowEdu_group), who are
+     slightly more often low-educated.
+  7. FILES for QGIS and ArcGIS Pro: write_gridby("gridby.gpkg") writes
+     every layer as a GeoPackage in ETRS89 / UTM zone 33N, the town
+     placed in open sea between Öland and Gotland.
 
 Ground truths live in meta() and double as test fixtures: if EquiPop
 cannot recover a planted truth, the tests fail.
@@ -107,6 +112,7 @@ NETWORK = [
 # ------------------------------------------------ 6. the job market
 WORKING_SHARE = 0.55                # of residents, everywhere
 LOWEDU_SOUTH, LOWEDU_NORTH = 0.15, 0.50   # of workers, rising northward
+LOWEDU_GROUP_EXTRA = 0.08           # ... and 8 points more in the minority
 LOWJOB_CLUSTER, LOWJOB_SCATTERED = 0.20, 0.70   # of jobs
 
 
@@ -149,6 +155,7 @@ def gridby(seed: int = SEED) -> dict:
     # 5 and 6, from their own stream: nothing above may move
     network, fr_walk, fr_drive = _network()
     workers, workplaces = _job_market(np.random.default_rng([seed, 6]),
+                                      np.random.default_rng([seed, 7]),
                                       people, jx, len(west))
 
     meta = {"seed": seed, "nx": NX, "ny": NY, "unit": U,
@@ -167,9 +174,12 @@ def gridby(seed: int = SEED) -> dict:
                        "and at column 22 by walkers",
             "job_market": "55% of residents work; low education "
                           "15% of workers (south) -> 50% (north), "
-                          "linear, deliberately NOT the minority's "
-                          "direction; low-education jobs 20% of the "
+                          "linear, NOT the minority's direction, plus "
+                          "8 points for minority workers (a slight "
+                          "over-representation: the reinforced "
+                          "negative); low-education jobs 20% of the "
                           "western cluster, 70% of the scattered jobs",
+            "low_edu_group_workers": float(workers.LowEdu_group.sum()),
             "workers": float(workers.Working_sum.sum()),
             "low_edu_workers": float(workers.LowEdu_sum.sum()),
             "jobs": float(workplaces.Jobs.sum()),
@@ -225,24 +235,39 @@ def network_paths(network: pd.DataFrame) -> list:
             for r in network.itertuples()]
 
 
-def _job_market(rng, people, jx, n_cluster):
+def _job_market(rng, rng_jobs, people, jx, n_cluster):
     """Workers by education on the people's squares, and the town's
     jobs typed by education, job for job (the first n_cluster rows of
-    jx are the western cluster, the rest the scattered jobs)."""
+    jx are the western cluster, the rest the scattered jobs).
+
+    John, 17 November: a REINFORCED NEGATIVE is worth being able to
+    show - a minority that is also slightly over-represented among the
+    low-educated, as in many real towns. So the workers are split by
+    group (hypergeometric: which of a square's workers are minority),
+    and low education is drawn for each group, the minority's
+    LOWEDU_GROUP_EXTRA higher. Working_sum is drawn first and exactly
+    as before, so the job-access numbers in Book ch09 do not move. The
+    jobs have had their own stream since, so changing the workers
+    never moves them."""
     n = people.count_all.to_numpy().astype(int)
+    g = people.count_group.to_numpy().astype(int)
     work = rng.binomial(n, WORKING_SHARE)
+    work_g = rng.hypergeometric(g, n - g, work)
     row = np.floor(people.y.to_numpy() / U)
     p_low = LOWEDU_SOUTH + (LOWEDU_NORTH - LOWEDU_SOUTH) * row / (NY - 1)
-    low = rng.binomial(work, p_low)
+    low_g = rng.binomial(work_g, p_low + LOWEDU_GROUP_EXTRA)
+    low_o = rng.binomial(work - work_g, p_low)
     workers = pd.DataFrame({"x": people.x.to_numpy(),
                             "y": people.y.to_numpy(),
-                            "LowEdu_sum": low.astype(float),
+                            "LowEdu_sum": (low_g + low_o).astype(float),
                             "Working_sum": work.astype(float),
-                            "Population": people.count_all.to_numpy()})
+                            "Population": people.count_all.to_numpy(),
+                            "Working_group": work_g.astype(float),
+                            "LowEdu_group": low_g.astype(float)})
 
     p_job = np.where(np.arange(len(jx)) < n_cluster,
                      LOWJOB_CLUSTER, LOWJOB_SCATTERED)
-    low_job = rng.random(len(jx)) < p_job
+    low_job = rng_jobs.random(len(jx)) < p_job
     workplaces = (pd.DataFrame({"x": np.floor(jx[:, 0] / U) * U + U / 2,
                                 "y": np.floor(jx[:, 1] / U) * U + U / 2,
                                 "LowEdu_jobs": low_job.astype(float),
@@ -257,3 +282,82 @@ if __name__ == "__main__":
     print({k: (v.shape if hasattr(v, "shape") else len(v))
            for k, v in g.items() if k != "meta"})
     print(g["meta"])
+
+
+# ---------------------------------------------------------------
+# Gridby as files, for a QGIS or ArcGIS Pro class (17 November 2026).
+#
+# John: "now Europe is the centerpoint of attention for where I teach
+# ... any UTM simple system would fly". So the town is written in
+# ETRS89 / UTM zone 33N, with its south-west corner in the open Baltic
+# between Öland and Gotland (about 17.6 E, 57.2 N, some 25 km from
+# either coast): no real town lies under it, and nobody mistakes it for
+# one. Inside Python nothing moves; the shift is added on the way out.
+# ---------------------------------------------------------------
+CRS = "EPSG:25833"
+ORIGIN = (654_000.0, 6_340_000.0)
+
+#: The layers, in the order a class meets them.
+LAYERS = ("people", "jobs", "workers", "workplaces", "network",
+          "friction_river", "friction_walk", "friction_drive", "altitude")
+
+
+def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
+    """Write Gridby as one GeoPackage that QGIS and ArcGIS Pro open as
+    they are, and return the path.
+
+        from equipop.gridby import write_gridby
+        write_gridby("gridby.gpkg")
+
+    Layers (points sit on the centres of the 100 m squares):
+      people          count_all, count_group
+      jobs            jobs
+      workers         LowEdu_sum, Working_sum, Population, Working_group,
+                      LowEdu_group
+      workplaces      LowEdu_jobs, Jobs
+      network         lines: name, kind, walk, drive - give a barrier
+                      tool the `walk` or the `drive` field
+      friction_river  friction (the simple river of Book chapter 9)
+      friction_walk   friction (the network laid on the squares)
+      friction_drive  friction
+      altitude        altitude_m (the hill)
+
+    Needs geopandas (pip install equipop[geo])."""
+    try:
+        import geopandas as gpd
+    except ImportError as e:
+        raise ImportError("write_gridby needs geopandas: pip install "
+                          "geopandas (or equipop[geo])") from e
+    from shapely.geometry import LineString
+
+    g = gridby(seed)
+    x0, y0 = origin
+
+    def points(df):
+        return gpd.GeoDataFrame(
+            df.drop(columns=["x", "y"]).reset_index(drop=True),
+            geometry=gpd.points_from_xy(df.x + x0, df.y + y0), crs=crs)
+
+    i = np.arange(NX * NY)
+    alt = pd.DataFrame({"x": (i // NY) * U + U / 2,
+                        "y": (i % NY) * U + U / 2,
+                        "altitude_m": g["altitude"]})
+    net = g["network"]
+    lines = gpd.GeoDataFrame(
+        net[["name", "kind", "walk", "drive"]],
+        geometry=[LineString([(r.x0 + x0, r.y0 + y0), (r.x1 + x0, r.y1 + y0)])
+                  for r in net.itertuples()], crs=crs)
+    layers = {"people": points(g["people"]), "jobs": points(g["jobs"]),
+              "workers": points(g["workers"]),
+              "workplaces": points(g["workplaces"]), "network": lines,
+              "friction_river": points(g["friction"]),
+              "friction_walk": points(g["friction_walk"]),
+              "friction_drive": points(g["friction_drive"]),
+              "altitude": points(alt)}
+    path = str(path)
+    import os
+    if os.path.exists(path):
+        os.remove(path)                    # a fresh file, not appended layers
+    for name in LAYERS:
+        layers[name].to_file(path, layer=name, driver="GPKG")
+    return path

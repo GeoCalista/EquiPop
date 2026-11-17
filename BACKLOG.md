@@ -3718,6 +3718,42 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 504 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
+  AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
+  centerpoint ... any UTM simple system would fly"). write_gridby(path)
+  in equipop.gridby writes nine layers - people, jobs, workers,
+  workplaces, network (lines with walk and drive), friction_river,
+  friction_walk, friction_drive, altitude - in ETRS89 / UTM 33N
+  (EPSG:25833), shifted by ORIGIN = (654 000, 6 340 000): the town's
+  south-west corner in open Baltic between Öland and Gotland, about
+  17.6 E 57.2 N, some 25 km from either coast. Inside Python nothing
+  moves. Tests (skipped without geopandas): the layers and CRS; the
+  four corners in the sea; every count and coordinate equal to
+  Gridby's shifted by ORIGIN; and EquiPop's features_to_friction on
+  the written lines giving exactly friction_walk and friction_drive -
+  the route a QGIS or Pro class takes. Broken on purpose: ORIGIN off
+  by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
+  release attaches gridby.gpkg (with the release automation).
+
+- 503 | BUILT 17 NOVEMBER 2026, pull request, not released | JOHN'S
+  RULINGS 2 AND 3 OF 17 NOVEMBER. (2) A REINFORCED NEGATIVE IN GRIDBY:
+  "if we have a minority and a slight over representation of low
+  education, we may have interesting and real-world scenarios". The
+  workers are now split by group (hypergeometric: which of a square's
+  workers are minority) and the minority's are 8 points more often
+  low-educated, on top of the south-north rise (41% against 33%; the
+  minority is 35% of workers and 40% of the low-educated). New columns
+  Working_group and LowEdu_group. Working_sum is drawn first and as
+  before, so Book ch09's job-access numbers do not move; the jobs now
+  have their own stream ([seed, 7]), so LowEdu_jobs was redrawn once
+  (719 low-education jobs, was 705) and will not move again when the
+  workers change. Planted and tested: on foot the minority's
+  low-educated reach 0.84 of the low-education job access of the
+  majority's low-educated, by car 0.92. (3) FIGURES: John left it to
+  Claude. Ruling: the drawings stay; the Book's title page now says
+  every figure DRAWN FROM DATA has a script, and the two chapter 0
+  captions begin "Drawing:".
+
 - 502 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
   CARRIES A NETWORK FOR WALKERS AND DRIVERS, AND A JOB MARKET. John,
   17 November: Gridby is the one teaching town to keep; Malta and the

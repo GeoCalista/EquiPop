@@ -30,7 +30,8 @@ children.push(new D.Paragraph({
 children.push(new D.Paragraph({
   children: [new D.TextRun({italics: true,
     text: "Compiled from the repository sources - version " + (process.env.EQP_VERSION || "dev") + ". " +
-          "Every example runs; every figure has a script."})]}));
+          "Every example runs; every figure drawn from data has a script. "
+                + "The drawings in chapter 0 are marked as drawings."})]}));
 
 for (const f of files) {
   const lines = fs.readFileSync(f, "utf8").split("\n");
