@@ -169,12 +169,17 @@ def test_the_job_market_is_planted():
     g = load("gridby")
     w, j, p = g["workers"], g["workplaces"], g["people"]
     assert list(w.columns) == ["x", "y", "LowEdu_sum", "Working_sum",
-                               "Population"]
+                               "Population", "Working_group",
+                               "LowEdu_group"]
     assert list(j.columns) == ["x", "y", "LowEdu_jobs", "Jobs"]
     # the same squares and the same people
     assert np.array_equal(w.Population.to_numpy(), p.count_all.to_numpy())
     assert (w.Working_sum <= w.Population).all()
     assert (w.LowEdu_sum <= w.Working_sum).all()
+    assert (w.Working_group <= p.count_group.to_numpy()).all()
+    assert (w.Working_group <= w.Working_sum).all()
+    assert (w.LowEdu_group <= w.LowEdu_sum).all()
+    assert (w.LowEdu_group <= w.Working_group).all()
     # the same jobs, square for square
     jj = g["jobs"].reset_index(drop=True)
     assert np.array_equal(j[["x", "y"]].to_numpy(), jj[["x", "y"]].to_numpy())
@@ -210,3 +215,43 @@ def test_on_foot_the_east_end_is_far_from_work():
         ratio[mode] = d[d.x > 4600].A.mean() / d[d.x < 3000].A.mean()
     assert ratio["walk"] < 0.4
     assert ratio["drive"] > ratio["walk"] + 0.15
+
+
+def test_the_minority_is_slightly_more_often_low_educated():
+    """John, 17 November: a reinforced negative is worth showing. The
+    minority's workers are planted 8 points more often low-educated
+    than the majority's, on top of the south-north rise, so the
+    minority is over-represented among the low-educated - slightly.
+    BROKEN WITH: LOWEDU_GROUP_EXTRA = 0."""
+    g = load("gridby")
+    w = g["workers"]
+    low_g = w.LowEdu_group.sum() / w.Working_group.sum()
+    low_o = ((w.LowEdu_sum - w.LowEdu_group).sum()
+             / (w.Working_sum - w.Working_group).sum())
+    assert 0.05 < low_g - low_o < 0.11
+    share_workers = w.Working_group.sum() / w.Working_sum.sum()
+    share_low = w.LowEdu_group.sum() / w.LowEdu_sum.sum()
+    assert share_low > share_workers + 0.03
+
+
+def test_the_reinforced_negative_on_foot():
+    """What the over-representation is for: the minority lives east,
+    where the motorway walls walkers off, so its low-educated workers
+    reach fewer low-education jobs on foot than the majority's do - and
+    the car halves the gap. BROKEN WITH: Working_group drawn from the
+    majority (hypergeometric with good and bad swapped)."""
+    from equipop.decay import Decay
+    from equipop.fca import fca
+    g = load("gridby")
+    w = g["workers"]
+    dec = Decay(model="negexp", half_life_m=10)      # read in ROUNDS
+    ratio = {}
+    for mode in ("walk", "drive"):
+        d, _ = fca(w, g["workplaces"], "LowEdu_sum", "LowEdu_jobs",
+                   decay=dec, reach="effort", altitude=np.zeros(60 * 40),
+                   fr=g[f"friction_{mode}"])
+        minority = np.average(d.A, weights=d.LowEdu_group)
+        majority = np.average(d.A, weights=d.LowEdu_sum - d.LowEdu_group)
+        ratio[mode] = minority / majority
+    assert ratio["walk"] < 0.9
+    assert ratio["drive"] > ratio["walk"] + 0.04

@@ -29,7 +29,9 @@ demonstrate exactly one phenomenon:
      that carries cars and fences walkers out.
   6. A JOB MARKET by education: the same people and the same jobs,
      split into low-education workers and jobs, in the columns of
-     load("municipality") so the FCA examples run on either.
+     load("municipality") so the FCA examples run on either, plus the
+     minority's own workers (Working_group, LowEdu_group), who are
+     slightly more often low-educated.
 
 Ground truths live in meta() and double as test fixtures: if EquiPop
 cannot recover a planted truth, the tests fail.
@@ -107,6 +109,7 @@ NETWORK = [
 # ------------------------------------------------ 6. the job market
 WORKING_SHARE = 0.55                # of residents, everywhere
 LOWEDU_SOUTH, LOWEDU_NORTH = 0.15, 0.50   # of workers, rising northward
+LOWEDU_GROUP_EXTRA = 0.08           # ... and 8 points more in the minority
 LOWJOB_CLUSTER, LOWJOB_SCATTERED = 0.20, 0.70   # of jobs
 
 
@@ -149,6 +152,7 @@ def gridby(seed: int = SEED) -> dict:
     # 5 and 6, from their own stream: nothing above may move
     network, fr_walk, fr_drive = _network()
     workers, workplaces = _job_market(np.random.default_rng([seed, 6]),
+                                      np.random.default_rng([seed, 7]),
                                       people, jx, len(west))
 
     meta = {"seed": seed, "nx": NX, "ny": NY, "unit": U,
@@ -167,9 +171,12 @@ def gridby(seed: int = SEED) -> dict:
                        "and at column 22 by walkers",
             "job_market": "55% of residents work; low education "
                           "15% of workers (south) -> 50% (north), "
-                          "linear, deliberately NOT the minority's "
-                          "direction; low-education jobs 20% of the "
+                          "linear, NOT the minority's direction, plus "
+                          "8 points for minority workers (a slight "
+                          "over-representation: the reinforced "
+                          "negative); low-education jobs 20% of the "
                           "western cluster, 70% of the scattered jobs",
+            "low_edu_group_workers": float(workers.LowEdu_group.sum()),
             "workers": float(workers.Working_sum.sum()),
             "low_edu_workers": float(workers.LowEdu_sum.sum()),
             "jobs": float(workplaces.Jobs.sum()),
@@ -225,24 +232,39 @@ def network_paths(network: pd.DataFrame) -> list:
             for r in network.itertuples()]
 
 
-def _job_market(rng, people, jx, n_cluster):
+def _job_market(rng, rng_jobs, people, jx, n_cluster):
     """Workers by education on the people's squares, and the town's
     jobs typed by education, job for job (the first n_cluster rows of
-    jx are the western cluster, the rest the scattered jobs)."""
+    jx are the western cluster, the rest the scattered jobs).
+
+    John, 17 November: a REINFORCED NEGATIVE is worth being able to
+    show - a minority that is also slightly over-represented among the
+    low-educated, as in many real towns. So the workers are split by
+    group (hypergeometric: which of a square's workers are minority),
+    and low education is drawn for each group, the minority's
+    LOWEDU_GROUP_EXTRA higher. Working_sum is drawn first and exactly
+    as before, so the job-access numbers in Book ch09 do not move. The
+    jobs have had their own stream since, so changing the workers
+    never moves them."""
     n = people.count_all.to_numpy().astype(int)
+    g = people.count_group.to_numpy().astype(int)
     work = rng.binomial(n, WORKING_SHARE)
+    work_g = rng.hypergeometric(g, n - g, work)
     row = np.floor(people.y.to_numpy() / U)
     p_low = LOWEDU_SOUTH + (LOWEDU_NORTH - LOWEDU_SOUTH) * row / (NY - 1)
-    low = rng.binomial(work, p_low)
+    low_g = rng.binomial(work_g, p_low + LOWEDU_GROUP_EXTRA)
+    low_o = rng.binomial(work - work_g, p_low)
     workers = pd.DataFrame({"x": people.x.to_numpy(),
                             "y": people.y.to_numpy(),
-                            "LowEdu_sum": low.astype(float),
+                            "LowEdu_sum": (low_g + low_o).astype(float),
                             "Working_sum": work.astype(float),
-                            "Population": people.count_all.to_numpy()})
+                            "Population": people.count_all.to_numpy(),
+                            "Working_group": work_g.astype(float),
+                            "LowEdu_group": low_g.astype(float)})
 
     p_job = np.where(np.arange(len(jx)) < n_cluster,
                      LOWJOB_CLUSTER, LOWJOB_SCATTERED)
-    low_job = rng.random(len(jx)) < p_job
+    low_job = rng_jobs.random(len(jx)) < p_job
     workplaces = (pd.DataFrame({"x": np.floor(jx[:, 0] / U) * U + U / 2,
                                 "y": np.floor(jx[:, 1] / U) * U + U / 2,
                                 "LowEdu_jobs": low_job.astype(float),

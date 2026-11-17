@@ -13,7 +13,7 @@ five, all five are gold, a share of 100 %. Among the nearest ten,
 seven are: 70 %. Among all fifteen, eight: 53.3 %. The search had to
 reach 12, 22 and 32 metres to find them.
 
-![Who is in my neighbourhood? The same place and the same people, at k = 5, 10 and 15](figs/ch00_who_is_in_my_neighbourhood.jpg)
+![Drawing: who is in my neighbourhood? The same place and the same people, at k = 5, 10 and 15](figs/ch00_who_is_in_my_neighbourhood.jpg)
 
 Nothing about the place changed between those three answers. Only
 the question did: *how many* neighbours make a neighbourhood. That
@@ -47,7 +47,7 @@ reports both, the share and the distance the search had to travel
 (`R_` and `Dist_` in the output), because a study may need either or
 both.
 
-![Same composition, different reach: k = 10 and 50 % on both sides, at 12 m and at 30 m](figs/ch00_composition_and_reach.jpg)
+![Drawing: same composition, different reach: k = 10 and 50 % on both sides, at 12 m and at 30 m](figs/ch00_composition_and_reach.jpg)
 
 **What k counts is a decision too.** An apartment building with 80
 residents contributes 80 people. A workplace with 80 jobs contributes
@@ -223,5 +223,7 @@ Tobler, W. (1993). *Three Presentations on Geographical Analysis and
 Modeling.* NCGIA Technical Report 93-1. Santa Barbara: National
 Center for Geographic Information and Analysis.
 
-*The two illustrations come from the EquiPop teaching presentation
-(October 2026). They are synthetic teaching scenes, not data.*
+*The two drawings come from the EquiPop teaching presentation
+(October 2026). They are teaching scenes, not data, and they are the
+only figures in this book without a script; every other figure is
+drawn by a script in examples/ and can be redrawn.*
