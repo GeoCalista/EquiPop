@@ -225,7 +225,10 @@ def test_retired_guides_are_marked_and_out_of_the_way():
     """They are kept so a past field report can be read against what
     the user was told at the time - but nobody should follow one by
     accident."""
-    hist = os.path.join(STATA_DIR, "historical")
+    # moved out of stata/ into the archive on 17 November 2026
+    hist = os.path.join(os.path.dirname(STATA_DIR), "docs", "archive", "stata")
+    if not os.path.isdir(os.path.join(os.path.dirname(STATA_DIR), ".github")):
+        pytest.skip("a source archive: docs/archive/ is not shipped")
     assert os.path.isdir(hist), "retired guides have no home"
     files = [f for f in os.listdir(hist) if f.endswith(".md")]
     assert files, "nothing retired"

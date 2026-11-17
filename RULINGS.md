@@ -3,7 +3,7 @@
 **The method decisions in force: what EquiPop must compute or refuse, and why.**
 A ruling is decided by the method lead (today John Östh) and changes only through a method decision. Code that contradicts a ruling is a defect, even when every test passes.
 
-*Started 12 November 2026 at 1.64.1 from BACKLOG.md and the handovers. Each entry names where it was decided.*
+*Started 12 November 2026 at 1.64.1 from BACKLOG.md and the handovers (now in `docs/archive/`). Each entry names where it was decided.*
 
 ---
 

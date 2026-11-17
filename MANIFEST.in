@@ -104,6 +104,8 @@ exclude PROPOSALS.md
 # Worked examples, and the Book's sources.
 graft examples
 graft docs
+# The archive (17 November 2026): old notes, not for PyPI.
+prune docs/archive
 
 # Tools that must travel with the code they check. stub_audit.py
 # is run in a LIVE QGIS each release (BACKLOG 80) - it is the

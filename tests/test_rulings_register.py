@@ -81,11 +81,13 @@ def test_the_sources_exist(rid, title, fields, body):
         for n in re.findall(r"\b(\d+[a-z]?)\b(?![^(]*\))", group):
             assert re.search(rf"^\s*- (?:~~)?{n}(?:~~)? \|", BACKLOG,
                              flags=re.M), f"{rid}: BACKLOG {n} not found"
-    # the handovers live in the repository, not in the source archive
-    if any(f.startswith("HANDOVER_") for f in os.listdir(ROOT)):
+    # the handovers live in the repository's archive (docs/archive/,
+    # 17 November 2026), not in the source archive on PyPI
+    archive = os.path.join(ROOT, "docs", "archive")
+    if os.path.isdir(archive):
         for h in re.findall(r"HANDOVER_(\d+)", src):
-            assert os.path.exists(os.path.join(ROOT, f"HANDOVER_{h}.md")), (
-                f"{rid}: HANDOVER_{h}.md not found")
+            assert os.path.exists(os.path.join(archive, f"HANDOVER_{h}.md")), (
+                f"{rid}: docs/archive/HANDOVER_{h}.md not found")
     assert "BACKLOG" in src or "HANDOVER" in src, (
         f"{rid}: say where it was decided")
 

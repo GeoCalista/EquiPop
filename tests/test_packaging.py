@@ -682,32 +682,11 @@ def test_the_guide_does_not_undercount_the_toolbox():
     assert words[every.group(1)] == len(registered)
 
 
-def test_the_handover_keeps_up_with_the_version():
-    """v1.47.11. BACKLOG 289 records John's ruling that a handover must
-    enter the repository in the same act as the release - and session
-    12, which wrote that entry, then shipped three releases without
-    one. "In the same act" was too vague to be followed by the people
-    who wrote it, so it is checked instead.
-
-    The newest HANDOVER_N.md must name the current version. It does
-    not have to be perfect prose; it has to exist and be about THIS
-    release rather than the last one.
-    """
-    hands = sorted(
-        (int(re.search(r"HANDOVER_(\d+)\.md", f).group(1)), f)
-        for f in os.listdir(ROOT)
-        if re.fullmatch(r"HANDOVER_\d+\.md", f))
-    assert hands, "no handover in the repository root"
-    _, newest = hands[-1]
-    version = re.search(
-        r'^version\s*=\s*"([^"]+)"',
-        open(os.path.join(ROOT, "pyproject.toml"),
-             encoding="utf-8").read(), re.M).group(1)
-    series = ".".join(version.split(".")[:2])       # 1.47.11 -> 1.47
-    text = open(os.path.join(ROOT, newest), encoding="utf-8").read()
-    assert series in text, (
-        f"{newest} does not mention {series} - the handover is for an "
-        "older release, which is how sessions 9 and 10 were lost")
+# test_the_handover_keeps_up_with_the_version (v1.47.11, BACKLOG 289)
+# was retired on 17 November 2026, when John archived the session
+# handovers (docs/archive/): session notes now live in issues, pull
+# requests and the team's workflow document, and a release is
+# recorded by its MANUAL row, written in the release pull request.
 
 
 def test_every_required_dependency_is_named_in_the_install_guide():

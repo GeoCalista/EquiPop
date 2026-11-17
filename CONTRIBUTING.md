@@ -95,7 +95,7 @@ Today John makes the releases. The steps, in order:
 5. The hand checks in the MANUAL row: ArcGIS Pro and Stata on Windows, Stata on macOS.
 6. **PyPI, with no token:** on GitHub, *Releases → Draft a new release*, a new tag `vX.Y.Z` (exactly the version in `pyproject.toml`), *Publish release*. The `release` workflow checks the tag, builds, tests the wheel, and waits for a maintainer to approve the upload (*Actions → the release run → Review deployments*). Then the QGIS plugin repository, and SSC by email.
 
-**Version numbers.** A correction is a patch release (1.63.8), even when it moves a number. A ruling or a new capability starts a minor release (1.64.0), and HANDOVER_15.md must then say so; a test checks.
+**Version numbers.** A correction is a patch release (1.63.8), even when it moves a number. A ruling or a new capability starts a minor release (1.64.0).
 
 ## 7. Where things are written down
 
@@ -104,7 +104,7 @@ Today John makes the releases. The steps, in order:
 | `RULINGS.md` | Method decisions in force: what the code must do and why. |
 | `BACKLOG.md` | Every finding and change, numbered, newest first. A number is never reused. |
 | `MANUAL.md` | The user manual, and one row per release saying what changed. |
-| `HANDOVER_15.md` | Notes from one working session to the next. Its section 0 is the latest. |
+| `docs/archive/` | Old session notes (HANDOVER_6 to 15) and one-off release notes, kept unchanged. |
 | `TEACHING.md`, `PROPOSALS.md` | What each release means for courses and for funding texts. |
 | `CITATION.cff` | How to cite EquiPop. |
 
