@@ -3737,8 +3737,10 @@ because machine 3 stores tiles that way and says so in its manifest.
   patterns can be told apart and the town does not teach that they go
   together. Low-education jobs are 20% of the western cluster and 70%
   of the scattered jobs. Drawn from their own random stream: people,
-  jobs, the river and the hill are unchanged draw for draw, and a
-  fingerprint test holds them. Tests for every crossing, for the
+  jobs and the river are unchanged draw for draw, and a fingerprint
+  test holds them (values as float64, not CSV text: CSV line endings
+  made Windows CI fail the first version; the hill has no draws and
+  its last bits differ between maths libraries, so it is left out). Tests for every crossing, for the
   lines giving exactly the tables, for the motorway dividing walkers
   and joining drivers, and for walking job access east of the
   motorway (about 0.28 of the west's; by car about 0.53). Each broken

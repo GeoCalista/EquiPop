@@ -66,7 +66,12 @@ from scipy.sparse.csgraph import dijkstra
 
 
 def _fingerprint(df):
-    return hashlib.sha256(df.to_csv(index=False).encode()).hexdigest()[:16]
+    """The values as little-endian float64, with the column names.
+    Not to_csv(): pandas ends its lines with os.linesep, so the same
+    town hashed differently on Windows (CI, 17 November 2026)."""
+    h = hashlib.sha256(",".join(df.columns).encode())
+    h.update(np.ascontiguousarray(df.to_numpy(dtype="<f8")).tobytes())
+    return h.hexdigest()[:16]
 
 
 def test_the_town_is_unchanged_draw_for_draw():
@@ -74,14 +79,15 @@ def test_the_town_is_unchanged_draw_for_draw():
     stream. Drawing them from the town's stream would have moved every
     person and job, and with them every figure in the Book and every
     reference table. Fingerprints taken from 1.64.2, before they were
-    added. BROKEN WITH: one extra draw from the town's stream before
-    the jobs."""
+    added. The hill is not fingerprinted: it is a formula with no draws
+    in it, and its last bits differ between maths libraries (CI on
+    macOS and Python 3.15); test_gridby_planted_truths checks it.
+    BROKEN WITH: one extra draw from the town's stream before the
+    jobs."""
     g = load("gridby")
-    assert _fingerprint(g["people"]) == "b56c7dff7b7bfc3b"
-    assert _fingerprint(g["jobs"]) == "5ec6a8fde32ba0c7"
-    assert _fingerprint(g["friction"]) == "c1480b306364ad6e"
-    assert hashlib.sha256(g["altitude"].tobytes()).hexdigest()[:16] \
-        == "d7ce898f350072b9"
+    assert _fingerprint(g["people"]) == "aa24b67ceeb72922"
+    assert _fingerprint(g["jobs"]) == "40635d29670df0d6"
+    assert _fingerprint(g["friction"]) == "f939a2b9c3cfb654"
 
 
 def _effort(g, fr, a, b):
