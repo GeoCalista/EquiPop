@@ -88,12 +88,12 @@ Each was learned from a fault that reached users. The number is the BACKLOG entr
 
 Today John makes the releases. The steps, in order:
 
-1. `python tools/bump_version.py X.Y.Z`, then `python tools/make_sthlp.py`.
-2. A new row at the top of CHANGELOG.md and the BACKLOG entries for the release. Update the stamps at the top of TEACHING.md and PROPOSALS.md.
-3. The full suite green, and the CI run green.
-4. `bash tools/make_bundle.sh X.Y.Z <folder outside the repository>`, or take CI's bundle download.
-5. The hand checks in the CHANGELOG row: ArcGIS Pro and Stata on Windows, Stata on macOS.
-6. **PyPI, with no token:** on GitHub, *Releases → Draft a new release*, a new tag `vX.Y.Z` (exactly the version in `pyproject.toml`), *Publish release*. The `release` workflow checks the tag, builds, tests the wheel, and waits for a maintainer to approve the upload (*Actions → the release run → Review deployments*). Then the QGIS plugin repository, and SSC by email.
+1. **The release pull request.** `python tools/bump_version.py X.Y.Z`, then `python tools/make_sthlp.py`; a new row at the top of CHANGELOG.md and the BACKLOG entries for the release; the stamps at the top of TEACHING.md and PROPOSALS.md. Claude can prepare all of this as one pull request when asked to "prepare release X.Y.Z"; a person still confirms the stamps.
+2. The full suite green, and the CI run green.
+3. The hand checks in the CHANGELOG row (ArcGIS Pro and Stata on Windows, Stata on macOS), with the files from the pull request's *release bundle* download.
+4. *Squash and merge* the release pull request.
+5. **PyPI, with no token:** on GitHub, *Releases → Draft a new release*, a new tag `vX.Y.Z` (exactly the version in `pyproject.toml`), *Publish release*. The `release` workflow checks the tag, builds, tests the wheel, and waits for a maintainer to approve the upload (*Actions → the release run → Review deployments*).
+6. **Nothing to attach by hand.** The same run attaches the QGIS, Pro and Stata zips, the SSC archive, the wheel and source archive, the Gridby GeoPackage and a checksum list to the release (`tools/release_assets.sh`). From those, the QGIS plugin repository and SSC by email.
 
 **Version numbers.** A correction is a patch release (1.63.8), even when it moves a number. A ruling or a new capability starts a minor release (1.64.0).
 

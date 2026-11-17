@@ -9,7 +9,8 @@
 #            3.44 LTR, 4.x latest on Linux; 4.x on Windows), with
 #            the same numbers as the engine? Everything in tests/
 #            runs against a stand-in.
-#   bundle - can a complete release bundle be built from this commit?
+#   bundle - can a complete release bundle be built from this commit,
+#            and the files a GitHub release carries gathered from it?
 #            The files are kept for 14 days as a download: what you
 #            install for the hand checks in ArcGIS Pro and Stata, which
 #            no CI can run (both need a licence).
@@ -130,13 +131,17 @@ jobs:
         # stand-in in tests/, which imports it (BACKLOG 497)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine pytest
+          python -m pip install build twine pytest geopandas pyogrio
           python -m pip install -e .
       - name: Build every file of a release
         run: |
           V=$(python -c "import equipop; print(equipop.__version__)")
           bash tools/make_bundle.sh "$V" "$RUNNER_TEMP/equipop-$V"
           echo "V=$V" >> "$GITHUB_ENV"
+      - name: Gather the files a GitHub release carries
+        # the same script the release workflow runs (BACKLOG 506), so a
+        # release is never the first time it runs
+        run: bash tools/release_assets.sh "$V" "$RUNNER_TEMP/equipop-$V" "$RUNNER_TEMP/equipop-$V" "$RUNNER_TEMP/assets-$V"
       - name: Install the wheel into a clean Python and run it
         run: |
           python -m venv "$RUNNER_TEMP/clean"

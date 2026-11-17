@@ -3718,6 +3718,29 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 506 | BUILT 17 NOVEMBER 2026, pull request, not released | THE
+  RELEASE ATTACHES ITS OWN FILES. John, 17 November: "yes this should
+  be automatic (also because we risk missing to attach a file at some
+  point if left manual)". Until 1.64.2 he attached the QGIS, Pro and
+  Stata zips by hand from a bundle built on his PC. tools/
+  release_assets.sh gathers, from a bundle and a dist folder: the
+  wheel and source archive, equipop_qgis, equipop_arcgis (the toolbox,
+  its help sidecars and ARCGIS_GUIDE.md - John's own name for it),
+  equipop_stata_netinstall, equipop_ssc_submission, gridby-<v>.gpkg
+  (504) and SHA256SUMS.txt; every zip is re-opened and CRC-checked.
+  release.yml gains an `attach` job (contents: write, nothing else):
+  it builds the bundle, gathers with the wheel and source archive the
+  BUILD job made - the very files PyPI receives - and runs gh release
+  upload. It does not wait for the PyPI approval. tests.yml's bundle
+  job runs the same script on every pull request, so a release is
+  never the first time it runs. CONTRIBUTING section 6 rewritten: the
+  release pull request (which Claude can prepare), the hand checks
+  from its bundle download, merge, publish, and nothing to attach.
+  NOT BUILT, on purpose: a "Prepare release" workflow. A pull request
+  opened by a workflow's own token starts no checks (GitHub's rule
+  against loops), so the nine required checks would never run on it;
+  Claude pushing the release branch does the same job without that.
+
 - 504 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
   AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
   centerpoint ... any UTM simple system would fly"). write_gridby(path)
