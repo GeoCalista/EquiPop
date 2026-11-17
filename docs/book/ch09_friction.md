@@ -141,6 +141,57 @@ who is near whom. That difference is arguably the most interesting
 single number the effort engine produces, and it costs one extra
 run to obtain.
 
+## On foot and by car: one town, two maps
+
+Everything so far had one traveller. Real towns have at least two,
+and the same piece of tarmac means opposite things to them. Gridby
+therefore carries a second layer, `g["network"]`: the river, a
+railway on the west bank, a motorway down the east side, two main
+roads and a faster link road in the north. Every piece of it is
+coded twice, in a `walk` column and a `drive` column, and the
+crossings are where the two disagree. The **Mill Footbridge** takes
+walkers over the river and nobody else; the **Link Bridge** takes
+cars and has no pavement; the motorway is the fastest road in town
+for a driver and a fenced wall for a walker, who can cross it only at
+the **School Underpass** and where High Street goes over it.
+
+The numbers follow chapter 9's rule, nothing new. Local streets run
+through every square, so a square on no line costs one round for
+both. A wall costs 50, the "essentially never" of the pitfalls below,
+and people cross at a crossing. For drivers the faster roads are
+facilitators: −0.5 for the main roads, −0.7 for the link road and
+−0.8 for the motorway. Read against 20 km/h on local streets, those
+are 40, about 67 and 100 km/h. The two columns have already been laid
+on the grid for you, as `g["friction_walk"]` and `g["friction_drive"]`.
+
+```python
+from equipop.datasets import load
+from equipop.friction import run_knn_friction
+
+g = load("gridby")
+walk = run_knn_friction(g["people"], [400], fr=g["friction_walk"])
+drive = run_knn_friction(g["people"], [400], fr=g["friction_drive"])
+```
+
+Compare the two on either side of the motorway and the town's planted
+gradient does something new. On foot, each side gathers its 400
+neighbours from its own side, so the two sides look **more**
+different than they do with no network at all. By car they look
+**less** different, because the motorway pulls them together. The
+same road divides one population and joins the other, and a
+segregation index computed for "the town" has to say which
+population it describes.
+
+![One town on foot and by car: the network, and job access for each](figs/ch09_walk_drive.png)
+
+The figure goes one step further, into chapter 13's territory. Gridby
+also carries a job market (`g["workers"]` and `g["workplaces"]`, in
+the same columns as the Swedish municipality data), and most of its
+jobs are west of the river. On foot, homes east of the motorway reach
+a little over a quarter of the jobs per worker that homes west of the river
+do; by car, about half. Nothing about the jobs or the people changed
+between the two panels, only whose effort was being counted.
+
 ## The dials
 
 `fr` (the friction table) and `default_friction`; and since
@@ -199,3 +250,17 @@ transport network — you have made the whole world cheaper by the
 same amount, which changes almost nothing except the runtime.
 Effort measures are about *contrast*: what is dear next to what is
 cheap. A dial applied uniformly has no contrast left to measure.
+
+One trap is new with walls on a fine grid. A 100-metre square cannot
+tell a house *beside* the railway from a house *on* it, so the people
+who share a square with a wall live inside the wall as far as the
+grid knows. Their own neighbourhood search starts outside the wall,
+because a square's cost is paid on the way *in*, but every trip that
+ends at their door pays the full wall. In the figure they are the
+grey line along the railway and the motorway: about one Gridby
+resident in thirty-five, given almost no job access on foot because
+the journey home costs fifty rounds. Real road data does this on a
+large scale: code every motorway square as a wall and everyone living
+along one looks cut off. Look at who lives on your wall squares
+before you trust their numbers. A finer grid, or a wall drawn along
+the edge of the squares it separates, keeps them out.

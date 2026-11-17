@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 echo "[book] regenerating figures..."
-for f in ../../examples/cookbook_0*.py; do
+for f in ../../examples/cookbook_*.py; do
   (cd ../.. && PYTHONPATH=. python "examples/$(basename $f)")
 done
 echo "[book] compiling chapters: $(ls ch*.md | tr '\n' ' ')"
