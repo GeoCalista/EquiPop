@@ -32,6 +32,9 @@ demonstrate exactly one phenomenon:
      load("municipality") so the FCA examples run on either, plus the
      minority's own workers (Working_group, LowEdu_group), who are
      slightly more often low-educated.
+  7. FILES for QGIS and ArcGIS Pro: write_gridby("gridby.gpkg") writes
+     every layer as a GeoPackage in ETRS89 / UTM zone 33N, the town
+     placed in open sea between Öland and Gotland.
 
 Ground truths live in meta() and double as test fixtures: if EquiPop
 cannot recover a planted truth, the tests fail.
@@ -279,3 +282,82 @@ if __name__ == "__main__":
     print({k: (v.shape if hasattr(v, "shape") else len(v))
            for k, v in g.items() if k != "meta"})
     print(g["meta"])
+
+
+# ---------------------------------------------------------------
+# Gridby as files, for a QGIS or ArcGIS Pro class (17 November 2026).
+#
+# John: "now Europe is the centerpoint of attention for where I teach
+# ... any UTM simple system would fly". So the town is written in
+# ETRS89 / UTM zone 33N, with its south-west corner in the open Baltic
+# between Öland and Gotland (about 17.6 E, 57.2 N, some 25 km from
+# either coast): no real town lies under it, and nobody mistakes it for
+# one. Inside Python nothing moves; the shift is added on the way out.
+# ---------------------------------------------------------------
+CRS = "EPSG:25833"
+ORIGIN = (654_000.0, 6_340_000.0)
+
+#: The layers, in the order a class meets them.
+LAYERS = ("people", "jobs", "workers", "workplaces", "network",
+          "friction_river", "friction_walk", "friction_drive", "altitude")
+
+
+def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
+    """Write Gridby as one GeoPackage that QGIS and ArcGIS Pro open as
+    they are, and return the path.
+
+        from equipop.gridby import write_gridby
+        write_gridby("gridby.gpkg")
+
+    Layers (points sit on the centres of the 100 m squares):
+      people          count_all, count_group
+      jobs            jobs
+      workers         LowEdu_sum, Working_sum, Population, Working_group,
+                      LowEdu_group
+      workplaces      LowEdu_jobs, Jobs
+      network         lines: name, kind, walk, drive - give a barrier
+                      tool the `walk` or the `drive` field
+      friction_river  friction (the simple river of Book chapter 9)
+      friction_walk   friction (the network laid on the squares)
+      friction_drive  friction
+      altitude        altitude_m (the hill)
+
+    Needs geopandas (pip install equipop[geo])."""
+    try:
+        import geopandas as gpd
+    except ImportError as e:
+        raise ImportError("write_gridby needs geopandas: pip install "
+                          "geopandas (or equipop[geo])") from e
+    from shapely.geometry import LineString
+
+    g = gridby(seed)
+    x0, y0 = origin
+
+    def points(df):
+        return gpd.GeoDataFrame(
+            df.drop(columns=["x", "y"]).reset_index(drop=True),
+            geometry=gpd.points_from_xy(df.x + x0, df.y + y0), crs=crs)
+
+    i = np.arange(NX * NY)
+    alt = pd.DataFrame({"x": (i // NY) * U + U / 2,
+                        "y": (i % NY) * U + U / 2,
+                        "altitude_m": g["altitude"]})
+    net = g["network"]
+    lines = gpd.GeoDataFrame(
+        net[["name", "kind", "walk", "drive"]],
+        geometry=[LineString([(r.x0 + x0, r.y0 + y0), (r.x1 + x0, r.y1 + y0)])
+                  for r in net.itertuples()], crs=crs)
+    layers = {"people": points(g["people"]), "jobs": points(g["jobs"]),
+              "workers": points(g["workers"]),
+              "workplaces": points(g["workplaces"]), "network": lines,
+              "friction_river": points(g["friction"]),
+              "friction_walk": points(g["friction_walk"]),
+              "friction_drive": points(g["friction_drive"]),
+              "altitude": points(alt)}
+    path = str(path)
+    import os
+    if os.path.exists(path):
+        os.remove(path)                    # a fresh file, not appended layers
+    for name in LAYERS:
+        layers[name].to_file(path, layer=name, driver="GPKG")
+    return path

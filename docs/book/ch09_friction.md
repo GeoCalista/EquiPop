@@ -192,6 +192,13 @@ a little over a quarter of the jobs per worker that homes west of the river
 do; by car, about half. Nothing about the jobs or the people changed
 between the two panels, only whose effort was being counted.
 
+For a class in QGIS or ArcGIS Pro, one line writes the whole town as a
+GeoPackage, every layer in ETRS89 / UTM zone 33N:
+`write_gridby("gridby.gpkg")`, from `equipop.gridby`. The network
+arrives as lines with their `walk` and `drive` fields, ready for the
+barrier tool. The town sits in open sea between Öland and Gotland, so
+no basemap shows a real place underneath it.
+
 ## The dials
 
 `fr` (the friction table) and `default_friction`; and since
