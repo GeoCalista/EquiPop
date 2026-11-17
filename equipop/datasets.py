@@ -2,7 +2,9 @@
 datasets.py - one-line data for every example in the Book (#19).
 
     from equipop.datasets import load
-    g = load("gridby")          # the synthetic teaching city (dict)
+    g = load("gridby")          # the synthetic teaching city (dict):
+        # people, jobs, friction, altitude, network, friction_walk,
+        # friction_drive, workers, workplaces, meta
     people, jobs = load("municipality")   # anonymised register pair
     berlin = load("berlin")     # the historical validation table
 """

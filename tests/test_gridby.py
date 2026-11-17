@@ -50,3 +50,157 @@ def test_gridby_planted_truths():
 def test_datasets_loader_municipality():
     p, j = load("municipality")
     assert len(j) == 870 and np.isclose(j.Jobs.sum(), 7142)
+
+
+# ---------------------------------------------------------------------
+# 17 November 2026: the network (walkers and drivers) and the job
+# market. Gridby became the one teaching town, so the friction,
+# barrier and FCA chapters need it to carry what they used to borrow
+# from real places.
+# ---------------------------------------------------------------------
+import hashlib
+
+from equipop.friction import FrictionGrid, paths_to_friction
+from equipop.gridby import network_paths
+from scipy.sparse.csgraph import dijkstra
+
+
+def _fingerprint(df):
+    return hashlib.sha256(df.to_csv(index=False).encode()).hexdigest()[:16]
+
+
+def test_the_town_is_unchanged_draw_for_draw():
+    """The network and the job market come from their OWN random
+    stream. Drawing them from the town's stream would have moved every
+    person and job, and with them every figure in the Book and every
+    reference table. Fingerprints taken from 1.64.2, before they were
+    added. BROKEN WITH: one extra draw from the town's stream before
+    the jobs."""
+    g = load("gridby")
+    assert _fingerprint(g["people"]) == "b56c7dff7b7bfc3b"
+    assert _fingerprint(g["jobs"]) == "5ec6a8fde32ba0c7"
+    assert _fingerprint(g["friction"]) == "c1480b306364ad6e"
+    assert hashlib.sha256(g["altitude"].tobytes()).hexdigest()[:16] \
+        == "d7ce898f350072b9"
+
+
+def _effort(g, fr, a, b):
+    """Rounds from square a to square b, (column, row) each."""
+    grid = FrictionGrid(g["people"], fr, 100.0)
+    na = grid.node_of(np.array([a[0] * 100 + 50.0]),
+                      np.array([a[1] * 100 + 50.0]))
+    nb = grid.node_of(np.array([b[0] * 100 + 50.0]),
+                      np.array([b[1] * 100 + 50.0]))
+    return float(dijkstra(grid.graph, directed=True, indices=na)[0, nb[0]])
+
+
+def test_each_crossing_serves_the_mode_it_was_built_for():
+    """Two squares either side of each crossing: one step each for the
+    mode the crossing serves, a long way round for the other.
+    BROKEN WITH: the footbridge coded (0, -0.5), open to cars."""
+    g = load("gridby")
+    walk, drive = g["friction_walk"], g["friction_drive"]
+    # Mill Footbridge, row 8: walkers only
+    assert _effort(g, walk, (29, 8), (31, 8)) == 2.0
+    assert _effort(g, drive, (29, 8), (31, 8)) > 20
+    # Link Bridge, row 33: drivers only
+    assert _effort(g, drive, (29, 33), (31, 33)) < 1
+    assert _effort(g, walk, (29, 33), (31, 33)) > 20
+    # East Motorway, column 45: fenced for walkers, fast for drivers
+    assert _effort(g, walk, (44, 14), (46, 14)) > 10
+    assert _effort(g, drive, (44, 14), (46, 14)) < 1.5
+    # ... and the walkers' crossings in it: the underpass and High Street
+    assert _effort(g, walk, (44, 8), (46, 8)) == 2.0
+    assert _effort(g, walk, (44, 20), (46, 20)) == 2.0
+    # the railway: the station footbridge for walkers only
+    assert _effort(g, walk, (22, 11), (22, 13)) == 2.0
+    assert _effort(g, drive, (22, 11), (22, 13)) > 15
+    # and the Old Bridge for both
+    assert _effort(g, walk, (29, 20), (31, 20)) == 2.0
+    assert _effort(g, drive, (29, 20), (31, 20)) == 1.0
+
+
+def test_the_network_lines_give_the_friction_tables():
+    """A class in QGIS or Pro gets the LINES, not the tables, and
+    rasterizes them itself. The lines must give exactly the tables the
+    Python reader is handed, or two students doing the same exercise
+    get two answers. BROKEN WITH: a piece drawn centre to centre, which
+    loses every one-square crossing."""
+    g = load("gridby")
+    net = g["network"]
+    for mode in ("walk", "drive"):
+        fr = paths_to_friction(network_paths(net), values=net[mode],
+                               unit_size=100.0, say=None)
+        fr = fr[fr.friction != 0].sort_values(["x", "y"],
+                                              ignore_index=True)
+        pd.testing.assert_frame_equal(fr, g[f"friction_{mode}"])
+
+
+def test_the_motorway_divides_walkers_and_joins_drivers():
+    """Planted: the minority share rises eastward, and the motorway
+    runs north-south. For walkers it is a wall, so each side's
+    neighbourhood is gathered from its own side and the two sides
+    differ MORE than with no network; for drivers it is the fastest
+    road in town and they differ LESS. BROKEN WITH: the motorway
+    coded (0, 0)."""
+    g = load("gridby")
+    p = g["people"]
+
+    def gap(fr):
+        r = run_knn_friction(p, [400], fr=fr, unit_size=100.0)
+        east = r[(r.EastWest > 4500) & (r.EastWest < 4800)].R_400.mean()
+        west = r[(r.EastWest > 4200) & (r.EastWest < 4500)].R_400.mean()
+        return east - west
+
+    plain = gap(None)
+    assert gap(g["friction_walk"]) > plain + 0.01
+    assert gap(g["friction_drive"]) < plain - 0.01
+
+
+def test_the_job_market_is_planted():
+    """The workers are the town's people and the workplaces its jobs,
+    split by education, in the columns of load("municipality")."""
+    g = load("gridby")
+    w, j, p = g["workers"], g["workplaces"], g["people"]
+    assert list(w.columns) == ["x", "y", "LowEdu_sum", "Working_sum",
+                               "Population"]
+    assert list(j.columns) == ["x", "y", "LowEdu_jobs", "Jobs"]
+    # the same squares and the same people
+    assert np.array_equal(w.Population.to_numpy(), p.count_all.to_numpy())
+    assert (w.Working_sum <= w.Population).all()
+    assert (w.LowEdu_sum <= w.Working_sum).all()
+    # the same jobs, square for square
+    jj = g["jobs"].reset_index(drop=True)
+    assert np.array_equal(j[["x", "y"]].to_numpy(), jj[["x", "y"]].to_numpy())
+    assert np.array_equal(j.Jobs.to_numpy(), jj.jobs.to_numpy())
+    assert (j.LowEdu_jobs <= j.Jobs).all()
+    # low education rises northward (planted 15% -> 50%) ...
+    north = w.y > 2000
+    low_n = w[north].LowEdu_sum.sum() / w[north].Working_sum.sum()
+    low_s = w[~north].LowEdu_sum.sum() / w[~north].Working_sum.sum()
+    assert low_n > low_s + 0.12
+    # ... and the low-education jobs are the dispersed ones
+    east = j.x > 3100
+    other = j.Jobs - j.LowEdu_jobs
+    assert (j[east].LowEdu_jobs.sum() / j.LowEdu_jobs.sum()
+            > 3 * other[east].sum() / other.sum())
+
+
+def test_on_foot_the_east_end_is_far_from_work():
+    """The lesson the job market and the network make together: with
+    the jobs west of the river, walking access east of the motorway is
+    a fraction of the west's, and driving narrows the gap. BROKEN
+    WITH: the walkers' and drivers' tables swapped."""
+    from equipop.decay import Decay
+    from equipop.fca import fca
+    g = load("gridby")
+    dec = Decay(model="negexp", half_life_m=10)      # read in ROUNDS
+    flat = np.zeros(60 * 40)
+    ratio = {}
+    for mode in ("walk", "drive"):
+        d, _ = fca(g["workers"], g["workplaces"], "Working_sum", "Jobs",
+                   decay=dec, reach="effort", altitude=flat,
+                   fr=g[f"friction_{mode}"])
+        ratio[mode] = d[d.x > 4600].A.mean() / d[d.x < 3000].A.mean()
+    assert ratio["walk"] < 0.4
+    assert ratio["drive"] > ratio["walk"] + 0.15

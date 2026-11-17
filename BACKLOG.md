@@ -3718,6 +3718,48 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 502 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
+  CARRIES A NETWORK FOR WALKERS AND DRIVERS, AND A JOB MARKET. John,
+  17 November: Gridby is the one teaching town to keep; Malta and the
+  other real places are for students to download themselves. So the
+  friction, barrier and FCA lessons need Gridby to carry what they
+  borrowed from real places. New in load("gridby"):
+  network (25 straight pieces: the river, a railway on the west bank,
+  East Motorway, High Street, West Avenue, North Link and seven
+  crossings, each with a `walk` and a `drive` friction),
+  friction_walk and friction_drive (the same, laid on the grid), and
+  workers / workplaces (the town's people and its 1,992 jobs split by
+  education, in the columns of load("municipality")). Walls cost 50,
+  the Book's "essentially never"; the network's river is a wall with
+  bridges, while g["friction"] keeps its river at 6 for chapter 9.
+  Low education rises SOUTH TO NORTH (15% to 50% of workers),
+  deliberately not along the minority gradient, so the two planted
+  patterns can be told apart and the town does not teach that they go
+  together. Low-education jobs are 20% of the western cluster and 70%
+  of the scattered jobs. Drawn from their own random stream: people,
+  jobs, the river and the hill are unchanged draw for draw, and a
+  fingerprint test holds them. Tests for every crossing, for the
+  lines giving exactly the tables, for the motorway dividing walkers
+  and joining drivers, and for walking job access east of the
+  motorway (about 0.28 of the west's; by car about 0.53). Each broken
+  on purpose. Book ch09 gains "On foot and by car" and a pitfall;
+  examples/cookbook_14_walk_drive.py draws the figure; docs/book/
+  build.sh now runs every cookbook script, not only 01-09.
+  FOUND WHILE BUILDING IT, NOT FIXED (for John to rule):
+  (a) A HOME ON A WALL SQUARE. A 100 m square cannot tell beside the
+  railway from on it. The k-NN search from such a home is fine (cost
+  is paid on the way in), but fca(reach="effort", roundtrip=True)
+  charges the trip home the whole wall: 537 of Gridby's 19,036
+  residents get almost no job access on foot. Real OSM roads coded as
+  barriers will do the same at scale. Should the start and end
+  squares of a trip be free of their own friction? A method ruling.
+  (b) fca(reach="effort") refuses altitude=None ("altitude array must
+  have one value per domain cell") - flat ground has to be passed as
+  zeros. None could mean flat.
+  NEXT, if John agrees: the network as files a QGIS or Pro class can
+  open (GeoJSON lines, CSV tables) - which needs a decision on what
+  coordinate system a made-up town claims to be in.
+
 - 501 | DONE (repository settings, no release), 13 NOVEMBER 2026 | MAIN
   IS PROTECTED: STEP 2 OF 498 IS ON. Repository Settings -> Rules ->
   Rulesets -> "protect main": Active, on the default branch, nobody on
