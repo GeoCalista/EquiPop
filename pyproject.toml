@@ -34,6 +34,7 @@ test = ["pytest", "openpyxl", "pyarrow", "rasterio", "pyyaml"]
 
 [project.urls]
 Homepage = "https://github.com/GeoCalista/EquiPop"
+Changelog = "https://github.com/GeoCalista/EquiPop/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["equipop*"]

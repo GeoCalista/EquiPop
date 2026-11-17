@@ -44,7 +44,7 @@ micromamba activate qgis
 QT_QPA_PLATFORM=offscreen python -m pytest tests_real_qgis     (Windows: set QT_QPA_PLATFORM=offscreen first)
 ```
 
-**ArcGIS Pro and Stata** cannot run on CI: both need a licence. The stand-ins cover what they can, and every release gets a short list of hand checks, kept in its row of MANUAL.md.
+**ArcGIS Pro and Stata** cannot run on CI: both need a licence. The stand-ins cover what they can, and every release gets a short list of hand checks, kept in its row of CHANGELOG.md.
 
 ## 3. Automatic tests
 
@@ -73,7 +73,7 @@ A red check is a stop: fix it, or say in the pull request why it is not yours. N
 Each was learned from a fault that reached users. The number is the BACKLOG entry.
 
 1. **Every fix comes with a test that fails without it.** Break the fix on purpose and watch the test go red. If it stays green, the test is not testing the fix (BACKLOG 406).
-2. **Say what moves.** Every pull request and every MANUAL row states *Numbers that change* and *Runs that now stop*. "None" is an answer; silence is not.
+2. **Say what moves.** Every pull request and every CHANGELOG row states *Numbers that change* and *Runs that now stop*. "None" is an answer; silence is not.
 3. **Read RULINGS.md before changing a rule**, and read where the rule was laid down before proposing to change it (484).
 4. **Refuse, don't ignore.** A box or option that would do nothing stops the run with one sentence naming it. An option that is accepted and dropped gives a wrong analysis a clean log (486, 490).
 5. **Decide from what the user asked, not from what the data holds.** Faults have come from inferring a choice from what a field happened to hold (485, 488).
@@ -89,10 +89,10 @@ Each was learned from a fault that reached users. The number is the BACKLOG entr
 Today John makes the releases. The steps, in order:
 
 1. `python tools/bump_version.py X.Y.Z`, then `python tools/make_sthlp.py`.
-2. A new row in MANUAL.md's version table and the BACKLOG entries for the release. Update the stamps at the top of TEACHING.md and PROPOSALS.md.
+2. A new row at the top of CHANGELOG.md and the BACKLOG entries for the release. Update the stamps at the top of TEACHING.md and PROPOSALS.md.
 3. The full suite green, and the CI run green.
 4. `bash tools/make_bundle.sh X.Y.Z <folder outside the repository>`, or take CI's bundle download.
-5. The hand checks in the MANUAL row: ArcGIS Pro and Stata on Windows, Stata on macOS.
+5. The hand checks in the CHANGELOG row: ArcGIS Pro and Stata on Windows, Stata on macOS.
 6. **PyPI, with no token:** on GitHub, *Releases → Draft a new release*, a new tag `vX.Y.Z` (exactly the version in `pyproject.toml`), *Publish release*. The `release` workflow checks the tag, builds, tests the wheel, and waits for a maintainer to approve the upload (*Actions → the release run → Review deployments*). Then the QGIS plugin repository, and SSC by email.
 
 **Version numbers.** A correction is a patch release (1.63.8), even when it moves a number. A ruling or a new capability starts a minor release (1.64.0).
@@ -103,7 +103,8 @@ Today John makes the releases. The steps, in order:
 |---|---|
 | `RULINGS.md` | Method decisions in force: what the code must do and why. |
 | `BACKLOG.md` | Every finding and change, numbered, newest first. A number is never reused. |
-| `MANUAL.md` | The user manual, and one row per release saying what changed. |
+| `MANUAL.md` | The user manual. |
+| `CHANGELOG.md` | One row per release saying what changed, newest first. |
 | `docs/archive/` | Old session notes (HANDOVER_6 to 15) and one-off release notes, kept unchanged. |
 | `TEACHING.md`, `PROPOSALS.md` | What each release means for courses and for funding texts. |
 | `CITATION.cff` | How to cite EquiPop. |

@@ -175,7 +175,9 @@ python tools/make_release_zip.py "$V" "$WORK" \
 # ---- 8. the documents -----------------------------------------------
 # 17 November 2026: no handover any more - the session notes are
 # archived (docs/archive/) and live in issues and pull requests.
-cp BACKLOG.md MANUAL.md INSTALL.md "$WORK/"
+# 17 November 2026: the release history moved from MANUAL.md to
+# CHANGELOG.md, so both travel.
+cp BACKLOG.md MANUAL.md CHANGELOG.md INSTALL.md "$WORK/"
 # v1.61.0: the formulas of machine 4's rates, where a reader looks
 cp METHODS_RATES.md "$WORK/"
 cp arcgis/ARCGIS_GUIDE.md "$WORK/"

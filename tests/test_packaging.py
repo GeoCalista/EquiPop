@@ -686,7 +686,44 @@ def test_the_guide_does_not_undercount_the_toolbox():
 # was retired on 17 November 2026, when John archived the session
 # handovers (docs/archive/): session notes now live in issues, pull
 # requests and the team's workflow document, and a release is
-# recorded by its MANUAL row, written in the release pull request.
+# recorded by its CHANGELOG row, written in the release pull request
+# (test_the_changelog_names_this_release, below).
+
+
+def _changelog_versions():
+    path = os.path.join(ROOT, "CHANGELOG.md")
+    if not os.path.exists(path):
+        pytest.skip("CHANGELOG.md is not in this tree (an installed "
+                    "wheel); the source archive and the repository "
+                    "carry it")
+    rows = re.findall(r"^\| (\d+\.\d+\.\d+) \|",
+                      open(path, encoding="utf-8").read(), re.M)
+    assert rows, "CHANGELOG.md has no release rows"
+    return rows
+
+
+def test_the_changelog_names_this_release():
+    """17 November 2026: the release history moved out of MANUAL.md
+    into CHANGELOG.md. A release writes its row at the top in the
+    release pull request; until it does, this fails, so the row cannot
+    be forgotten (the version is bumped first, by bump_version.py)."""
+    rows = _changelog_versions()
+    assert rows[0] == equipop.__version__, (
+        f"the newest row in CHANGELOG.md is {rows[0]}, but this is "
+        f"{equipop.__version__}. Write the {equipop.__version__} row "
+        "at the top of CHANGELOG.md (CONTRIBUTING.md, section 6).")
+
+
+def test_the_manual_does_not_grow_a_history_again():
+    """The history lives in CHANGELOG.md alone. Two copies drift, and
+    the manual is for using EquiPop, not for what changed when."""
+    path = os.path.join(ROOT, "MANUAL.md")
+    if not os.path.exists(path):
+        pytest.skip("MANUAL.md is not in this tree")
+    text = open(path, encoding="utf-8").read()
+    assert "## Version history" not in text
+    assert not re.search(r"^\| \d+\.\d+\.\d+ \| ", text, re.M), (
+        "MANUAL.md has a release row again; it belongs in CHANGELOG.md")
 
 
 def test_every_required_dependency_is_named_in_the_install_guide():
@@ -1290,7 +1327,7 @@ def test_the_version_bump_survives_a_round_trip(tmp_path):
     #
     # v1.53.2: "declaration" is the point, and this used to test every
     # LINE. The bump tool prints its own rule - "code comments,
-    # BACKLOG.md and MANUAL.md are left alone: a version in prose is a
+    # BACKLOG.md and CHANGELOG.md are left alone: a version in prose is a
     # FACT ABOUT THE PAST" - and this test contradicted it, so the
     # moment a release wrote `BACKLOG 377, v1.53.2` into a comment in
     # EquiPop.pyt (a file that also holds a real declaration) the

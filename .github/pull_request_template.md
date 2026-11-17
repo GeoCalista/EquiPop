@@ -26,6 +26,6 @@
 
 ## Written down
 - [ ] BACKLOG entry
-- [ ] MANUAL row (if released)
+- [ ] CHANGELOG row (if released)
 - [ ] RULINGS.md (if a method rule was made or changed)
 - [ ] help texts regenerated (`python tools/make_sthlp.py`) if a Stata option changed

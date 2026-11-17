@@ -47,7 +47,7 @@ Everything below is aimed at those two problems.
 - **`RULINGS.md` and `CONTRIBUTING.md`**, which carry the method
   decisions and the conventions. (The old session handovers are in
   `docs/archive/`.)
-- **The `MANUAL.md` version table**, which is the change history in
+- **`CHANGELOG.md`**, one row per release, which is the change history in
   prose — it is long, but it is where the *reasoning* behind odd
   decisions lives.
 - **A working environment**, so you can run the suite: Python 3.11+,

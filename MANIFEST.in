@@ -18,6 +18,7 @@ include THIRD_PARTY_NOTICES.md
 include METHODS_RATES.md
 include LICENSE
 include MANUAL.md
+include CHANGELOG.md
 include MANUAL_BEGINNER.md
 include MANUAL_TOPICS.md
 include BACKLOG.md
