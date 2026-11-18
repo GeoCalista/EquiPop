@@ -3718,7 +3718,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 506 | BUILT 17 NOVEMBER 2026, pull request, not released | THE
+- 506 | DONE v1.65.0, 18 NOVEMBER 2026 (built 17 November) | THE
   RELEASE ATTACHES ITS OWN FILES. John, 17 November: "yes this should
   be automatic (also because we risk missing to attach a file at some
   point if left manual)". Until 1.64.2 he attached the QGIS, Pro and
@@ -3741,24 +3741,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   against loops), so the nine required checks would never run on it;
   Claude pushing the release branch does the same job without that.
 
-- 504 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
-  AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
-  centerpoint ... any UTM simple system would fly"). write_gridby(path)
-  in equipop.gridby writes nine layers - people, jobs, workers,
-  workplaces, network (lines with walk and drive), friction_river,
-  friction_walk, friction_drive, altitude - in ETRS89 / UTM 33N
-  (EPSG:25833), shifted by ORIGIN = (654 000, 6 340 000): the town's
-  south-west corner in open Baltic between Öland and Gotland, about
-  17.6 E 57.2 N, some 25 km from either coast. Inside Python nothing
-  moves. Tests (skipped without geopandas): the layers and CRS; the
-  four corners in the sea; every count and coordinate equal to
-  Gridby's shifted by ORIGIN; and EquiPop's features_to_friction on
-  the written lines giving exactly friction_walk and friction_drive -
-  the route a QGIS or Pro class takes. Broken on purpose: ORIGIN off
-  by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
-  release attaches gridby.gpkg (with the release automation).
-
-- 505 | BUILT 17 NOVEMBER 2026, pull request, not released | R-52:
+- 505 | DONE v1.65.0, 18 NOVEMBER 2026 (built 17 November) | R-52:
   A TRIP'S START AND END SQUARES COUNT AS ORDINARY GROUND. John, 17
   November, on 502's finding (a): "free from friction in the start and
   end square", and for fast roads too, "same everywhere (for logic)".
@@ -3799,7 +3782,24 @@ because machine 3 stores tiles that way and says so in its manifest.
   Dijkstra's; on Gridby k-NN by friction takes 5.8 s (was 5.2) and an
   FCA round trip 1.7 s (was 1.1).
 
-- 503 | BUILT 17 NOVEMBER 2026, pull request, not released | JOHN'S
+- 504 | DONE v1.65.0, 18 NOVEMBER 2026 (built 17 November) | GRIDBY
+  AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
+  centerpoint ... any UTM simple system would fly"). write_gridby(path)
+  in equipop.gridby writes nine layers - people, jobs, workers,
+  workplaces, network (lines with walk and drive), friction_river,
+  friction_walk, friction_drive, altitude - in ETRS89 / UTM 33N
+  (EPSG:25833), shifted by ORIGIN = (654 000, 6 340 000): the town's
+  south-west corner in open Baltic between Öland and Gotland, about
+  17.6 E 57.2 N, some 25 km from either coast. Inside Python nothing
+  moves. Tests (skipped without geopandas): the layers and CRS; the
+  four corners in the sea; every count and coordinate equal to
+  Gridby's shifted by ORIGIN; and EquiPop's features_to_friction on
+  the written lines giving exactly friction_walk and friction_drive -
+  the route a QGIS or Pro class takes. Broken on purpose: ORIGIN off
+  by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
+  release attaches gridby.gpkg (with the release automation).
+
+- 503 | DONE v1.65.0, 18 NOVEMBER 2026 (built 17 November) | JOHN'S
   RULINGS 2 AND 3 OF 17 NOVEMBER. (2) A REINFORCED NEGATIVE IN GRIDBY:
   "if we have a minority and a slight over representation of low
   education, we may have interesting and real-world scenarios". The
@@ -3818,7 +3818,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   every figure DRAWN FROM DATA has a script, and the two chapter 0
   captions begin "Drawing:".
 
-- 502 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
+- 502 | DONE v1.65.0, 18 NOVEMBER 2026 (built 17 November) | GRIDBY
   CARRIES A NETWORK FOR WALKERS AND DRIVERS, AND A JOB MARKET. John,
   17 November: Gridby is the one teaching town to keep; Malta and the
   other real places are for students to download themselves. So the
