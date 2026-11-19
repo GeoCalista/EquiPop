@@ -636,6 +636,7 @@ def test_the_arcgis_guide_names_the_files_it_says_it_names():
             "EquiPop.CountsShares.pyt.xml",
             "EquiPop.ValueStatistics.pyt.xml",
             "EquiPop.ContinentalRasters.pyt.xml",
+            "EquiPop.PixelReach.pyt.xml",
             "EquiPop.SpatialDemography.pyt.xml",
             "EquiPop.WorldPopCatalogue.pyt.xml",
             "EquiPop.OsmCatalogue.pyt.xml",
@@ -643,9 +644,9 @@ def test_the_arcgis_guide_names_the_files_it_says_it_names():
             "EquiPop.FolderInventory.pyt.xml"}
     assert must <= listed, f"the guide does not name {sorted(must - listed)}"
     words = {"TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5, "SIX": 6,
-             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10}
-    claim = re.search(r"\*\*(TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN)"
-                      r" files must sit",
+             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10, "ELEVEN": 11}
+    claim = re.search(r"\*\*(TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|"
+                      r"ELEVEN) files must sit",
                       guide)
     assert claim, "the guide no longer states how many files travel together"
     assert words[claim.group(1)] == len(must), (

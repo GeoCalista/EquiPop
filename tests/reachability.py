@@ -114,18 +114,13 @@ DISPATCH = "equipop/stata_bridge.py"
 
 MATRIX = {
     # BACKLOG 507, 19 November 2026: the board's first target, image
-    # analysis. The core is built; the two GIS doors come next, in the
-    # existing plugin and toolbox (John's choice of arrangement).
+    # analysis. The core came first; BACKLOG 509 put the two GIS doors
+    # on it, as tool 3b in the existing plugin and toolbox (John's
+    # choice of arrangement), hidden with 3 to 6 until tool 0 shows it.
     "pixels as mass - green reach and green share": {
         "python": door("equipop/pixels.py", "def reach("),
-        "qgis": not_yet(
-            "Next pull request: a tool in the QGIS plugin's new group "
-            "'Rasters and images', calling equipop.pixels.", 507,
-            absent=("qgis/equipop_qgis/provider.py", "alg_pixels")),
-        "pro": not_yet(
-            "Next pull request: a tool in the Pro toolbox's new group "
-            "'Rasters and images', calling equipop.pixels.", 507,
-            absent=("arcgis/EquiPop.pyt", "GreenReach")),
+        "qgis": door("qgis/equipop_qgis/alg_pixels.py", "pixelsdoor"),
+        "pro": door("arcgis/EquiPop.pyt", "class PixelReach"),
         "stata": not_yet(
             "Not planned yet: a Stata user would bring the pixels as "
             "points and run machine 1; to be asked of the board.", 507,

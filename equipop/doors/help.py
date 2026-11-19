@@ -891,6 +891,35 @@ HELP = {
               "overwritten. equipop_fetch.json (the manifest) and "
               "equipop_recipe.csv (the rows) are written beside the "
               "files.",
+    # v1.66.0, BACKLOG 509: tool 3b, pixels as mass
+    "raster": "THE IMAGE OR MAP whose pixels are the mass - a land-cover "
+              "map (ESA WorldCover, CORINE, Urban Atlas) or an index "
+              "computed from imagery (NDVI from Sentinel-2 or an "
+              "orthophoto). It must be in the SAME coordinate system as "
+              "the people layer, and that system must be in metres. "
+              "EquiPop will not reproject it for you: that means "
+              "resampling, which moves and blends pixels.",
+    "band": "WHICH BAND of the raster to read, counted from 1. A "
+            "land-cover map or an NDVI layer has one band; an image "
+            "has several (red, green, blue, near-infrared...) and you "
+            "choose the one that carries what you mean.",
+    "pixels": "WHICH PIXELS COUNT as mass. Class codes with spaces "
+              "between - 10 20 takes WorldCover's trees and shrubs - "
+              "or a range of values with 'to' - 0,4 to 1 takes NDVI "
+              "from 0.4 up. Both ends of a range count. Nodata pixels "
+              "never count.",
+    "hectares": "HOW MUCH TO GATHER, in hectares, with spaces between - "
+                "1 5 20. Each gives a Dist_ column: the metres from the "
+                "point to where that many hectares of counted pixels "
+                "have been gathered. Hectares, not pixels, so the answer "
+                "does not change with the image's resolution. Got_ "
+                "shows what was gathered: below the target only where "
+                "the raster holds less in all.",
+    "radius": "OPTIONAL. A radius in metres - 300 - adds the hectares "
+              "of counted pixels within it (Mass_r) and their share of "
+              "the circle (Share_r, 0 to 1). A circle reaching past the "
+              "raster's edge still counts whole, so near an edge the "
+              "share is low.",
 }
 
 # THE TOOL NAMES, in one place. BACKLOG 237: the two doors had drifted
@@ -912,6 +941,9 @@ LABELS = {
     # is fetching; this reads a folder that is already on disk.
     "FolderInventory": "6. What is in this folder? (reads, changes "
                        "nothing)",
+    # v1.66.0, BACKLOG 509. 3b: it belongs with raster curation, and the
+    # board's first target (image analysis) starts here.
+    "PixelReach": "3b. Pixels as mass: green reach and share",
     # v1.58.0 in QGIS, v1.59.0 in Pro (BACKLOG 414): look, select, fetch.
     "WorldPopCatalogue": "5a. WorldPop - what is there? (lists, downloads "
                          "nothing)",
@@ -923,6 +955,16 @@ LABELS = {
 
 
 SUMMARY = {
+    "PixelReach":
+        "Treats the pixels of an image or a land-cover map as MASS and "
+        "measures, from every point, how far one must go to gather k "
+        "hectares of them - green, water, built-up land, whatever the "
+        "pixels you choose stand for. It is EquiPop's k-nearest engine "
+        "with pixels in place of people, so Dist_ means what it means "
+        "everywhere else: the radius at which k is reached. k is in "
+        "HECTARES, so a 10 m and a 30 m map give the same answer for "
+        "the same ground. A radius adds the hectares within it and "
+        "their share of the circle.",
     "ShowTools":
         "Shows or hides tools 3 to 6 in the toolbox. Tools 1 and 2 are "
         "EquiPop's standard set and are always there; 3 to 6 - raster "
@@ -1033,6 +1075,15 @@ SUMMARY = {
 }
 
 USAGE = {
+    "PixelReach":
+        "Give the people layer and the raster, in the same metric "
+        "coordinate system. Say which pixels count - class codes (10 "
+        "20) for a land-cover map, a range (0,4 to 1) for an index - "
+        "and how many hectares to gather (1 5 20). Start with one k and "
+        "no radius. The run says how many pixels counted and how many "
+        "hectares that is: check it against what you expect before "
+        "reading any distance. A 10 m image of a whole city is tens of "
+        "millions of pixels; clip it to the area you study first.",
     "ShowTools":
         "Choose 'All tools, 1 to 6' and run; {afterswitch} Run it again "
         "with 'Only tools 1 and 2' to hide them. The choice is saved "

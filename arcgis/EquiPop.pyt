@@ -4031,6 +4031,190 @@ class FolderInventory:
                 "by the lattice column to see which sets go together.")
 
 
+class PixelReach:
+    """TOOL 3b for Pro: pixels as mass - green reach and share
+    (BACKLOG 509). The QGIS twin is qgis/equipop_qgis/alg_pixels.py.
+
+    Thin. Every number is made in equipop.doors.pixelsdoor and
+    equipop.pixels, which QGIS calls with the same boxes. What is Pro's
+    own: reading the people from a layer, reading ONE BAND of the
+    raster with arcpy - never rasterio, which would bring a second GDAL
+    into Pro's Python (the elevation raster's lesson, BACKLOG 313) -
+    and comparing the two spatial references.
+
+    The people are COPIED to the new feature class first and read back
+    from the copy, so the results are matched on the copy's own
+    identifiers (BACKLOG 164: a copy renumbers its rows).
+    """
+
+    def __init__(self):
+        self.label = "3b. Pixels as mass: green reach and share"
+        from equipop.doors.help import SUMMARY
+        self.description = SUMMARY["PixelReach"]
+
+    def getParameterInfo(self):
+        band = _p("band", "Band of the raster (1 = the first)", "GPLong",
+                  required=False)
+        band.value = 1
+        hectares = _p("hectares", "Hectares to gather, with spaces "
+                                  "between (1 5 20)", "GPString")
+        hectares.value = "1 5 20"
+        return [_p("layer", "The people - a point layer in metres",
+                   "GPFeatureLayer"),
+                _p("raster", "The image or land-cover map (same "
+                             "coordinate system as the people)",
+                   ["DERasterDataset", "GPRasterLayer"]),
+                band,
+                _p("pixels", "Which pixels count - class codes (10 20) "
+                             "or a range (0,4 to 1)", "GPString"),
+                hectares,
+                _p("radius", "Radius in metres for the share within it "
+                             "(optional)", "GPString", required=False),
+                _p("outfc", "New feature class (name/path)",
+                   "DEFeatureClass", direction="Output")]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        return
+
+    def updateMessages(self, parameters):
+        """The typed boxes refused while the dialog is still open."""
+        if _doors(strict=False) is None:
+            return
+        from equipop.doors.numbers import BadNumber
+        from equipop.doors.pixelsdoor import (parse_hectares,
+                                              parse_pixels, parse_radius)
+        pm = _byname(parameters)
+        for name, parse in (("pixels", parse_pixels),
+                            ("hectares", parse_hectares),
+                            ("radius", parse_radius)):
+            p = pm.get(name)
+            if p is None or (name != "radius" and not p.valueAsText):
+                continue
+            try:
+                parse(p.valueAsText or "")
+            except BadNumber as bad:
+                p.setErrorMessage(str(bad))
+
+    def execute(self, parameters, messages):
+        _announce_version(messages)
+        _doors()
+        import pandas as pd
+
+        from equipop.doors.numbers import BadNumber
+        from equipop.doors.pixelsdoor import result_names, run
+
+        pm = _byname(parameters)
+        ch = _channel(messages)
+        layer, raster = _txt(pm, "layer"), _txt(pm, "raster")
+        out = _txt(pm, "outfc")
+        for value, box in ((layer, "the people layer"),
+                           (raster, "the raster"),
+                           (out, "the new feature class")):
+            if not value:
+                raise arcpy.ExecuteError(f"Choose {box}.")
+        band = int(_num(pm, "band", 1) or 1)
+        pixels, hectares = _txt(pm, "pixels"), _txt(pm, "hectares")
+        radius = _txt(pm, "radius")
+        try:
+            names = result_names(hectares, radius)
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+        txt = _refuse_shp_overflow(out, names)
+        if txt:
+            raise arcpy.ExecuteError(txt)
+
+        # Both systems checked BEFORE anything is copied or read
+        sr = _require_crs(arcpy.Describe(layer), "The people layer")
+        rdesc = arcpy.Describe(_ref(raster))
+        rsr = _require_crs(rdesc, "The raster")
+        # metres, or a unit the system does not state; a projection
+        # in FEET is refused - a pixel's hectares are its width times
+        # its height in the system's units (BACKLOG 160)
+        metric = (str(getattr(sr, "type", "")) != "Geographic"
+                  and _crs_unit_name(getattr(sr, "linearUnitName",
+                                             None))
+                  in ("metres", "map units"))
+        same = _same_crs(sr, rsr)
+        if not (metric and same):
+            if metric:
+                messages.addWarningMessage(
+                    f"The people are in {getattr(sr, 'name', '?')}, "
+                    f"the raster in {getattr(rsr, 'name', '?')}.")
+            try:
+                run(pd.DataFrame({"x": [], "y": []}), None, pixels,
+                    hectares, radius, layer_is_metric=metric,
+                    same_crs=same, say=ch.info)
+            except BadNumber as bad:
+                raise arcpy.ExecuteError(str(bad))
+
+        with _stage(messages, "reading the people"):
+            arcpy.management.CopyFeatures(layer, out)
+            kind, data, oid = _read_input(out, _COORD_GEOM, None, None,
+                                          [], messages,
+                                          context="people layer")
+        with _stage(messages, "reading the raster"):
+            payload = _pixel_payload(raster, rdesc, band, messages)
+        people = pd.DataFrame({"x": data["x"], "y": data["y"]})
+        try:
+            with _stage(messages, "calculating"):
+                res = run(people, payload, pixels, hectares, radius,
+                          say=ch.info)
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+        order = [c for c in res.columns if c not in ("x", "y")]
+        sub = np.empty(len(res), dtype=[(str(oid), "<i8")]
+                       + [(c, "<f8") for c in order])
+        sub[str(oid)] = np.asarray(data[oid], np.int64)
+        for c in order:
+            sub[c] = res[c].to_numpy(float)
+        with _stage(messages, "writing output"):
+            _add_columns(out, oid, sub, order, messages)
+        messages.addMessage(f"Wrote {len(res):,} rows with "
+                            f"{len(order)} new columns to {out}: "
+                            + ", ".join(order))
+
+
+def _pixel_payload(raster, desc, band, messages):
+    """One band of a raster, read by arcpy, as the payload
+    equipop.doors.pixelsdoor.run takes (BACKLOG 509) - the same keys
+    as the elevation raster's (_raster_payload), plus `geographic`.
+    A multiband raster comes back from RasterToNumPyArray as a stack;
+    the band is picked from it, counted from 1."""
+    src = _ref(raster)
+    arr = np.asarray(arcpy.RasterToNumPyArray(src))
+    if arr.ndim == 3:
+        if not 1 <= band <= arr.shape[0]:
+            raise arcpy.ExecuteError(
+                f"The raster has {arr.shape[0]} bands; band {band} "
+                "does not exist.")
+        arr = arr[band - 1]
+    elif band != 1:
+        raise arcpy.ExecuteError(f"The raster has one band; band {band} "
+                                 "does not exist.")
+    nodata = getattr(desc, "noDataValue", None)
+    if nodata is None:
+        try:                        # a multiband raster keeps it per band
+            nodata = getattr(arcpy.Describe(f"{src}/Band_{band}"),
+                             "noDataValue", None)
+        except Exception:
+            nodata = None
+    ext = desc.extent
+    sr = getattr(desc, "spatialReference", None)
+    pay = {"array": arr, "x_min": float(ext.XMin),
+           "y_max": float(ext.YMax),
+           "cell_w": float(desc.meanCellWidth),
+           "cell_h": float(desc.meanCellHeight), "nodata": nodata,
+           "geographic": str(getattr(sr, "type", "")) == "Geographic"}
+    messages.addMessage(
+        f"Raster read by ArcGIS: band {band}, {arr.shape[0]:,} x "
+        f"{arr.shape[1]:,} pixels of {pay['cell_w']:g} x "
+        f"{pay['cell_h']:g}.")
+    return pay
+
+
 #: The inventory table's columns, in the order a person reads them.
 #: Shared with the QGIS door through tests/door_parity.py so the two
 #: cannot drift.
@@ -5254,7 +5438,8 @@ class Toolbox:
         # its '?' page and its tests. What Pro LISTS is `tools`: tool
         # 0 and tools 1 and 2, and 3 to 6 once tool 0 shows them.
         self.all_tools = [ShowTools, CountsShares, ValueStatistics,
-                          ContinentalRasters, SpatialDemography,
+                          ContinentalRasters, PixelReach,
+                          SpatialDemography,
                           WorldPopCatalogue, OsmCatalogue, FetchSelected,
                           FolderInventory]
         self.tools = _shown_tools(self.all_tools)

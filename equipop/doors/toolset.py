@@ -39,7 +39,7 @@ from pathlib import Path
 #: algorithm's EQP_TOOL.
 STANDARD = ("ShowTools", "CountsShares", "ValueStatistics")
 #: Hidden until shown. SpatialDataFetch (5d) is QGIS's older fetch.
-EXTENDED = ("ContinentalRasters", "SpatialDemography",
+EXTENDED = ("ContinentalRasters", "PixelReach", "SpatialDemography",
             "WorldPopCatalogue", "OsmCatalogue", "FetchSelected",
             "SpatialDataFetch", "FolderInventory")
 ENV = "EQUIPOP_SHOW_ALL_TOOLS"
