@@ -113,6 +113,24 @@ PYTHON = door("equipop/__init__.py", "__all__")
 DISPATCH = "equipop/stata_bridge.py"
 
 MATRIX = {
+    # BACKLOG 507, 19 November 2026: the board's first target, image
+    # analysis. The core is built; the two GIS doors come next, in the
+    # existing plugin and toolbox (John's choice of arrangement).
+    "pixels as mass - green reach and green share": {
+        "python": door("equipop/pixels.py", "def reach("),
+        "qgis": not_yet(
+            "Next pull request: a tool in the QGIS plugin's new group "
+            "'Rasters and images', calling equipop.pixels.", 507,
+            absent=("qgis/equipop_qgis/provider.py", "alg_pixels")),
+        "pro": not_yet(
+            "Next pull request: a tool in the Pro toolbox's new group "
+            "'Rasters and images', calling equipop.pixels.", 507,
+            absent=("arcgis/EquiPop.pyt", "GreenReach")),
+        "stata": not_yet(
+            "Not planned yet: a Stata user would bring the pixels as "
+            "points and run machine 1; to be asked of the board.", 507,
+            absent=("stata/equipop.ado", "pixels_to_mass")),
+    },
     # ---------------------------------------------------- the machines
     "machine 1 - counts and shares": {
         "python": PYTHON,
@@ -511,6 +529,9 @@ INTERNAL = {
     # BACKLOG 436, v1.62.0. theta(k); its own MATRIX row above. The
     # tenth new module this check has caught.
     "opportunity",
+    # BACKLOG 507. Pixels as mass (green reach, green share); its own
+    # MATRIX row above - a capability people will ask for.
+    "pixels",
     # BACKLOG 438, v1.62.0. Machinery: which tools a GIS toolbox
     # LISTS (3 to 6 hidden until tool 0 shows them). Hiding is not
     # unreachability - QGIS keeps every tool registered and Pro lists
