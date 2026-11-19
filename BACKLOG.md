@@ -3862,6 +3862,23 @@ because machine 3 stores tiles that way and says so in its manifest.
   open (GeoJSON lines, CSV tables) - which needs a decision on what
   coordinate system a made-up town claims to be in.
 
+- 508 | BUILT 19 NOVEMBER 2026, pull request, not released | TOOL 3b'S
+  SHARED HALF: equipop/doors/pixelsdoor.py. Both GIS doors for 507 stay
+  thin by calling this: parse_pixels() reads the box as typed - class
+  codes "10 20", or a range "0,4 to 1" with a decimal comma or point,
+  refusing a fractional class code and a reversed range with a
+  sentence; parse_hectares() reads k in hectares, refusing 0; run()
+  refuses a people layer in degrees and a raster in another coordinate
+  system (each door reads its own layers and passes two booleans), says
+  when no pixel matches, warns when the raster holds less than k
+  hectares around some places (Got_k), and adds Mass_r<r> and
+  Share_r<r> when a radius is typed. Its numbers are pixels.reach's and
+  share_within's, which a test holds; broken on purpose with the radius
+  read as kilometres. The tool will be "3b. Pixels as mass: green reach
+  and share", hidden with 3 to 6 until tool 0 shows it, beside 3
+  (raster curation) - the "Rasters and images" group without renaming
+  a single tool. NEXT: the QGIS algorithm and the Pro tool themselves.
+
 - 507 | BUILT 19 NOVEMBER 2026, pull request, not released | PIXELS AS
   MASS: GREEN REACH AND GREEN SHARE. (Placed here, out of order, so it
   cannot collide with the open release pull request #17, which rewrites
