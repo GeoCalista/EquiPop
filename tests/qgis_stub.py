@@ -654,6 +654,11 @@ class QgsProcessingParameterFeatureSink(_Param):
     pass
 
 
+class QgsProcessingParameterBand(_Param):
+    """v1.66.0, BACKLOG 509: tool 3b's band box."""
+    pass
+
+
 class QgsProcessingParameterRasterLayer(_Param):
     pass
 
@@ -761,12 +766,23 @@ class FakeRasterLayer:
     """Enough of QgsRasterLayer for the friction and slope paths."""
 
     def __init__(self, arr, xmin=0.0, ymax=1000.0, cw=100.0,
-                 ch=100.0, nodata=None):
+                 ch=100.0, nodata=None, crs="EPSG:3006", source=""):
         import numpy as _np
         self.arr = _np.asarray(arr, float)
         self._p = _Provider(self.arr, nodata)
         h, w = self.arr.shape
         self._ext = _Extent(xmin, ymax - h * ch, xmin + w * cw, ymax)
+        # v1.66.0, BACKLOG 509: tool 3b compares the raster's system
+        # with the people's and asks for its file. "" = not a file,
+        # so the door reads it through the provider, as here.
+        self._crs = QgsCoordinateReferenceSystem(crs)
+        self._source = source
+
+    def crs(self):
+        return self._crs
+
+    def source(self):
+        return self._source
 
     def dataProvider(self):
         return self._p
@@ -1024,7 +1040,8 @@ _NAMES = [
     "QgsProcessingParameterEnum", "QgsProcessingParameterMatrix",
     "QgsProcessingParameterFeatureSink",
     "QgsProcessingParameterDefinition",
-    "QgsProcessingParameterRasterLayer", "QgsWkbTypes",
+    "QgsProcessingParameterRasterLayer", "QgsProcessingParameterBand",
+    "QgsWkbTypes",
     "QgsProcessingParameterFile", "QgsProcessingParameterCrs",
     "QgsProcessingParameterFolderDestination",
     "Qgis", "QgsApplication",

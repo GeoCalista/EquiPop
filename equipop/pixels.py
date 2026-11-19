@@ -54,16 +54,65 @@ def pixel_area_ha(transform, rows, geographic: bool) -> np.ndarray:
     |a x e|. On a latitude-longitude grid a pixel shrinks with the
     cosine of its latitude: a 30" WorldPop cell is 86 ha at the equator
     and 43 ha at 60 degrees north."""
-    a, e = abs(transform.a), abs(transform.e)
+    return _area_ha(abs(transform.a), abs(transform.e), transform.f,
+                    rows, geographic)
+
+
+def _area_ha(cell_w, cell_h, y_max, rows, geographic):
+    rows = np.asarray(rows)
     if not geographic:
-        return np.full(len(rows), a * e / 10_000.0)
-    lat = transform.f + (np.asarray(rows) + 0.5) * transform.e
-    dlon = math.radians(a)
+        return np.full(len(rows), cell_w * cell_h / 10_000.0)
+    lat = y_max - (rows + 0.5) * cell_h
+    dlon = math.radians(cell_w)
     # the exact area of a latitude band, not cos(centre) x a rectangle
-    top = np.radians(lat + e / 2)
-    bottom = np.radians(lat - e / 2)
+    top = np.radians(lat + cell_h / 2)
+    bottom = np.radians(lat - cell_h / 2)
     area = R_EARTH ** 2 * dlon * np.abs(np.sin(top) - np.sin(bottom))
     return area / 10_000.0
+
+
+def pixels_from_array(a, x_min, y_max, cell_w, cell_h, *, nodata=None,
+                      geographic: bool = False, classes=None,
+                      between=None, name: str = "ha") -> pd.DataFrame:
+    """pixels_to_mass for a band that is already in memory - the way
+    the GIS doors hand it over (BACKLOG 509). A door reads the raster
+    with its own GIS (arcpy in Pro, GDAL in QGIS) because the package
+    must never open GIS files inside a host's Python: two GDALs in one
+    Pro clone fight over their DLLs.
+
+    a              the band, rows from the top (north) down
+    x_min, y_max   the raster's west and north edges
+    cell_w, cell_h the pixel's width and height, both positive
+    nodata         the band's nodata value, or None
+    geographic     True when the coordinates are degrees
+    """
+    if (classes is None) == (between is None):
+        raise ValueError("give exactly one of classes= (codes to keep) "
+                         "or between=(low, high) (a range to keep)")
+    a = np.asarray(a)
+    if a.ndim != 2:
+        raise ValueError(f"one band at a time: got an array of shape "
+                         f"{a.shape}")
+    cell_w, cell_h = abs(float(cell_w)), abs(float(cell_h))
+    if not (cell_w > 0 and cell_h > 0):
+        raise ValueError("the pixel size must be above 0")
+    ok = np.ones(a.shape, bool)
+    if np.issubdtype(a.dtype, np.floating):
+        ok &= np.isfinite(a)
+    if nodata is not None and not (isinstance(nodata, float)
+                                   and math.isnan(nodata)):
+        ok &= a != nodata
+    if classes is not None:
+        keep = ok & np.isin(a, np.asarray(list(classes)))
+    else:
+        lo, hi = between
+        keep = ok & (a >= lo) & (a <= hi)
+    rows, cols = np.nonzero(keep)
+    x = float(x_min) + (cols + 0.5) * cell_w
+    y = float(y_max) - (rows + 0.5) * cell_h
+    return pd.DataFrame({"x": x, "y": y,
+                         name: _area_ha(cell_w, cell_h, float(y_max),
+                                        rows, geographic)})
 
 
 def pixels_to_mass(path, *, classes=None, between=None, band: int = 1,
@@ -85,23 +134,19 @@ def pixels_to_mass(path, *, classes=None, between=None, band: int = 1,
                          "or between=(low, high) (a range to keep)")
     rasterio = _need_rasterio()
     with rasterio.open(path) as src:
-        a = src.read(band)
+        if not 1 <= int(band) <= src.count:
+            raise ValueError(f"{path} has {src.count} band(s); band "
+                             f"{band} does not exist")
+        a = src.read(int(band))
         T = src.transform
         nodata = src.nodata
         geographic = bool(src.crs and src.crs.is_geographic)
-    ok = np.ones(a.shape, bool) if nodata is None else (a != nodata)
-    if np.issubdtype(a.dtype, np.floating):
-        ok &= np.isfinite(a)
-    if classes is not None:
-        keep = ok & np.isin(a, np.asarray(list(classes)))
-    else:
-        lo, hi = between
-        keep = ok & (a >= lo) & (a <= hi)
-    rows, cols = np.nonzero(keep)
-    x = T.c + (cols + 0.5) * T.a
-    y = T.f + (rows + 0.5) * T.e
-    out = pd.DataFrame({"x": x, "y": y,
-                        name: pixel_area_ha(T, rows, geographic)})
+    if T.b or T.d:
+        raise ValueError(f"{path} is a rotated raster; warp it to a "
+                         "north-up grid first")
+    out = pixels_from_array(a, T.c, T.f, T.a, T.e, nodata=nodata,
+                            geographic=geographic, classes=classes,
+                            between=between, name=name)
     print(f"[pixels] {path}: {len(out):,} of {a.size:,} pixels count, "
           f"{out[name].sum():,.1f} ha")
     return out

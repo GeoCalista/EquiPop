@@ -34,14 +34,15 @@ default one is locked. The supported route is a clone:
 
 ### Files to copy (v1.62.0)
 
-**TEN files must sit together in one folder** (e.g. `C:\Data\EQP`),
-and all ten must come from THE SAME RELEASE:
+**ELEVEN files must sit together in one folder** (e.g. `C:\Data\EQP`),
+and all eleven must come from THE SAME RELEASE:
 
     EquiPop.pyt                          the toolbox
     EquiPop.ShowTools.pyt.xml            help for tool 0 (new in 1.62.0)
     EquiPop.CountsShares.pyt.xml         help for machine 1
     EquiPop.ValueStatistics.pyt.xml      help for machine 2
     EquiPop.ContinentalRasters.pyt.xml   help for machine 3
+    EquiPop.PixelReach.pyt.xml           help for tool 3b (new in 1.66.0)
     EquiPop.SpatialDemography.pyt.xml    help for machine 4
     EquiPop.WorldPopCatalogue.pyt.xml    help for tool 5a
     EquiPop.OsmCatalogue.pyt.xml         help for tool 5b
@@ -122,13 +123,14 @@ in the project folder). In Pro's **Catalog** pane: right-click
 under "EquiPop": *0. Show or hide tools 3-6*, *1. Counts and Shares*
 and *2. Value Statistics* - EquiPop's standard set.
 
-**Showing tools 3 to 6 (since 1.62.0).** The other six - *Raster Data
-Curation*, *Spatial Demographic Analysis*, the three fetching tools
+**Showing tools 3 to 6 (since 1.62.0).** The other seven - *Raster Data
+Curation*, *3b. Pixels as mass* (since 1.66.0), *Spatial Demographic
+Analysis*, the three fetching tools
 *5a WorldPop*, *5b OpenStreetMap* and *5c Fetch the rows you
 selected*, and *What is in this folder?* - are hidden until you show
 them. Run *0. Show or hide tools 3-6*, choose *All tools, 1 to 6*,
 then right-click the EquiPop toolbox in the Catalog pane and choose
-**Refresh** (or restart Pro). NINE tools then appear. Run tool 0 again
+**Refresh** (or restart Pro). TEN tools then appear. Run tool 0 again
 with *Only tools 1 and 2* to hide them. Hiding changes only the list:
 nothing is uninstalled and no result changes. The choice is saved for
 your Windows user and is shared with the QGIS plugin; the environment

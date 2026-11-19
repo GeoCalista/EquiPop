@@ -3862,6 +3862,42 @@ because machine 3 stores tiles that way and says so in its manifest.
   open (GeoJSON lines, CSV tables) - which needs a decision on what
   coordinate system a made-up town claims to be in.
 
+- 509 | BUILT 19 NOVEMBER 2026, pull request, not released | TOOL 3b
+  AT BOTH GIS DOORS: "3b. Pixels as mass: green reach and share" in the
+  QGIS plugin (qgis/equipop_qgis/alg_pixels.py) and the Pro toolbox
+  (PixelReach in EquiPop.pyt), hidden with 3 to 6 until tool 0 shows it
+  (toolset.EXTENDED). Boxes, the same names in both doors and held by
+  door_parity.CORE_PIXELS: the people (points), the raster, its band,
+  which pixels count, the hectares, the optional radius; the output is
+  a new layer or feature class with the people's columns and the
+  results. THE HOST GIS READS THE RASTER, NEVER THE PACKAGE: QGIS with
+  its own GDAL (through its provider, up to 4 million pixels, for a
+  raster that is not a file), Pro with RasterToNumPyArray - rasterio in
+  a Pro clone means two GDALs (the elevation raster's lesson, 313). So
+  equipop/pixels.py gains pixels_from_array(), which pixels_to_mass()
+  now calls too, and pixelsdoor.run() takes a path or the door's
+  payload (the elevation raster's keys plus `geographic`), a band
+  (counted from 1; a stack is picked from), and rows without
+  coordinates (empty results; the others unchanged). Both doors check
+  the people's system BEFORE reading: degrees or feet refused (QGIS's
+  shared reader would otherwise reproject degrees to UTM and then
+  refuse the raster with advice to project it to the wrong system),
+  and a raster in another system refused (no resampling behind the
+  user's back). A decimal k is written Dist_2_5 (a geodatabase field
+  holds no '.'), and result_names() lets each door refuse a shapefile
+  that cannot hold the names before anything runs. Pro copies the
+  people first and matches results on the copy's own identifiers
+  (164). Pro's guide: eleven files travel together now. Tests drive
+  both doors against the shared run, each broken on purpose: the
+  extent read from the bottom edge, the system check removed, results
+  matched on the input's identifiers, the band counted from 0, the
+  shapefile check removed, a box renamed in one door.
+  FOR THE BOARD (John's part 2, 19 November): bands and value ranges,
+  and the ANALYSIS SCALE - a 10 m image summarised to 50 m cells (mean
+  NDVI, or the share of green pixels) before it becomes mass; and the
+  people's own 100 m cell (the search starts at its mean radius, 56 m),
+  which is not yet a box.
+
 - 508 | BUILT 19 NOVEMBER 2026, pull request, not released | TOOL 3b'S
   SHARED HALF: equipop/doors/pixelsdoor.py. Both GIS doors for 507 stay
   thin by calling this: parse_pixels() reads the box as typed - class

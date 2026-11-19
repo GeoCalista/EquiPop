@@ -62,12 +62,12 @@ def test_run_equals_the_core(town):
     mass = pixels_to_mass(path, classes=[10, 20])
     want = reach(people, mass, [0.5, 1, 2])
     for c in ("Dist_0.5", "Dist_1", "Dist_2", "Got_2"):
-        assert np.allclose(got[c], want[c]), c
+        assert np.allclose(got[c.replace(".", "_")], want[c]), c
     sw = share_within(people, mass, 100.0)
     assert np.allclose(got["Mass_r100"], sw["Mass_r"])
     assert np.allclose(got["Share_r100"], sw["Share_r"])
     only_grass = run(people, path, "20 to 20", "0,5", say=lambda *a: None)
-    assert np.allclose(only_grass["Dist_0.5"],
+    assert np.allclose(only_grass["Dist_0_5"],
                        reach(people, pixels_to_mass(path, classes=[20]),
                              [0.5])["Dist_0.5"])
 
@@ -92,3 +92,85 @@ def test_run_says_when_no_pixel_matches(town):
     path, people = town
     with pytest.raises(BadNumber, match="No pixel"):
         run(people, path, "99", "1", say=lambda *a: None)
+
+
+# --- BACKLOG 509: the band as the GIS doors hand it over -------------
+
+def _payload(path, band=1):
+    """What a door's own GIS reads: the band as an array and where it
+    lies. Built here with rasterio, which the doors never use."""
+    import rasterio
+    with rasterio.open(path) as src:
+        T = src.transform
+        return {"array": src.read(band), "x_min": T.c, "y_max": T.f,
+                "cell_w": T.a, "cell_h": -T.e, "nodata": src.nodata,
+                "geographic": False}
+
+
+def test_a_band_read_by_the_gis_gives_the_numbers_of_the_file(town):
+    """Pro and QGIS read the raster themselves and pass arrays (Pro
+    cannot load rasterio). The numbers must be those of the file path.
+    BROKEN WITH: row centres counted from the bottom (y_min +
+    (row + 0.5) * h) - the trees then sit 200 m south and every
+    distance moves."""
+    from equipop.pixels import pixels_from_array
+    path, people = town
+    # where the trees are, written down rather than computed: rows and
+    # columns 10 to 19 of a 10 m grid whose north-west corner is
+    # (500000, 6600400) - so x 500100-500200, y 6600200-6600300
+    trees = pixels_from_array(**{k: v for k, v in _payload(path).items()
+                                 if k not in ("array", "nodata",
+                                              "geographic")},
+                              a=_payload(path)["array"], classes=[10])
+    assert len(trees) == 100 and np.allclose(trees.ha, 0.01)
+    assert trees.x.min() == 500105 and trees.x.max() == 500195
+    assert trees.y.min() == 6600205 and trees.y.max() == 6600295
+    quiet = dict(say=lambda *a: None)
+    by_path = run(people, path, "10 20", "0,5 2", "100", **quiet)
+    by_gis = run(people, _payload(path), "10 20", "0,5 2", "100", **quiet)
+    for c in by_path.columns:
+        assert np.allclose(by_path[c], by_gis[c], equal_nan=True), c
+
+
+def test_the_band_box_picks_a_band_of_a_stack(town):
+    """A multiband image (red, green, blue, near-infrared...) arrives
+    as a stack; the band box picks one, counted from 1, and a band that
+    is not there is refused with a sentence."""
+    path, people = town
+    one = _payload(path)
+    stack = dict(one, array=np.stack([np.zeros_like(one["array"]),
+                                      one["array"]]))
+    quiet = dict(say=lambda *a: None)
+    got = run(people, stack, "10", "1", band=2, **quiet)
+    want = run(people, one, "10", "1", **quiet)
+    assert np.allclose(got["Dist_1"], want["Dist_1"])
+    with pytest.raises(BadNumber, match="band 3"):
+        run(people, stack, "10", "1", band=3, **quiet)
+    with pytest.raises(BadNumber, match="one band"):
+        run(people, one, "10", "1", band=2, **quiet)
+
+
+def test_a_row_without_coordinates_gets_empty_results(town):
+    """An empty geometry is a row the door must keep (results are
+    matched by position), with nothing in it - and the others must not
+    move. BROKEN WITH: NaN coordinates passed to the engine."""
+    path, people = town
+    holed = pd.concat([people.iloc[:1],
+                       pd.DataFrame({"x": [np.nan], "y": [np.nan]}),
+                       people.iloc[1:]], ignore_index=True)
+    quiet = dict(say=lambda *a: None)
+    got = run(holed, path, "10", "1", "100", **quiet)
+    want = run(people, path, "10", "1", "100", **quiet)
+    assert got.loc[1, ["Dist_1", "Got_1", "Mass_r100"]].isna().all()
+    assert np.allclose(got.drop(index=1)["Dist_1"], want["Dist_1"])
+
+
+def test_result_names_are_known_before_the_run():
+    """A door checks a shapefile's ten characters before running, and
+    the names hold no '.', which a geodatabase field cannot.
+    BROKEN WITH: _tag keeping the '.'."""
+    from equipop.doors.pixelsdoor import result_names
+    assert result_names("1 2,5", "300") == [
+        "Dist_1", "Got_1", "Dist_2_5", "Got_2_5", "Mass_r300",
+        "Share_r300"]
+    assert result_names("5") == ["Dist_5", "Got_5"]
