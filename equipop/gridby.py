@@ -35,6 +35,11 @@ demonstrate exactly one phenomenon:
   7. FILES for QGIS and ArcGIS Pro: write_gridby("gridby.gpkg") writes
      every layer as a GeoPackage in ETRS89 / UTM zone 33N, the town
      placed in open sea between Öland and Gotland.
+  8. GREEN (19 November 2026, BACKLOG 507): 25 m pixels of parkland
+     and forest, as image analysis would deliver them - Western Park
+     (36 ha) among the majority west of the river, Hill Forest (about
+     79 ha) on the minority's side beyond the motorway, a River Walk
+     along both banks (20 ha) and twelve pocket parks of 0.25 ha.
 
 Ground truths live in meta() and double as test fixtures: if EquiPop
 cannot recover a planted truth, the tests fail.
@@ -157,6 +162,7 @@ def gridby(seed: int = SEED) -> dict:
     workers, workplaces = _job_market(np.random.default_rng([seed, 6]),
                                       np.random.default_rng([seed, 7]),
                                       people, jx, len(west))
+    green = _green(np.random.default_rng([seed, 8]))
 
     meta = {"seed": seed, "nx": NX, "ny": NY, "unit": U,
             "gradient": "minority share 0.10 (west) -> 0.60 (east), linear",
@@ -183,11 +189,17 @@ def gridby(seed: int = SEED) -> dict:
             "workers": float(workers.Working_sum.sum()),
             "low_edu_workers": float(workers.LowEdu_sum.sum()),
             "jobs": float(workplaces.Jobs.sum()),
-            "low_edu_jobs": float(workplaces.LowEdu_jobs.sum())}
+            "low_edu_jobs": float(workplaces.LowEdu_jobs.sum()),
+            "green": "25 m pixels: Western Park x 1400-2000, y 2600-3200 "
+                     "(36 ha); Hill Forest within 500 m of (5250, 3150); "
+                     "River Walk, one pixel on each bank; 12 pocket "
+                     "parks of 2 x 2 pixels",
+            "green_ha": float(green.ha.sum())}
     return {"people": people, "jobs": jobs, "friction": friction,
             "altitude": altitude, "network": network,
             "friction_walk": fr_walk, "friction_drive": fr_drive,
-            "workers": workers, "workplaces": workplaces, "meta": meta}
+            "workers": workers, "workplaces": workplaces, "green": green,
+            "meta": meta}
 
 
 def _network():
@@ -220,6 +232,42 @@ def _network():
                          columns=["x", "y", "friction"])
         return t.sort_values(["x", "y"], ignore_index=True)
     return network, table(walk), table(drive)
+
+
+# ------------------------------------------------ 8. green
+GREEN_PIXEL = 25.0                  # metres, a fine land-cover map
+WESTERN_PARK = (1400.0, 2600.0, 2000.0, 3200.0)    # x0, y0, x1, y1
+HILL_FOREST = (5250.0, 3150.0, 500.0)              # cx, cy, radius
+POCKET_PARKS = 12
+
+
+def _green(rng) -> pd.DataFrame:
+    """The green pixels: x, y (pixel centres) and ha (0.0625 each). Own
+    random stream for the pocket parks, so nothing else moves."""
+    P = GREEN_PIXEL
+    xs = np.arange(P / 2, NX * U, P)
+    ys = np.arange(P / 2, NY * U, P)
+    X, Y = np.meshgrid(xs, ys, indexing="ij")
+    x0, y0, x1, y1 = WESTERN_PARK
+    park = (X >= x0) & (X < x1) & (Y >= y0) & (Y < y1)
+    cx, cy, r = HILL_FOREST
+    forest = np.hypot(X - cx, Y - cy) <= r
+    river_x0, river_x1 = RIVER_COL * U, (RIVER_COL + 1) * U
+    walk = (np.abs(X - (river_x0 - P / 2)) < 1e-9) | \
+        (np.abs(X - (river_x1 + P / 2)) < 1e-9)
+    green = park | forest | walk
+    placed = 0
+    while placed < POCKET_PARKS:
+        i = int(rng.integers(0, len(xs) - 1))
+        j = int(rng.integers(0, len(ys) - 1))
+        block = (slice(i, i + 2), slice(j, j + 2))
+        inside_river = river_x0 - P <= xs[i] <= river_x1 + P
+        if green[block].any() or inside_river:
+            continue                       # keep the parks apart
+        green[block] = True
+        placed += 1
+    return pd.DataFrame({"x": X[green], "y": Y[green],
+                         "ha": P * P / 10_000.0})
 
 
 def network_paths(network: pd.DataFrame) -> list:
@@ -299,7 +347,8 @@ ORIGIN = (654_000.0, 6_340_000.0)
 
 #: The layers, in the order a class meets them.
 LAYERS = ("people", "jobs", "workers", "workplaces", "network",
-          "friction_river", "friction_walk", "friction_drive", "altitude")
+          "friction_river", "friction_walk", "friction_drive", "altitude",
+          "green")
 
 
 def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
@@ -321,6 +370,7 @@ def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
       friction_walk   friction (the network laid on the squares)
       friction_drive  friction
       altitude        altitude_m (the hill)
+      green           ha (25 m pixels of park and forest, BACKLOG 507)
 
     Needs geopandas (pip install equipop[geo])."""
     try:
@@ -353,7 +403,7 @@ def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
               "friction_river": points(g["friction"]),
               "friction_walk": points(g["friction_walk"]),
               "friction_drive": points(g["friction_drive"]),
-              "altitude": points(alt)}
+              "altitude": points(alt), "green": points(g["green"])}
     path = str(path)
     import os
     if os.path.exists(path):

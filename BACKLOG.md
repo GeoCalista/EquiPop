@@ -3862,6 +3862,40 @@ because machine 3 stores tiles that way and says so in its manifest.
   open (GeoJSON lines, CSV tables) - which needs a decision on what
   coordinate system a made-up town claims to be in.
 
+- 507 | BUILT 19 NOVEMBER 2026, pull request, not released | PIXELS AS
+  MASS: GREEN REACH AND GREEN SHARE. (Placed here, out of order, so it
+  cannot collide with the open release pull request #17, which rewrites
+  the lines of 502-506; the next release puts it in order.) The board's
+  first target (18 November, A: image analysis); John, 19 November: "let
+  us start with the image analysis", with doors to QGIS and Pro and the
+  shared core in Python, the doors in the EXISTING plugin and toolbox
+  (a group "Rasters and images"), not a plugin of their own - Claude's
+  advice, one engine to keep in step. This is the core. equipop/
+  pixels.py: pixels_to_mass(path, classes=[...] | between=(lo, hi))
+  reads one band and returns the pixels that count with their area in
+  HECTARES (metric grids |a x e|; latitude-longitude grids by the exact
+  area of the latitude band); reach(people, mass, k) is the k-nearest
+  engine with the people as origins and the pixels as the only mass, so
+  Dist_k is the distance at which k HECTARES are gathered (k in
+  hectares, so a result does not depend on the image's resolution),
+  with Got_k saying when the map holds less than k; share_within(people,
+  mass, radius) gives the hectares within a fixed radius or each
+  person's own (a population run's Dist_400 gives the green share at
+  the scale of 400 people). Gridby gains `green` (25 m pixels, 138 ha:
+  Western Park 36 ha among the majority, Hill Forest about 79 ha beyond
+  the motorway on the minority's side, a River Walk of 20 ha, 12 pocket
+  parks of 0.25 ha; own random stream) and the GeoPackage a `green`
+  layer. Tests: reach() equals EquiPop's ring rule written out by hand,
+  person by person; the parks are where the meta says; Dist_50 east of
+  the motorway is under 0.7 of the west's; share_within equals a plain
+  loop; pixel areas on a latitude-longitude grid sum to the band's area
+  on the sphere; a small GeoTIFF read by class and by range. Broken on
+  purpose: k counted in pixels, and the forest moved west - both red.
+  The reachability matrix gains a row: Python now, QGIS and Pro next
+  (gaps with witnesses), Stata not yet.
+  NEXT: the QGIS and Pro tools; a Book section; one real city with a
+  10 m land-cover map; an index from RGB bands (excess green, hue).
+
 - 501 | DONE (repository settings, no release), 13 NOVEMBER 2026 | MAIN
   IS PROTECTED: STEP 2 OF 498 IS ON. Repository Settings -> Rules ->
   Rulesets -> "protect main": Active, on the default branch, nobody on
