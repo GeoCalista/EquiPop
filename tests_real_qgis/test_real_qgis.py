@@ -78,7 +78,14 @@ def _read(path):
 
 
 def _num(col):
-    return np.array([np.nan if v is None else float(v) for v in col])
+    """Numbers as read back; an empty value is NaN. QGIS 4 reads an
+    empty field as None, QGIS 3 as a NULL QVariant (seen in 1.66.0's
+    tool 3b, whose Dist_ and R_ can be empty)."""
+    def one(v):
+        if v is None or (hasattr(v, "isNull") and v.isNull()):
+            return np.nan
+        return float(v)
+    return np.array([one(v) for v in col])
 
 
 # Settings named explicitly on both sides, so a changed default fails
