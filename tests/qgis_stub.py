@@ -655,7 +655,7 @@ class QgsProcessingParameterFeatureSink(_Param):
 
 
 class QgsProcessingParameterBand(_Param):
-    """v1.66.0, BACKLOG 509: tool 3b's band box."""
+    """v1.65.0, BACKLOG 509: tool 3b's band box."""
     pass
 
 
@@ -772,7 +772,7 @@ class FakeRasterLayer:
         self._p = _Provider(self.arr, nodata)
         h, w = self.arr.shape
         self._ext = _Extent(xmin, ymax - h * ch, xmin + w * cw, ymax)
-        # v1.66.0, BACKLOG 509: tool 3b compares the raster's system
+        # v1.65.0, BACKLOG 509: tool 3b compares the raster's system
         # with the people's and asks for its file. "" = not a file,
         # so the door reads it through the provider, as here.
         self._crs = QgsCoordinateReferenceSystem(crs)
