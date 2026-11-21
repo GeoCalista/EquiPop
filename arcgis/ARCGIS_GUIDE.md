@@ -42,7 +42,7 @@ and all eleven must come from THE SAME RELEASE:
     EquiPop.CountsShares.pyt.xml         help for machine 1
     EquiPop.ValueStatistics.pyt.xml      help for machine 2
     EquiPop.ContinentalRasters.pyt.xml   help for machine 3
-    EquiPop.PixelReach.pyt.xml           help for tool 3b (new in 1.66.0)
+    EquiPop.PixelReach.pyt.xml           help for tool 3b (new in 1.65.0)
     EquiPop.SpatialDemography.pyt.xml    help for machine 4
     EquiPop.WorldPopCatalogue.pyt.xml    help for tool 5a
     EquiPop.OsmCatalogue.pyt.xml         help for tool 5b
@@ -124,7 +124,7 @@ under "EquiPop": *0. Show or hide tools 3-6*, *1. Counts and Shares*
 and *2. Value Statistics* - EquiPop's standard set.
 
 **Showing tools 3 to 6 (since 1.62.0).** The other seven - *Raster Data
-Curation*, *3b. Pixels as mass* (since 1.66.0), *Spatial Demographic
+Curation*, *3b. Pixels as mass* (since 1.65.0), *Spatial Demographic
 Analysis*, the three fetching tools
 *5a WorldPop*, *5b OpenStreetMap* and *5c Fetch the rows you
 selected*, and *What is in this folder?* - are hidden until you show
