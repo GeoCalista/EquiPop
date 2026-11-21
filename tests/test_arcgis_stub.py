@@ -94,6 +94,18 @@ def _install_fake_arcpy(table: pd.DataFrame):
         return k if looks_like_a_path else f"memory/{k}"
 
     def Describe(_layer):
+        # v1.65.0 (John, 21 November 2026): a BAND of a raster,
+        # <dataset>\\Band_<n> or <dataset>/Band_<n>, describes as a
+        # band - pixel size and nodata - which is where a multiband
+        # raster keeps them.
+        import re as _re
+        band = _re.match(r"^(.*)[\\/]Band_(\d+)$", str(_layer))
+        if band:
+            m = state["rasters"][_unalias(band.group(1))]
+            return types.SimpleNamespace(dataType="RasterBand",
+                                         meanCellWidth=m["cw"],
+                                         meanCellHeight=m["ch"],
+                                         noDataValue=m.get("nodata"))
         # v1.22.1: describing a CATALOG PATH must describe the layer
         # it belongs to - the door now resolves layers through
         # Describe().catalogPath, so a path comes back round.
@@ -129,9 +141,13 @@ def _install_fake_arcpy(table: pd.DataFrame):
             d.dataType = "RasterDataset"
             d.extent = types.SimpleNamespace(XMin=m["xmin"],
                                              YMax=m["ymax"])
-            d.meanCellWidth = m["cw"]
-            d.meanCellHeight = m["ch"]
-            d.noDataValue = m.get("nodata")
+            # a MULTIBAND raster's Describe has no pixel size and no
+            # nodata - real arcpy raises AttributeError for them, as
+            # a SimpleNamespace without them does (v1.65.0)
+            if not m.get("multiband"):
+                d.meanCellWidth = m["cw"]
+                d.meanCellHeight = m["ch"]
+                d.noDataValue = m.get("nodata")
         else:
             d.dataType = "Table"
             # BACKLOG 466: a real table's Describe has NO

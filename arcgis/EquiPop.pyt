@@ -4177,6 +4177,19 @@ class PixelReach:
                             + ", ".join(order))
 
 
+def _band_describe(desc, src, band):
+    """Describe of one band of a raster: <dataset>\\Band_<n>, the dataset
+    found from a layer through catalogPath. None when there is none."""
+    base = getattr(desc, "catalogPath", None) or src
+    for path in (os.path.join(str(base), f"Band_{band}"),
+                 f"{base}/Band_{band}"):
+        try:
+            return arcpy.Describe(path)
+        except Exception:
+            continue
+    return None
+
+
 def _pixel_payload(raster, desc, band, messages):
     """One band of a raster, read by arcpy, as the payload
     equipop.doors.pixelsdoor.run takes (BACKLOG 509) - the same keys
@@ -4194,19 +4207,39 @@ def _pixel_payload(raster, desc, band, messages):
     elif band != 1:
         raise arcpy.ExecuteError(f"The raster has one band; band {band} "
                                  "does not exist.")
+    # A MULTIBAND raster (a Sentinel-2 download, an orthophoto) keeps
+    # its pixel size and nodata on each BAND, not on the dataset: its
+    # Describe has no meanCellWidth at all (John, 21 November 2026,
+    # "DescribeData: Method meanCellWidth does not exist"). So the band
+    # is described when the dataset does not say.
+    cell_w = getattr(desc, "meanCellWidth", None)
+    cell_h = getattr(desc, "meanCellHeight", None)
     nodata = getattr(desc, "noDataValue", None)
-    if nodata is None:
-        try:                        # a multiband raster keeps it per band
-            nodata = getattr(arcpy.Describe(f"{src}/Band_{band}"),
-                             "noDataValue", None)
+    if cell_w is None or cell_h is None or nodata is None:
+        bd = _band_describe(desc, src, band)
+        if cell_w is None:
+            cell_w = getattr(bd, "meanCellWidth", None)
+        if cell_h is None:
+            cell_h = getattr(bd, "meanCellHeight", None)
+        if nodata is None:
+            nodata = getattr(bd, "noDataValue", None)
+    if cell_w is None or cell_h is None:
+        try:                        # the Raster object knows it too
+            r = arcpy.Raster(getattr(desc, "catalogPath", None) or src)
+            cell_w, cell_h = r.meanCellWidth, r.meanCellHeight
         except Exception:
-            nodata = None
+            pass
+    if cell_w is None or cell_h is None:
+        raise arcpy.ExecuteError(
+            "ArcGIS does not say this raster's pixel size. Export the "
+            "band you want as a single-band GeoTIFF (Export Raster) "
+            "and run again on that.")
     ext = desc.extent
     sr = getattr(desc, "spatialReference", None)
     pay = {"array": arr, "x_min": float(ext.XMin),
            "y_max": float(ext.YMax),
-           "cell_w": float(desc.meanCellWidth),
-           "cell_h": float(desc.meanCellHeight), "nodata": nodata,
+           "cell_w": float(cell_w), "cell_h": float(cell_h),
+           "nodata": nodata,
            "geographic": str(getattr(sr, "type", "")) == "Geographic"}
     messages.addMessage(
         f"Raster read by ArcGIS: band {band}, {arr.shape[0]:,} x "

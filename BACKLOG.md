@@ -3748,6 +3748,13 @@ because machine 3 stores tiles that way and says so in its manifest.
   extent read from the bottom edge, the system check removed, results
   matched on the input's identifiers, the band counted from 0, the
   shapefile check removed, a box renamed in one door.
+  FOUND IN JOHN'S HAND CHECK, 21 November, on a Sentinel-2 download in
+  Pro: "DescribeData: Method meanCellWidth does not exist". A
+  MULTIBAND raster keeps its pixel size and nodata on each band, not
+  on the dataset; Pro now describes <dataset>\\Band_<n> when the
+  dataset does not say (then arcpy.Raster, then a sentence). The
+  arcpy stand-in now describes a multiband raster as real arcpy does,
+  and the test fails on the candidate's line, as on John's PC.
   FOR THE BOARD (John's part 2, 19 November): bands and value ranges,
   and the ANALYSIS SCALE - a 10 m image summarised to 50 m cells (mean
   NDVI, or the share of green pixels) before it becomes mass; and the

@@ -175,6 +175,23 @@ def test_pro_picks_the_band_from_a_stack():
     assert np.allclose(got["Dist_1"].astype(float), _want()["Dist_1"])
 
 
+def test_pro_reads_a_multiband_raster_whose_dataset_has_no_pixel_size():
+    """John, 21 November 2026, a Sentinel-2 download in Pro:
+    "DescribeData: Method meanCellWidth does not exist". A multiband
+    raster keeps its pixel size and nodata on each band, not on the
+    dataset. BROKEN WITH: desc.meanCellWidth read from the dataset
+    (the 1.65.0 candidate) - AttributeError, as on John's PC."""
+    stack = np.stack([_cover(), np.zeros((40, 40)), np.zeros((40, 40))])
+    pyt, state, msg = _pro(array=stack)
+    state["rasters"]["cover"]["multiband"] = True
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, band=1), msg)
+    got = state["copies"]["memory/out"]
+    want = _want()
+    for c in ("Dist_1", "Got_1", "Mass_r100"):
+        assert np.allclose(got[c].astype(float), want[c]), c
+
+
 def test_pro_refuses_a_raster_in_another_system_and_copies_nothing():
     """BROKEN WITH: the copy made before the check."""
     pyt, state, msg = _pro(raster_code=3035, people_code=3006)
