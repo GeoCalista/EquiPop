@@ -86,6 +86,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-50 | Dead code is deleted, not commented out | In force |
 | R-51 | The sample data stays as it is until a publication leans on it | In force |
 | R-52 | A trip's start and end squares count as ordinary ground | In force |
+| R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
 
 ---
 
@@ -497,4 +498,20 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John, 17 November 2026: "I think it makes sense to free from friction in the start and end square", and for facilitators too, "same everywhere (for logic)". A 100 m cell cannot tell a home beside the railway from one on it. Before this, the trip home paid the whole wall, so 537 of Gridby's 19,036 residents had almost no job access on foot, and a home beside the motorway was reached at motorway speed.
 **Source.** BACKLOG 502 (found), 505 (built).
 **Pinned by.** `tests/test_start_and_end_are_ordinary_ground.py::test_the_way_home_to_a_wall_square_costs_ordinary_ground`
+**Status.** In force.
+
+## B, continued. Who counts, and how much
+
+### R-53 · Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell
+**Rule.** Tool 3b turns pixels into mass in one order, the same in every door:
+1. **Value:** one band, or a formula over the file's bands (arithmetic, abs, sqrt, and ndvi, ndwi, ndbi, savi with their band numbers). A formula is parsed and checked, never run. A pixel with nodata in any band, or a division by zero, has no value.
+2. **Base:** class codes or a range; the k hectares are gathered from these. Empty means every pixel with a value.
+3. **Treatment:** class codes or a range, looked for AMONG the base only; a treatment pixel outside the base does not count.
+4. **Hectares:** each pixel's own area.
+5. **Analysis cell:** base and treatment are decided pixel by pixel at the image's own resolution, and only then are the hectares summed into cells of the chosen size, on a grid anchored at 0, 0. A mean value is never thresholded afterwards.
+6. **k-nearest:** Dist_k is the distance at which k hectares of base are gathered; T_k is the treatment's hectares among them and R_k = T_k / k. Where the whole raster holds less than k hectares of base, Dist_k is left empty rather than given the distance to the last pixel.
+
+**Why.** John, 21 November 2026, asking for the share of "the very green out of all green" and for a band calculator: "I like it and it is exactly as I hoped." Deciding before summing keeps hectares: a 50 m cell with 7 of its 25 pixels at NDVI 0.7 holds 0.07 ha of green, while its mean NDVI (0.34) would make it all green or none depending on the threshold. The names follow Counts and Shares, so Dist_, T_ and R_ read the same everywhere.
+**Source.** BACKLOG 510; the board paper's target A, 21 November 2026.
+**Pinned by.** `tests/test_pixels_door.py::test_treatment_among_the_base_gives_t_and_r_by_hand`, `tests/test_pixels_door.py::test_a_treatment_outside_the_base_counts_nothing`, `tests/test_pixels_door.py::test_the_analysis_cell_sums_hectares_decided_pixel_by_pixel`, `tests/test_pixels.py::test_a_reach_that_never_happens_has_no_distance`, `tests/test_bandmath.py::test_anything_else_is_refused_with_a_sentence`
 **Status.** In force.

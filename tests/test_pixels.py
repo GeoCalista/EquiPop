@@ -49,7 +49,6 @@ def test_reach_is_the_engine_rule_written_out():
         for k in (1, 5, 20):
             want = _by_hand(people.x[i], people.y[i], g["green"], k)
             assert got[f"Dist_{k}"][i] == pytest.approx(want, abs=1e-6), (i, k)
-            assert got[f"Got_{k}"][i] == pytest.approx(k)
 
 
 def test_gridby_green_is_planted_where_it_says():
@@ -104,15 +103,17 @@ def test_share_within_counts_every_pixel_in_the_disc():
                 want / (math.pi * rr[i] ** 2 / 10_000))
 
 
-def test_reach_says_when_the_map_holds_less_than_k():
-    """Got_k below k means the map ran out: Dist_k is then the distance
-    to the last pixel and is no reach."""
+def test_a_reach_that_never_happens_has_no_distance():
+    """BACKLOG 510: where all the mass there is holds less than k,
+    Dist_k is EMPTY - 1.65.0 wrote the distance to the last pixel and a
+    Got_ column to warn of it, which John asked to drop. BROKEN WITH:
+    the NaN removed - Dist_5 reads 200 m, a reach that never happens."""
     people = pd.DataFrame({"x": [0.0], "y": [0.0]})
     mass = pd.DataFrame({"x": [100.0, 200.0], "y": [0.0, 0.0],
                          "ha": [1.0, 1.0]})
     r = reach(people, mass, [1, 5])
-    assert r.Got_1[0] == pytest.approx(1.0)
-    assert r.Got_5[0] == pytest.approx(2.0)
+    assert r.Dist_1[0] > 0 and np.isnan(r.Dist_5[0])
+    assert not [c for c in r.columns if c.startswith("Got_")]
 
 
 def test_pixel_area_on_a_latitude_longitude_grid():

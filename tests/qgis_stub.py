@@ -756,6 +756,9 @@ class _Provider:
         self.arr, self._nd = arr, nodata
 
     def block(self, band, extent, w, h):
+        # v1.66.0, BACKLOG 510: a stack holds several bands, from 1
+        if self.arr.ndim == 3:
+            return _Block(self.arr[band - 1])
         return _Block(self.arr)
 
     def sourceNoDataValue(self, band):
@@ -770,7 +773,7 @@ class FakeRasterLayer:
         import numpy as _np
         self.arr = _np.asarray(arr, float)
         self._p = _Provider(self.arr, nodata)
-        h, w = self.arr.shape
+        h, w = self.arr.shape[-2:]
         self._ext = _Extent(xmin, ymax - h * ch, xmin + w * cw, ymax)
         # v1.65.0, BACKLOG 509: tool 3b compares the raster's system
         # with the people's and asks for its file. "" = not a file,
@@ -791,10 +794,14 @@ class FakeRasterLayer:
         return self._ext
 
     def width(self):
-        return self.arr.shape[1]
+        return self.arr.shape[-1]
 
     def height(self):
-        return self.arr.shape[0]
+        return self.arr.shape[-2]
+
+    def bandCount(self):
+        """v1.66.0: a 2-D array is one band, a stack its first axis."""
+        return self.arr.shape[0] if self.arr.ndim == 3 else 1
 
 
 class QgsProcessing:

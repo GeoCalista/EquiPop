@@ -530,6 +530,10 @@ INTERNAL = {
     # BACKLOG 508. Machinery: the shared half of tool 3b, which both GIS
     # doors call - the typed boxes, the refusals, one run.
     "doors.pixelsdoor",
+    # BACKLOG 510. Machinery: tool 3b's value box - a band, or a
+    # formula over bands, read and never run. Reached through
+    # doors.pixelsdoor in both GIS doors and from Python.
+    "bandmath",
     # BACKLOG 438, v1.62.0. Machinery: which tools a GIS toolbox
     # LISTS (3 to 6 hidden until tool 0 shows them). Hiding is not
     # unreachability - QGIS keeps every tool registered and Pro lists

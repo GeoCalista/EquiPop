@@ -225,10 +225,10 @@ def test_value_statistics_match_the_engine(tmp_path):
 
 # ---------------------------------------------- tool 3b, pixels as mass
 def test_pixel_reach_matches_the_shared_run(tmp_path):
-    """BACKLOG 509 in a real QGIS: the raster read by QGIS's own GDAL
-    (never rasterio), the band box as real Processing gives it, the
-    tool hidden from the toolbox yet run by processing.run, and the
-    numbers those of pixelsdoor.run for the same band."""
+    """BACKLOG 509 and 510 in a real QGIS: the raster read by QGIS's own
+    GDAL (never rasterio), the chain's boxes as real Processing gives
+    them, the tool hidden from the toolbox yet run by processing.run,
+    and the numbers those of pixelsdoor.run for the same band."""
     from osgeo import gdal, osr
 
     from equipop.doors.pixelsdoor import run
@@ -251,17 +251,19 @@ def test_pixel_reach_matches_the_shared_run(tmp_path):
     lyr, d = _points()
     out = tmp_path / "pixels.gpkg"
     processing.run("equipop:pixelreach", dict(
-        layer=lyr, raster=str(tif), band=1, pixels="10 20",
-        hectares="1 20", radius="300", outfc=str(out)))
+        layer=lyr, raster=str(tif), value="1", base="10 20",
+        treatment="10", hectares="1 20", radius="300", cell="",
+        outfc=str(out)))
     got = _read(out)
     payload = {"array": a, "x_min": 674000.0, "y_max": 6583000.0,
                "cell_w": 10.0, "cell_h": 10.0, "nodata": 255,
                "geographic": False}
     import pandas as pd
     want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}), payload,
-               "10 20", "1 20", "300", say=lambda *x: None)
-    for col in ("Dist_1", "Got_1", "Dist_20", "Got_20", "Mass_r300",
-                "Share_r300"):
+               value="1", base="10 20", treatment="10", hectares="1 20",
+               radius="300", say=lambda *x: None)
+    for col in ("Dist_1", "T_1", "R_1", "Dist_20", "T_20", "R_20",
+                "B_r300", "T_r300", "R_r300"):
         assert col in got, f"{col} missing; wrote {sorted(got)}"
         np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
                                    rtol=1e-9, atol=1e-9, err_msg=col)

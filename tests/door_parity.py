@@ -108,7 +108,9 @@ LADDER_CASES = [
 ]
 
 
-# v1.65.0, BACKLOG 509 - tool 3b, pixels as mass. Every box decides
-# the answer: which raster and band, which pixels count, how many
-# hectares, and the radius of the share.
-CORE_PIXELS = {"layer", "raster", "band", "pixels", "hectares", "radius"}
+# v1.65.0, BACKLOG 509 - tool 3b, pixels as mass; v1.66.0, BACKLOG 510 -
+# its chain. Every box decides the answer: which raster, the value of a
+# pixel (a band or a formula), the base and the treatment, how many
+# hectares, the radius, and the analysis cell.
+CORE_PIXELS = {"layer", "raster", "value", "base", "treatment", "hectares",
+               "radius", "cell"}

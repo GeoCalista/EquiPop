@@ -3718,6 +3718,43 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 510 | BUILT 21 NOVEMBER 2026, pull request, not released | TOOL 3b
+  BECOMES ONE CHAIN (ruling R-53), as agreed with John the same day:
+  bands -> value -> base and treatment -> hectares -> analysis cell ->
+  Dist_k, T_k, R_k. NEW: equipop/bandmath.py, the value box - a band, or
+  a formula over the file's bands, parsed with ast and checked node by
+  node (numbers, b<n>, + - * / **, brackets, abs, sqrt, and ndvi, ndwi,
+  ndbi, savi taking their band numbers, because a download's band
+  numbers are the file's, not the satellite's), never run; float32;
+  nodata in any band and division by zero give no value.
+  pixels.mass_from_values() is the chain's middle: base (empty = every
+  pixel with a value), treatment counted among the base only, each
+  pixel's hectares, and the ANALYSIS CELL summing hectares decided pixel
+  by pixel on a grid anchored at 0, 0. pixels.reach() gains treat_col
+  (T_k, R_k = T_k / k, the engine's own group counts) and r_values (B_r,
+  T_r, R_r from the engine's radius pass), and leaves Dist_k EMPTY where
+  the mass holds less than k: Got_ is gone (John: "do we need the Got_
+  fields?"). share_within() is unchanged for Python users. The doors'
+  boxes: value (replacing band; a number still works), base and
+  treatment (replacing "which pixels count"), hectares (optional when a
+  radius is given), radius, cell. Both doors read every band a formula
+  needs (QGIS through GDAL or its provider, Pro from the stack) and pass
+  each band's nodata. Names are shorter: B_r1500 fits a shapefile where
+  Share_r1500 did not.
+  DECISION c NEEDS NO BOX. Checked: a person carries no mass, so the
+  people's own cell changes nothing - a person in solid green gives the
+  same Dist_0.1, Dist_1 and Dist_5 with a 100 m and a 10 m cell. The
+  56 m minimum John saw on Malta is the radius of a 1 ha disc. Claude
+  had called it the home cell's floor on 21 November; that was wrong,
+  and the board paper says so.
+  NOT YET: rasters in degrees (decision d) - the GIS doors must convert
+  each pixel centre with their own tools, a pull request of its own.
+  Tests broken on purpose: treatment counted outside the base, the
+  empty Dist_ filled in, cells anchored at the raster's corner, a band's
+  nodata kept, ndvi's bands swapped, attributes and any call let
+  through the formula check, QGIS reading band 1 for every band, Pro
+  picking the wrong band of a stack.
+
 - 509 | DONE v1.65.0, 21 NOVEMBER 2026 (built 19 November) | TOOL 3b
   AT BOTH GIS DOORS: "3b. Pixels as mass: green reach and share" in the
   QGIS plugin (qgis/equipop_qgis/alg_pixels.py) and the Pro toolbox
