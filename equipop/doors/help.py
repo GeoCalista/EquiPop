@@ -891,7 +891,7 @@ HELP = {
               "overwritten. equipop_fetch.json (the manifest) and "
               "equipop_recipe.csv (the rows) are written beside the "
               "files.",
-    # v1.66.0, BACKLOG 509: tool 3b, pixels as mass
+    # v1.65.0, BACKLOG 509: tool 3b, pixels as mass
     "raster": "THE IMAGE OR MAP whose pixels are the mass - a land-cover "
               "map (ESA WorldCover, CORINE, Urban Atlas) or an index "
               "computed from imagery (NDVI from Sentinel-2 or an "
@@ -941,7 +941,7 @@ LABELS = {
     # is fetching; this reads a folder that is already on disk.
     "FolderInventory": "6. What is in this folder? (reads, changes "
                        "nothing)",
-    # v1.66.0, BACKLOG 509. 3b: it belongs with raster curation, and the
+    # v1.65.0, BACKLOG 509. 3b: it belongs with raster curation, and the
     # board's first target (image analysis) starts here.
     "PixelReach": "3b. Pixels as mass: green reach and share",
     # v1.58.0 in QGIS, v1.59.0 in Pro (BACKLOG 414): look, select, fetch.

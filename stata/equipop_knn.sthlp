@@ -1,11 +1,11 @@
 {smcl}
-{* *! version 1.64.2}{...}
+{* *! version 1.65.0}{...}
 {vieweralsosee "equipop" "help equipop"}{...}
 
 {title:Title}
 
 {phang}
-{bf:equipop_knn} {hline 2} former name of {help equipop} (EquiPop 1.64.2)
+{bf:equipop_knn} {hline 2} former name of {help equipop} (EquiPop 1.65.0)
 
 {title:Description}
 

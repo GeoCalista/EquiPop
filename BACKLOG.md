@@ -3718,7 +3718,101 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 506 | BUILT 17 NOVEMBER 2026, pull request, not released | THE
+- 509 | DONE v1.65.0, 21 NOVEMBER 2026 (built 19 November) | TOOL 3b
+  AT BOTH GIS DOORS: "3b. Pixels as mass: green reach and share" in the
+  QGIS plugin (qgis/equipop_qgis/alg_pixels.py) and the Pro toolbox
+  (PixelReach in EquiPop.pyt), hidden with 3 to 6 until tool 0 shows it
+  (toolset.EXTENDED). Boxes, the same names in both doors and held by
+  door_parity.CORE_PIXELS: the people (points), the raster, its band,
+  which pixels count, the hectares, the optional radius; the output is
+  a new layer or feature class with the people's columns and the
+  results. THE HOST GIS READS THE RASTER, NEVER THE PACKAGE: QGIS with
+  its own GDAL (through its provider, up to 4 million pixels, for a
+  raster that is not a file), Pro with RasterToNumPyArray - rasterio in
+  a Pro clone means two GDALs (the elevation raster's lesson, 313). So
+  equipop/pixels.py gains pixels_from_array(), which pixels_to_mass()
+  now calls too, and pixelsdoor.run() takes a path or the door's
+  payload (the elevation raster's keys plus `geographic`), a band
+  (counted from 1; a stack is picked from), and rows without
+  coordinates (empty results; the others unchanged). Both doors check
+  the people's system BEFORE reading: degrees or feet refused (QGIS's
+  shared reader would otherwise reproject degrees to UTM and then
+  refuse the raster with advice to project it to the wrong system),
+  and a raster in another system refused (no resampling behind the
+  user's back). A decimal k is written Dist_2_5 (a geodatabase field
+  holds no '.'), and result_names() lets each door refuse a shapefile
+  that cannot hold the names before anything runs. Pro copies the
+  people first and matches results on the copy's own identifiers
+  (164). Pro's guide: eleven files travel together now. Tests drive
+  both doors against the shared run, each broken on purpose: the
+  extent read from the bottom edge, the system check removed, results
+  matched on the input's identifiers, the band counted from 0, the
+  shapefile check removed, a box renamed in one door.
+  FOUND IN JOHN'S HAND CHECK, 21 November, on a Sentinel-2 download in
+  Pro: "DescribeData: Method meanCellWidth does not exist". A
+  MULTIBAND raster keeps its pixel size and nodata on each band, not
+  on the dataset; Pro now describes <dataset>\Band_<n> when the
+  dataset does not say (then arcpy.Raster, then a sentence). The
+  arcpy stand-in now describes a multiband raster as real arcpy does,
+  and the test fails on the candidate's line, as on John's PC.
+  FOR THE BOARD (John's part 2, 19 November): bands and value ranges,
+  and the ANALYSIS SCALE - a 10 m image summarised to 50 m cells (mean
+  NDVI, or the share of green pixels) before it becomes mass; and the
+  people's own 100 m cell (the search starts at its mean radius, 56 m),
+  which is not yet a box.
+
+- 508 | DONE v1.65.0, 21 NOVEMBER 2026 (built 19 November) | TOOL 3b'S
+  SHARED HALF: equipop/doors/pixelsdoor.py. Both GIS doors for 507 stay
+  thin by calling this: parse_pixels() reads the box as typed - class
+  codes "10 20", or a range "0,4 to 1" with a decimal comma or point,
+  refusing a fractional class code and a reversed range with a
+  sentence; parse_hectares() reads k in hectares, refusing 0; run()
+  refuses a people layer in degrees and a raster in another coordinate
+  system (each door reads its own layers and passes two booleans), says
+  when no pixel matches, warns when the raster holds less than k
+  hectares around some places (Got_k), and adds Mass_r<r> and
+  Share_r<r> when a radius is typed. Its numbers are pixels.reach's and
+  share_within's, which a test holds; broken on purpose with the radius
+  read as kilometres. The tool will be "3b. Pixels as mass: green reach
+  and share", hidden with 3 to 6 until tool 0 shows it, beside 3
+  (raster curation) - the "Rasters and images" group without renaming
+  a single tool. NEXT: the QGIS algorithm and the Pro tool themselves.
+
+- 507 | DONE v1.65.0, 21 NOVEMBER 2026 (built 19 November) | PIXELS AS
+  MASS: GREEN REACH AND GREEN SHARE. (Placed here, out of order, so it
+  cannot collide with the open release pull request #17, which rewrites
+  the lines of 502-506; the next release puts it in order.) The board's
+  first target (18 November, A: image analysis); John, 19 November: "let
+  us start with the image analysis", with doors to QGIS and Pro and the
+  shared core in Python, the doors in the EXISTING plugin and toolbox
+  (a group "Rasters and images"), not a plugin of their own - Claude's
+  advice, one engine to keep in step. This is the core. equipop/
+  pixels.py: pixels_to_mass(path, classes=[...] | between=(lo, hi))
+  reads one band and returns the pixels that count with their area in
+  HECTARES (metric grids |a x e|; latitude-longitude grids by the exact
+  area of the latitude band); reach(people, mass, k) is the k-nearest
+  engine with the people as origins and the pixels as the only mass, so
+  Dist_k is the distance at which k HECTARES are gathered (k in
+  hectares, so a result does not depend on the image's resolution),
+  with Got_k saying when the map holds less than k; share_within(people,
+  mass, radius) gives the hectares within a fixed radius or each
+  person's own (a population run's Dist_400 gives the green share at
+  the scale of 400 people). Gridby gains `green` (25 m pixels, 138 ha:
+  Western Park 36 ha among the majority, Hill Forest about 79 ha beyond
+  the motorway on the minority's side, a River Walk of 20 ha, 12 pocket
+  parks of 0.25 ha; own random stream) and the GeoPackage a `green`
+  layer. Tests: reach() equals EquiPop's ring rule written out by hand,
+  person by person; the parks are where the meta says; Dist_50 east of
+  the motorway is under 0.7 of the west's; share_within equals a plain
+  loop; pixel areas on a latitude-longitude grid sum to the band's area
+  on the sphere; a small GeoTIFF read by class and by range. Broken on
+  purpose: k counted in pixels, and the forest moved west - both red.
+  The reachability matrix gains a row: Python now, QGIS and Pro next
+  (gaps with witnesses), Stata not yet.
+  NEXT: the QGIS and Pro tools; a Book section; one real city with a
+  10 m land-cover map; an index from RGB bands (excess green, hue).
+
+- 506 | DONE v1.65.0, 21 NOVEMBER 2026 (built 17 November) | THE
   RELEASE ATTACHES ITS OWN FILES. John, 17 November: "yes this should
   be automatic (also because we risk missing to attach a file at some
   point if left manual)". Until 1.64.2 he attached the QGIS, Pro and
@@ -3741,24 +3835,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   against loops), so the nine required checks would never run on it;
   Claude pushing the release branch does the same job without that.
 
-- 504 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
-  AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
-  centerpoint ... any UTM simple system would fly"). write_gridby(path)
-  in equipop.gridby writes nine layers - people, jobs, workers,
-  workplaces, network (lines with walk and drive), friction_river,
-  friction_walk, friction_drive, altitude - in ETRS89 / UTM 33N
-  (EPSG:25833), shifted by ORIGIN = (654 000, 6 340 000): the town's
-  south-west corner in open Baltic between Öland and Gotland, about
-  17.6 E 57.2 N, some 25 km from either coast. Inside Python nothing
-  moves. Tests (skipped without geopandas): the layers and CRS; the
-  four corners in the sea; every count and coordinate equal to
-  Gridby's shifted by ORIGIN; and EquiPop's features_to_friction on
-  the written lines giving exactly friction_walk and friction_drive -
-  the route a QGIS or Pro class takes. Broken on purpose: ORIGIN off
-  by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
-  release attaches gridby.gpkg (with the release automation).
-
-- 505 | BUILT 17 NOVEMBER 2026, pull request, not released | R-52:
+- 505 | DONE v1.65.0, 21 NOVEMBER 2026 (built 17 November) | R-52:
   A TRIP'S START AND END SQUARES COUNT AS ORDINARY GROUND. John, 17
   November, on 502's finding (a): "free from friction in the start and
   end square", and for fast roads too, "same everywhere (for logic)".
@@ -3799,7 +3876,24 @@ because machine 3 stores tiles that way and says so in its manifest.
   Dijkstra's; on Gridby k-NN by friction takes 5.8 s (was 5.2) and an
   FCA round trip 1.7 s (was 1.1).
 
-- 503 | BUILT 17 NOVEMBER 2026, pull request, not released | JOHN'S
+- 504 | DONE v1.65.0, 21 NOVEMBER 2026 (built 17 November) | GRIDBY
+  AS A GEOPACKAGE FOR QGIS AND PRO (John's ruling 4: "Europe is the
+  centerpoint ... any UTM simple system would fly"). write_gridby(path)
+  in equipop.gridby writes nine layers - people, jobs, workers,
+  workplaces, network (lines with walk and drive), friction_river,
+  friction_walk, friction_drive, altitude - in ETRS89 / UTM 33N
+  (EPSG:25833), shifted by ORIGIN = (654 000, 6 340 000): the town's
+  south-west corner in open Baltic between Öland and Gotland, about
+  17.6 E 57.2 N, some 25 km from either coast. Inside Python nothing
+  moves. Tests (skipped without geopandas): the layers and CRS; the
+  four corners in the sea; every count and coordinate equal to
+  Gridby's shifted by ORIGIN; and EquiPop's features_to_friction on
+  the written lines giving exactly friction_walk and friction_drive -
+  the route a QGIS or Pro class takes. Broken on purpose: ORIGIN off
+  by 50 m (lines on square edges) and zone 34 - both fail. NEXT: the
+  release attaches gridby.gpkg (with the release automation).
+
+- 503 | DONE v1.65.0, 21 NOVEMBER 2026 (built 17 November) | JOHN'S
   RULINGS 2 AND 3 OF 17 NOVEMBER. (2) A REINFORCED NEGATIVE IN GRIDBY:
   "if we have a minority and a slight over representation of low
   education, we may have interesting and real-world scenarios". The
@@ -3818,7 +3912,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   every figure DRAWN FROM DATA has a script, and the two chapter 0
   captions begin "Drawing:".
 
-- 502 | BUILT 17 NOVEMBER 2026, pull request, not released | GRIDBY
+- 502 | DONE v1.65.0, 21 NOVEMBER 2026 (built 17 November) | GRIDBY
   CARRIES A NETWORK FOR WALKERS AND DRIVERS, AND A JOB MARKET. John,
   17 November: Gridby is the one teaching town to keep; Malta and the
   other real places are for students to download themselves. So the
@@ -3861,93 +3955,6 @@ because machine 3 stores tiles that way and says so in its manifest.
   NEXT, if John agrees: the network as files a QGIS or Pro class can
   open (GeoJSON lines, CSV tables) - which needs a decision on what
   coordinate system a made-up town claims to be in.
-
-- 509 | BUILT 19 NOVEMBER 2026, pull request, not released | TOOL 3b
-  AT BOTH GIS DOORS: "3b. Pixels as mass: green reach and share" in the
-  QGIS plugin (qgis/equipop_qgis/alg_pixels.py) and the Pro toolbox
-  (PixelReach in EquiPop.pyt), hidden with 3 to 6 until tool 0 shows it
-  (toolset.EXTENDED). Boxes, the same names in both doors and held by
-  door_parity.CORE_PIXELS: the people (points), the raster, its band,
-  which pixels count, the hectares, the optional radius; the output is
-  a new layer or feature class with the people's columns and the
-  results. THE HOST GIS READS THE RASTER, NEVER THE PACKAGE: QGIS with
-  its own GDAL (through its provider, up to 4 million pixels, for a
-  raster that is not a file), Pro with RasterToNumPyArray - rasterio in
-  a Pro clone means two GDALs (the elevation raster's lesson, 313). So
-  equipop/pixels.py gains pixels_from_array(), which pixels_to_mass()
-  now calls too, and pixelsdoor.run() takes a path or the door's
-  payload (the elevation raster's keys plus `geographic`), a band
-  (counted from 1; a stack is picked from), and rows without
-  coordinates (empty results; the others unchanged). Both doors check
-  the people's system BEFORE reading: degrees or feet refused (QGIS's
-  shared reader would otherwise reproject degrees to UTM and then
-  refuse the raster with advice to project it to the wrong system),
-  and a raster in another system refused (no resampling behind the
-  user's back). A decimal k is written Dist_2_5 (a geodatabase field
-  holds no '.'), and result_names() lets each door refuse a shapefile
-  that cannot hold the names before anything runs. Pro copies the
-  people first and matches results on the copy's own identifiers
-  (164). Pro's guide: eleven files travel together now. Tests drive
-  both doors against the shared run, each broken on purpose: the
-  extent read from the bottom edge, the system check removed, results
-  matched on the input's identifiers, the band counted from 0, the
-  shapefile check removed, a box renamed in one door.
-  FOR THE BOARD (John's part 2, 19 November): bands and value ranges,
-  and the ANALYSIS SCALE - a 10 m image summarised to 50 m cells (mean
-  NDVI, or the share of green pixels) before it becomes mass; and the
-  people's own 100 m cell (the search starts at its mean radius, 56 m),
-  which is not yet a box.
-
-- 508 | BUILT 19 NOVEMBER 2026, pull request, not released | TOOL 3b'S
-  SHARED HALF: equipop/doors/pixelsdoor.py. Both GIS doors for 507 stay
-  thin by calling this: parse_pixels() reads the box as typed - class
-  codes "10 20", or a range "0,4 to 1" with a decimal comma or point,
-  refusing a fractional class code and a reversed range with a
-  sentence; parse_hectares() reads k in hectares, refusing 0; run()
-  refuses a people layer in degrees and a raster in another coordinate
-  system (each door reads its own layers and passes two booleans), says
-  when no pixel matches, warns when the raster holds less than k
-  hectares around some places (Got_k), and adds Mass_r<r> and
-  Share_r<r> when a radius is typed. Its numbers are pixels.reach's and
-  share_within's, which a test holds; broken on purpose with the radius
-  read as kilometres. The tool will be "3b. Pixels as mass: green reach
-  and share", hidden with 3 to 6 until tool 0 shows it, beside 3
-  (raster curation) - the "Rasters and images" group without renaming
-  a single tool. NEXT: the QGIS algorithm and the Pro tool themselves.
-
-- 507 | BUILT 19 NOVEMBER 2026, pull request, not released | PIXELS AS
-  MASS: GREEN REACH AND GREEN SHARE. (Placed here, out of order, so it
-  cannot collide with the open release pull request #17, which rewrites
-  the lines of 502-506; the next release puts it in order.) The board's
-  first target (18 November, A: image analysis); John, 19 November: "let
-  us start with the image analysis", with doors to QGIS and Pro and the
-  shared core in Python, the doors in the EXISTING plugin and toolbox
-  (a group "Rasters and images"), not a plugin of their own - Claude's
-  advice, one engine to keep in step. This is the core. equipop/
-  pixels.py: pixels_to_mass(path, classes=[...] | between=(lo, hi))
-  reads one band and returns the pixels that count with their area in
-  HECTARES (metric grids |a x e|; latitude-longitude grids by the exact
-  area of the latitude band); reach(people, mass, k) is the k-nearest
-  engine with the people as origins and the pixels as the only mass, so
-  Dist_k is the distance at which k HECTARES are gathered (k in
-  hectares, so a result does not depend on the image's resolution),
-  with Got_k saying when the map holds less than k; share_within(people,
-  mass, radius) gives the hectares within a fixed radius or each
-  person's own (a population run's Dist_400 gives the green share at
-  the scale of 400 people). Gridby gains `green` (25 m pixels, 138 ha:
-  Western Park 36 ha among the majority, Hill Forest about 79 ha beyond
-  the motorway on the minority's side, a River Walk of 20 ha, 12 pocket
-  parks of 0.25 ha; own random stream) and the GeoPackage a `green`
-  layer. Tests: reach() equals EquiPop's ring rule written out by hand,
-  person by person; the parks are where the meta says; Dist_50 east of
-  the motorway is under 0.7 of the west's; share_within equals a plain
-  loop; pixel areas on a latitude-longitude grid sum to the band's area
-  on the sphere; a small GeoTIFF read by class and by range. Broken on
-  purpose: k counted in pixels, and the forest moved west - both red.
-  The reachability matrix gains a row: Python now, QGIS and Pro next
-  (gaps with witnesses), Stata not yet.
-  NEXT: the QGIS and Pro tools; a Book section; one real city with a
-  10 m land-cover map; an index from RGB bands (excess green, hue).
 
 - 501 | DONE (repository settings, no release), 13 NOVEMBER 2026 | MAIN
   IS PROTECTED: STEP 2 OF 498 IS ON. Repository Settings -> Rules ->
