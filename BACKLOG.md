@@ -3772,9 +3772,19 @@ because machine 3 stores tiles that way and says so in its manifest.
   all of them, never 0. The run log says which raster played which
   part, and warns when a Sentinel-2 band code in a name or file does not
   fit its part (B04 given as nir).
+  FOUND IN JOHN'S PRO RUN ON MALTA, 22 November: Dist_20 was 251 to
+  253 m almost everywhere - the radius of a 20 ha circle, 252.3 m -
+  because every pixel was base; only near the edge of the image did it
+  grow. Not a fault, but a run that measures the raster rather than the
+  base, so the run now says so whenever the base holds 99% or more of
+  the pixels with a value. And (John: "the output message needs better
+  descriptions explaining what the different categories means") the
+  run ends with one line per new column, in the words of the boxes as
+  typed - describe(), which a door can also use for field aliases.
   NOT YET: rasters in degrees (decision d) - the GIS doors must convert
   each pixel centre with their own tools, a pull request of its own.
-  Tests broken on purpose: every name resolved to the first raster,
+  Tests broken on purpose: a column left out of the descriptions, the
+  base's share counted against nodata pixels too, every name resolved to the first raster,
   comparisons as plain 1/0 (nodata then reads "not green"), ^ left as
   Python's xor, the layers read in list order, treatment counted outside the base, the
   empty Dist_ filled in, cells anchored at the raster's corner, a band's

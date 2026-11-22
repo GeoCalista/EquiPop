@@ -440,6 +440,57 @@ def _say_roles(formula, meta, say):
         say(f"[pixels] {name}: " + ", ".join(words))
 
 
+def _what(spec, value_text, typed=""):
+    """A base or treatment box, said in words - a range as it was typed,
+    decimal comma and all."""
+    if spec is None:
+        return "every pixel with a value"
+    if "classes" in spec:
+        c = [f"{x:g}" for x in spec["classes"]]
+        return ("pixels of class " + (", ".join(c[:-1]) + " or " + c[-1]
+                                      if len(c) > 1 else c[0]))
+    lo, hi = spec["between"]
+    return (f"pixels whose value ({value_text}) is "
+            + (" ".join(str(typed).split()) or f"{lo:g} to {hi:g}"))
+
+
+def describe(value="", base="", treatment="", hectares="",
+             radius="") -> list:
+    """[(column, what it holds)] for the boxes as typed - the run log's
+    last lines, so a map's legend can be read without the manual
+    (John, 22 November 2026: "the output message needs better
+    descriptions explaining what the different categories means")."""
+    f = parse_value(value)
+    shown = f.text or "the raster as it is"
+    b = _what(parse_range(base, "base"), shown, base)
+    t_spec = parse_range(treatment, "treatment")
+    t = _what(t_spec, shown, treatment) if t_spec is not None else None
+    out = []
+    for k in parse_hectares(hectares):
+        g = _tag(k)
+        out.append((f"Dist_{g}", f"metres from the person within which "
+                    f"the nearest {k:g} ha of base lie (base: {b}). "
+                    "Small = base close by and dense. Empty where the "
+                    f"raster holds less than {k:g} ha of base."))
+        if t:
+            out.append((f"T_{g}", f"hectares of treatment ({t}) among "
+                        f"those nearest {k:g} ha of base."))
+            out.append((f"R_{g}", f"T_{g} / {k:g}: the share of the "
+                        f"nearest {k:g} ha of base that is treatment, 0 "
+                        "to 1."))
+    for r in parse_radius(radius):
+        g = _tag(r)
+        out.append((f"B_r{g}", f"hectares of base ({b}) within {r:g} m "
+                    "of the person."))
+        if t:
+            out.append((f"T_r{g}", f"hectares of treatment ({t}) within "
+                        f"{r:g} m."))
+            out.append((f"R_r{g}", f"T_r{g} / B_r{g}: the share of the "
+                        f"base within {r:g} m that is treatment, 0 to 1; "
+                        "empty where there is no base."))
+    return out
+
+
 def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
         base="", treatment="", hectares="", radius="", cell="",
         layer_is_metric: bool = True, same_crs: bool = True,
@@ -515,6 +566,20 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
            if cell_m else "")
         + (f"; treatment: {mass.t_ha.sum():,.1f} ha of it"
            if treat_spec is not None else ""))
+    if not meta["geographic"]:
+        valued = (np.isfinite(v).sum() * abs(meta["cell_w"])
+                  * abs(meta["cell_h"]) / 10_000.0)
+        if valued > 0 and mass.ha.sum() >= 0.99 * valued and ks:
+            k0 = ks[-1]
+            say(f"[pixels] NOTE: the base is {mass.ha.sum() / valued:.0%} "
+                f"of the pixels with a value, so Dist_{_tag(k0)} is about "
+                f"{100 * np.sqrt(k0 / np.pi):,.0f} m - the radius of a "
+                f"circle of {k0:g} ha - for almost everyone, and grows "
+                "only near the raster's edge or pixels without a value. "
+                "It then measures the raster, not the base. For the "
+                "distance to green, give a base (such as 0,3 to 1); for "
+                "how green the nearest hectares are, give a treatment "
+                "and read R_.")
     if treat_spec is not None and not mass.t_ha.sum() > 0:
         say("[pixels] NOTE: no base pixel is in the treatment, so every "
             "T_ and R_ is 0. Check that the treatment lies inside the "
@@ -537,6 +602,9 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
             say(f"[pixels] NOTE: the raster holds {total:,.1f} ha of "
                 f"base in all, less than {k:g}; Dist_{_tag(k)} is empty "
                 f"for {short:,} place(s).")
+    say("[pixels] The new columns:")
+    for col, text in describe(value, base, treatment, hectares, radius):
+        say(f"[pixels]   {col}: {text}")
     res = pd.DataFrame({"x": x, "y": y})
     for c in part.columns:
         if c in ("x", "y"):

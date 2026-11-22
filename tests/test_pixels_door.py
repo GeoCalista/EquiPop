@@ -436,3 +436,47 @@ def test_rasters_that_cannot_be_combined_are_refused(tmp_path, make,
         run(PEOPLE, rasters={"red": a, "nir": make(tmp_path / "b.tif",
                                                    nir)},
             value=NDVI, **CHAIN, **QUIET)
+
+
+# --- John, 22 November 2026: say what each column holds ------------------
+
+def test_the_run_ends_by_saying_what_each_new_column_holds(tmp_path):
+    """One line per column written, in the words of the boxes as typed.
+    BROKEN WITH: a column left out of describe() - the set of names
+    said then differs from the columns written."""
+    red, nir = _red_nir()
+    rasters = {"red": _tif(tmp_path / "a.tif", [red]),
+               "nir": _tif(tmp_path / "b.tif", [nir])}
+    said = []
+    got = run(PEOPLE, rasters=rasters, value=NDVI, radius="100 200",
+              say=said.append, **CHAIN)
+    i = said.index("[pixels] The new columns:")
+    lines = said[i + 1:]
+    names = {s.split(":")[0].strip("[pixels] ").strip() for s in lines}
+    assert names == set(got.columns) - {"x", "y"}
+    text = " ".join(lines)
+    assert "nearest 0.5 ha of base lie (base: pixels whose " \
+           'value (ndvi("nir", "red")) is 0,05 to 1)' in text
+    assert "R_r200: T_r200 / B_r200" in text
+
+
+def test_a_base_of_every_pixel_is_flagged_as_measuring_only_a_circle(
+        tmp_path):
+    """John's Malta run: Dist_20 was about 252 m everywhere - the radius
+    of a 20 ha circle - because every pixel was base. The run now says
+    so; with a base that picks some pixels it does not. BROKEN WITH:
+    the note's share computed against the whole raster, nodata
+    included - it then never fires on an image with a nodata edge."""
+    red, nir = _red_nir()
+    nir[:, :3] = 0                                   # a nodata edge
+    rasters = {"red": _tif(tmp_path / "a.tif", [red]),
+               "nir": _tif(tmp_path / "b.tif", [nir])}
+    said = []
+    run(PEOPLE, rasters=rasters, value=NDVI, hectares="1 2",
+        say=said.append)
+    note = [s for s in said if "the radius of a circle" in s]
+    assert len(note) == 1 and "Dist_2 is about 80 m" in note[0]
+    said = []                          # the base: the green field only
+    run(PEOPLE, rasters=rasters, value=NDVI, base="0,5 to 1",
+        hectares="0,5", say=said.append)
+    assert not any("the radius of a circle" in s for s in said)
