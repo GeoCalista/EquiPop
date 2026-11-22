@@ -243,12 +243,12 @@ def test_a_formula_over_two_bands_of_a_file(tmp_path):
         d.write(nir, 2)
     people = pd.DataFrame({"x": [500150.0], "y": [6600250.0]})
     said = []
-    got = run(people, p, value="ndvi(2, 1)", base="0,5 to 1",
-              hectares="1", say=said.append)
+    got = run(people, p, value='ndvi("s2"[2], "s2"[1])',
+              base="0,5 to 1", hectares="1", say=said.append)
     # the field IS the 1 ha of base, so Dist_1 is its farthest pixel
     assert got.Dist_1[0] == pytest.approx(45 * np.sqrt(2), abs=0.01)
-    assert any("ndvi(2, 1)" in s and "1,575 with a value" in s
-               for s in said)
+    assert any('ndvi("s2"[2], "s2"[1])' in s and "1,575 with a value"
+               in s for s in said)
     with pytest.raises(BadNumber, match="band 3 does not exist"):
         run(people, p, value="ndvi(3, 1)", base="0,5 to 1",
             hectares="1", **QUIET)
@@ -301,3 +301,138 @@ def test_the_radius_box_takes_several_radii_never_thousands(town):
               **QUIET)
     assert list(got.columns) == ["x", "y", "B_r100", "B_r200"]
     assert (got.B_r200 >= got.B_r100).all()
+
+
+# --- John, 22 November 2026: any number of rasters, named in quotes -----
+
+def _tif(path, arrays, x0=500000.0, y1=6600400.0, cell=10.0, nodata=0):
+    rasterio = pytest.importorskip("rasterio")
+    from affine import Affine
+    arrays = [np.asarray(a) for a in arrays]
+    with rasterio.open(path, "w", driver="GTiff", height=arrays[0].shape[0],
+                       width=arrays[0].shape[1], count=len(arrays),
+                       dtype=arrays[0].dtype, crs="EPSG:3006",
+                       nodata=nodata,
+                       transform=Affine(cell, 0, x0, 0, -cell, y1)) as d:
+        for i, a in enumerate(arrays, 1):
+            d.write(a, i)
+    return path
+
+
+def _red_nir():
+    red = np.full((40, 40), 1000, "uint16")
+    nir = np.full((40, 40), 1222, "uint16")            # NDVI 0.1
+    nir[10:20, 10:20] = 9000                            # NDVI 0.8
+    return red, nir
+
+
+PEOPLE = pd.DataFrame({"x": [500150.0, 500300.0], "y": [6600250.0,
+                                                       6600100.0]})
+CHAIN = dict(base="0,05 to 1", treatment="0,5 to 1", hectares="0,5 1")
+NDVI = 'ndvi("nir", "red")'
+
+
+def test_two_single_band_files_equal_one_two_band_file(tmp_path):
+    """ndvi("nir", "red") over two files gives the numbers of
+    ndvi("stack"[2], "stack"[1]) over a stack of the same bands, and the
+    run log says which file played which part. BROKEN WITH: each name
+    resolved to the first raster given - NDVI is then 0 everywhere."""
+    red, nir = _red_nir()
+    a = _tif(tmp_path / "T33SVB_B04_10m.tif", [red])
+    b = _tif(tmp_path / "T33SVB_B08_10m.tif", [nir])
+    stack = _tif(tmp_path / "stack.tif", [red, nir])
+    said = []
+    two = run(PEOPLE, rasters={"red": a, "nir": b}, value=NDVI,
+              say=said.append, **CHAIN)
+    one = run(PEOPLE, stack, value='ndvi("stack"[2], "stack"[1])',
+              **CHAIN, **QUIET)
+    for c in two.columns:
+        assert np.allclose(two[c], one[c], equal_nan=True), c
+    assert any('"red" = T33SVB_B04_10m.tif' in s for s in said)
+    assert any('ndvi: nir = "nir", red = "red"' in s for s in said)
+    assert not any("WARNING" in s for s in said)
+
+
+def test_ten_rasters_are_as_easy_as_two(tmp_path):
+    """No limit: the mean of ten rasters, each named in quotes."""
+    names = [f"r{i}" for i in range(10)]
+    rasters = {n: _tif(tmp_path / f"{n}.tif",
+                       [np.full((40, 40), 10 * (i + 1), "uint16")])
+               for i, n in enumerate(names)}
+    got = run(PEOPLE, rasters=rasters,
+              value="(" + " + ".join(f'"{n}"' for n in names) + ") / 10",
+              base="55", hectares="1", **QUIET)
+    assert got.Dist_1.notna().all()          # every pixel's mean is 55
+
+
+def test_sentinel_band_codes_that_do_not_fit_their_role_are_flagged(
+        tmp_path):
+    """The two files under the wrong names: the B08 file called "red",
+    the B04 file called "nir". The run goes on (a name is only a name)
+    but says it twice. BROKEN WITH: the file names left out of the
+    check."""
+    red, nir = _red_nir()
+    a = _tif(tmp_path / "T33SVB_B08_10m.tif", [nir])
+    b = _tif(tmp_path / "T33SVB_B04_10m.tif", [red])
+    said = []
+    # swapped, NDVI is negative everywhere; an empty base still runs
+    run(PEOPLE, rasters={"red": a, "nir": b}, value=NDVI,
+        say=said.append, hectares="1")
+    warnings = [s for s in said if "WARNING" in s]
+    assert len(warnings) == 2 and "swapped" in warnings[0]
+
+
+def test_names_are_found_whatever_their_case_and_refused_when_wrong(
+        tmp_path):
+    red, nir = _red_nir()
+    rasters = {"Red": _tif(tmp_path / "a.tif", [red]),
+               "NIR": _tif(tmp_path / "b.tif", [nir])}
+    got = run(PEOPLE, rasters=rasters, value=NDVI, **CHAIN, **QUIET)
+    assert got.Dist_1.notna().all()
+    with pytest.raises(BadNumber, match='no raster is called that.*"Red"'):
+        run(PEOPLE, rasters=rasters, value='ndvi("nir", "rod")', **CHAIN,
+            **QUIET)
+    with pytest.raises(BadNumber, match="must name the one it means"):
+        run(PEOPLE, rasters=rasters, value="", **CHAIN, **QUIET)
+    with pytest.raises(BadNumber, match="both called"):
+        run(PEOPLE, rasters=[("red", rasters["Red"]),
+                             ("red", rasters["NIR"])], value='"red"',
+            **CHAIN, **QUIET)
+
+
+def test_rasters_with_different_extents_use_their_overlap(tmp_path):
+    """"nir" covers only the north-west 30 x 30 pixels of "red"'s 40 x
+    40, on the same grid: the value exists where both do. BROKEN WITH:
+    the offset taken as 0 - the pixels then land on the wrong ones."""
+    red, nir = _red_nir()
+    a = _tif(tmp_path / "a.tif", [red])
+    b = _tif(tmp_path / "b.tif", [nir[:30, :30]])
+    said = []
+    got = run(PEOPLE, rasters={"red": a, "nir": b}, value=NDVI,
+              say=said.append, **CHAIN)
+    full = run(PEOPLE, rasters={"red": a, "nir": _tif(tmp_path / "b2.tif",
+                                                       [nir])},
+               value=NDVI, **CHAIN, **QUIET)
+    assert any("overlap in 30 x 30 pixels" in s for s in said)
+    assert got.R_0_5[0] == pytest.approx(full.R_0_5[0])   # inside both
+    # shift "nir" 5 pixels east: its green field moves 50 m with it
+    c = _tif(tmp_path / "c.tif", [nir[:, :35]], x0=500050.0)
+    moved = run(PEOPLE, rasters={"red": a, "nir": c}, value=NDVI,
+                **CHAIN, **QUIET)
+    assert moved.R_0_5[0] < 1.0
+
+
+@pytest.mark.parametrize("make, says", [
+    (lambda p, n: _tif(p, [n[::2, ::2]], cell=20.0), "one pixel size"),
+    (lambda p, n: _tif(p, [n], x0=500005.0), "not on the grid"),
+    (lambda p, n: _tif(p, [n], x0=600000.0), "do not overlap"),
+])
+def test_rasters_that_cannot_be_combined_are_refused(tmp_path, make,
+                                                     says):
+    """No resampling and no snapping behind the user's back."""
+    red, nir = _red_nir()
+    a = _tif(tmp_path / "a.tif", [red])
+    with pytest.raises(BadNumber, match=says):
+        run(PEOPLE, rasters={"red": a, "nir": make(tmp_path / "b.tif",
+                                                   nir)},
+            value=NDVI, **CHAIN, **QUIET)

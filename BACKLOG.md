@@ -3751,9 +3751,32 @@ because machine 3 stores tiles that way and says so in its manifest.
   read as ONE radius of 100,200 m (a space as a thousands separator),
   a 100 km circle round each of 9,185 points on Malta - hours. The
   radius box now takes several radii, like the hectares box.
+  RASTERS NAMED IN QUOTES, 22 November (John: in Pro "the rasters are
+  either shown by folder, by layer ... there is a fundamental risk that
+  the user will mix up what we consider to be r1"; "make sure we do not
+  limit to a few rasters ... allow for ... sqrt and power, ln, exp").
+  The raster box became a RASTERS box taking any number (QGIS: multiple
+  layers; Pro: a multivalue box), and a formula names each by its layer
+  name in quotes, as Raster Calculator does: ndvi("B08", "B04"),
+  "S2 stack"[8]. Empty = the one raster as it is; a bare number = that
+  band of the one raster. A name is found exactly, then whatever its
+  case, then with or without a file ending, since Pro names a layer
+  "B04.tif" and QGIS "B04", so one formula runs at both doors. Unknown,
+  duplicate and ambiguous names are refused with the names there are,
+  in the dialog already. The rasters must share a pixel size and a grid
+  (a shift by part of a pixel is refused, never snapped); only their
+  overlap is used. A raster the formula leaves out is named and not
+  read. bandmath gains ^ as a power beside **, exp, ln (log is refused:
+  write ln or log10), log10, floor, ceil, min, max, comparisons,
+  and/or/not and where(); a nodata pixel stays without a value through
+  all of them, never 0. The run log says which raster played which
+  part, and warns when a Sentinel-2 band code in a name or file does not
+  fit its part (B04 given as nir).
   NOT YET: rasters in degrees (decision d) - the GIS doors must convert
   each pixel centre with their own tools, a pull request of its own.
-  Tests broken on purpose: treatment counted outside the base, the
+  Tests broken on purpose: every name resolved to the first raster,
+  comparisons as plain 1/0 (nodata then reads "not green"), ^ left as
+  Python's xor, the layers read in list order, treatment counted outside the base, the
   empty Dist_ filled in, cells anchored at the raster's corner, a band's
   nodata kept, ndvi's bands swapped, attributes and any call let
   through the formula check, QGIS reading band 1 for every band, Pro

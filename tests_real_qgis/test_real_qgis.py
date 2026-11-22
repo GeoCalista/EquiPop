@@ -258,7 +258,7 @@ def test_pixel_reach_matches_the_shared_run(tmp_path):
     lyr, d = _points()
     out = tmp_path / "pixels.gpkg"
     processing.run("equipop:pixelreach", dict(
-        layer=lyr, raster=str(tif), value="1", base="10 20",
+        layer=lyr, rasters=[str(tif)], value="", base="10 20",
         treatment="10", hectares="1 20", radius="300", cell="",
         outfc=str(out)))
     got = _read(out)
@@ -271,6 +271,57 @@ def test_pixel_reach_matches_the_shared_run(tmp_path):
                radius="300", say=lambda *x: None)
     for col in ("Dist_1", "T_1", "R_1", "Dist_20", "T_20", "R_20",
                 "B_r300", "T_r300", "R_r300"):
+        assert col in got, f"{col} missing; wrote {sorted(got)}"
+        np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
+                                   rtol=1e-9, atol=1e-9, err_msg=col)
+
+
+def _tif3006(path, a, nodata=0):
+    from osgeo import gdal, osr
+    ds = gdal.GetDriverByName("GTiff").Create(str(path), a.shape[1],
+                                              a.shape[0], 1,
+                                              gdal.GDT_UInt16)
+    ds.SetGeoTransform((674000.0, 10.0, 0.0, 6583000.0, 0.0, -10.0))
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(3006)
+    ds.SetProjection(srs.ExportToWkt())
+    band = ds.GetRasterBand(1)
+    band.WriteArray(a)
+    band.SetNoDataValue(nodata)
+    ds.FlushCache()
+
+
+def test_pixel_reach_names_two_files_by_their_layer_names(tmp_path):
+    """BACKLOG 510 (John, 22 November 2026): two single-band files in
+    the rasters box, listed NIR first, named in the formula by the
+    layer names QGIS gives them - the files' names - with the ending
+    left out. The numbers are pixelsdoor.run's for the same bands."""
+    from equipop.doors.pixelsdoor import run
+    red = np.full((300, 300), 1000, np.uint16)
+    nir = np.full((300, 300), 1222, np.uint16)
+    nir[100:150, 100:150] = 9000                   # 25 ha of NDVI 0.8
+    _tif3006(tmp_path / "T33_B04_10m.tif", red)
+    _tif3006(tmp_path / "T33_B08_10m.tif", nir)
+    lyr, d = _points()
+    out = tmp_path / "ndvi.gpkg"
+    boxes = dict(value='ndvi("T33_B08_10m", "T33_B04_10m.tif")',
+                 base="0,05 to 1", treatment="0,5 to 1",
+                 hectares="1 20", radius="300", cell="")
+    processing.run("equipop:pixelreach", dict(
+        layer=lyr, rasters=[str(tmp_path / "T33_B08_10m.tif"),
+                            str(tmp_path / "T33_B04_10m.tif")],
+        outfc=str(out), **boxes))
+    got = _read(out)
+    pay = lambda a, name: {"bands": {1: a}, "x_min": 674000.0,
+                           "y_max": 6583000.0, "cell_w": 10.0,
+                           "cell_h": 10.0, "nodata": 0,
+                           "geographic": False, "source": name}
+    import pandas as pd
+    want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}),
+               rasters=[("T33_B04_10m", pay(red, "T33_B04_10m.tif")),
+                        ("T33_B08_10m", pay(nir, "T33_B08_10m.tif"))],
+               say=lambda *x: None, **boxes)
+    for col in ("Dist_1", "T_1", "R_1", "Dist_20", "B_r300", "R_r300"):
         assert col in got, f"{col} missing; wrote {sorted(got)}"
         np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
                                    rtol=1e-9, atol=1e-9, err_msg=col)

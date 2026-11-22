@@ -20,8 +20,8 @@ import os
 
 from qgis.core import (QgsProcessingException,
                        QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterMultipleLayers,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterRasterLayer,
                        QgsProcessingParameterString)
 from qgis.core import Qgis  # BACKLOG 464: scoped enums, QGIS 3.38 to 4.x
 
@@ -56,16 +56,18 @@ class PixelReach(EquipopAlgorithm):
         self.add(QgsProcessingParameterFeatureSource(
             "layer", "1. The people - a point layer in metres",
             [Qgis.ProcessingSourceType.VectorPoint]))
-        self.add(QgsProcessingParameterRasterLayer(
-            "raster", "2. The image or land-cover map (same coordinate "
-                      "system as the people)"))
-        # v1.66.0, BACKLOG 510: the chain. The value box replaces 1.65.0's
-        # band box (a band number still works); base and treatment
-        # replace "which pixels count".
+        # v1.66.0, BACKLOG 510: the chain. ANY NUMBER of rasters, which a
+        # formula names by their layer names in quotes - no list order
+        # to read two ways (John, 22 November 2026). Base and treatment
+        # replace 1.65.0's "which pixels count".
+        self.add(QgsProcessingParameterMultipleLayers(
+            "rasters", "2. Rasters: the image, or several for a formula "
+                       "(same coordinate system as the people)",
+            Qgis.ProcessingSourceType.Raster))
         self.add(QgsProcessingParameterString(
-            "value", "3. Value of each pixel - a band (1), a formula "
-                     "((b8 - b4) / (b8 + b4)) or ndvi(8, 4)",
-            defaultValue="1"))
+            "value", "3. Pixel value: empty = the raster as it is; or a "
+                     "formula naming rasters in quotes, such as "
+                     "ndvi(\"nir\", \"red\")", optional=True))
         self.add(QgsProcessingParameterString(
             "base", "4. Base: which pixels count (10 20, or 0,01 to 1; "
                     "empty = all)", optional=True))
@@ -87,13 +89,18 @@ class PixelReach(EquipopAlgorithm):
     def checkParameterValues(self, parameters, context):
         """The typed boxes refused while the dialog is still open."""
         from equipop.doors.numbers import BadNumber
-        from equipop.doors.pixelsdoor import (parse_cell, parse_hectares,
+        from equipop.doors.pixelsdoor import (bands_needed, parse_cell,
+                                              parse_hectares,
                                               parse_radius, parse_range,
                                               parse_value)
         box = lambda name: self.parameterAsString(parameters, name,
                                                   context)
         try:
             parse_value(box("value"))
+            layers = self.parameterAsLayerList(parameters, "rasters",
+                                               context) or []
+            if layers:          # every name the formula uses is there
+                bands_needed(box("value"), [lyr.name() for lyr in layers])
             parse_range(box("base"), "base")
             parse_range(box("treatment"), "treatment")
             ks = parse_hectares(box("hectares"))
@@ -110,7 +117,7 @@ class PixelReach(EquipopAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         from equipop.doors.numbers import BadNumber
         from equipop.doors.pixelsdoor import (bands_needed, result_names,
-                                              run)
+                                              run, unused)
         from equipop.doors.report import stage
 
         from .base import check_versions
@@ -121,17 +128,19 @@ class PixelReach(EquipopAlgorithm):
         if source is None:
             raise QgsProcessingException("Box 1: choose the people "
                                          "layer.")
-        raster = self.parameterAsRasterLayer(parameters, "raster",
-                                             context)
-        if raster is None:
-            raise QgsProcessingException("Box 2: choose the raster.")
+        layers = self.parameterAsLayerList(parameters, "rasters",
+                                           context) or []
+        if not layers:
+            raise QgsProcessingException("Box 2: choose a raster.")
+        by_name = [(lyr.name(), lyr) for lyr in layers]
         boxes = {name: self.parameterAsString(parameters, name, context)
                  for name in ("value", "base", "treatment", "hectares",
                               "radius", "cell")}
         try:
             names = result_names(boxes["hectares"], boxes["radius"],
                                  boxes["treatment"])
-            wanted = bands_needed(boxes["value"])
+            wanted = bands_needed(boxes["value"],
+                                  [n for n, _ in by_name])
         except BadNumber as bad:
             raise QgsProcessingException(str(bad))
         self.check_target(parameters, names, feedback)
@@ -149,11 +158,19 @@ class PixelReach(EquipopAlgorithm):
         # its height in the system's units (BACKLOG 160)
         metric = (not crs.isGeographic()
                   and _crs_unit_name(crs) in ("metres", "map units"))
-        same = same_crs(raster.crs(), crs)
+        used = [(n, lyr) for n, lyr in by_name if n in wanted]
+        idle = unused(boxes["value"], [n for n, _ in by_name])
+        if idle:
+            ch.info("Not in the pixel value, so not read: "
+                    + ", ".join(f'"{n}"' for n in idle) + ".")
+        other = [(n, lyr) for n, lyr in used
+                 if not same_crs(lyr.crs(), crs)]
+        same = not other
         if not (metric and same):
             if metric:
-                ch.warning(f"The people are in {crs.authid()}, the "
-                           f"raster in {raster.crs().authid()}.")
+                ch.warning(f"The people are in {crs.authid()}, raster "
+                           f"\"{other[0][0]}\" in "
+                           f"{other[0][1].crs().authid()}.")
             try:
                 run(pd.DataFrame({"x": [], "y": []}), None,
                     layer_is_metric=metric, same_crs=same, say=ch.info,
@@ -162,12 +179,14 @@ class PixelReach(EquipopAlgorithm):
                 raise QgsProcessingException(str(bad))
         with stage(ch, "reading the people"):
             pts = self.read_points(source, feedback)
-        with stage(ch, "reading the raster"):
-            payload = read_bands(raster, wanted, ch)
+        with stage(ch, "reading the rasters"):
+            payloads = [(n, read_bands(lyr, wanted[n], ch))
+                        for n, lyr in used]
         people = pd.DataFrame({"x": pts.data["x"], "y": pts.data["y"]})
         try:
             with stage(ch, "calculating"):
-                res = run(people, payload, say=ch.info, **boxes)
+                res = run(people, rasters=payloads, say=ch.info,
+                          **boxes)
         except BadNumber as bad:
             raise QgsProcessingException(str(bad))
         order = [c for c in res.columns if c not in ("x", "y")]
@@ -246,13 +265,15 @@ def read_bands(raster, bands, ch):
             band = ds.GetRasterBand(b)
             arrays[b] = band.ReadAsArray()
             nodata[b] = band.GetNoDataValue()
-        ch.info(f"Raster read by GDAL: band(s) "
+        ch.info(f"Raster \"{raster.name()}\" read by GDAL: band(s) "
                 f"{', '.join(map(str, bands))} of {ds.RasterCount}, "
                 f"{ds.RasterYSize:,} x {ds.RasterXSize:,} pixels of "
                 f"{gt[1]:g} x {abs(gt[5]):g}.")
         return {"bands": arrays, "x_min": gt[0], "y_max": gt[3],
                 "cell_w": gt[1], "cell_h": abs(gt[5]),
-                "nodata": nodata, "geographic": geographic}
+                "nodata": nodata, "geographic": geographic,
+                "count": ds.RasterCount,
+                "source": os.path.basename(path)}
     w, h = raster.width(), raster.height()
     if w * h > PROVIDER_LIMIT:
         raise QgsProcessingException(
@@ -269,13 +290,15 @@ def read_bands(raster, bands, ch):
         arrays[b] = np.array([[block.value(r, c) for c in range(w)]
                               for r in range(h)], dtype=float)
         nodata[b] = provider.sourceNoDataValue(b)
-    ch.info(f"Raster read through QGIS: band(s) "
+    ch.info(f"Raster \"{raster.name()}\" read through QGIS: band(s) "
             f"{', '.join(map(str, bands))}, {h:,} x {w:,} pixels.")
     return {"bands": arrays, "x_min": float(ext.xMinimum()),
             "y_max": float(ext.yMaximum()),
             "cell_w": float(ext.width()) / w,
             "cell_h": float(ext.height()) / h,
-            "nodata": nodata, "geographic": geographic}
+            "nodata": nodata, "geographic": geographic,
+            "count": raster.bandCount(),
+            "source": os.path.basename(path) or raster.name()}
 
 
 def _check_count(count, bands):

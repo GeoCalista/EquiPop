@@ -17,9 +17,14 @@ THE CHAIN (agreed with John on 21 November 2026, ruling R-53):
           -> k-nearest: Dist_k, T_k, R_k
 
 The boxes, as a person types them:
-    Value               1                    a band, as it is
-                        (b8 - b4) / (b8 + b4) a formula over bands
-                        ndvi(8, 4)           a named index
+    Rasters             one, or as many as a formula needs. A formula
+                        names each by its LAYER NAME in quotes, as
+                        Raster Calculator does - no list order to read
+                        two ways, and no limit (John, 22 November 2026)
+    Pixel value         (empty)              the one raster, as it is
+                        ndvi("nir", "red")   a named index
+                        ("nir" - "red") / ("nir" + "red")
+                        ndvi("S2"[8], "S2"[4])  bands of a stack
     Base (optional)     0,01 to 1            which pixels the k hectares
                         10 20                are counted from; empty =
                                              every pixel with a value
@@ -29,19 +34,23 @@ The boxes, as a person types them:
     Radius (optional)   100 200              metres: B_r, T_r, R_r
     Analysis cell (opt) 50                   metres; empty = the pixel
 
-The raster arrives either as a file path (Python, the runner scripts)
+Each raster arrives either as a file path (Python, the runner scripts)
 or as a PAYLOAD the door read with its own GIS:
 
-    {"bands": {8: a8, 4: a4}, "x_min": west, "y_max": north,
-     "cell_w": w, "cell_h": h, "nodata": nd or {8: nd8, 4: nd4},
-     "geographic": False}
+    {"bands": {1: a1}, "x_min": west, "y_max": north, "cell_w": w,
+     "cell_h": h, "nodata": nd or {1: nd1}, "geographic": False,
+     "count": bands in the raster, "source": "its file, for the log"}
 
 (1.65.0's "array" key - one band, or all of them as a stack - is still
-read.) The package never opens a GIS file inside Pro or QGIS (BACKLOG
-509); bands_needed() tells a door which bands to read.
+read.) The rasters must share one pixel size and lie on one grid; where
+their extents differ only the overlap is used. The package never opens
+a GIS file inside Pro or QGIS (BACKLOG 509); bands_needed() tells a door
+which bands of which raster to read.
 """
 
 from __future__ import annotations
+
+import re
 
 import pandas as pd
 
@@ -61,9 +70,77 @@ def parse_value(text):
         raise BadNumber(str(e))
 
 
-def bands_needed(value_text) -> tuple:
-    """The band numbers a door must read for this value box."""
-    return parse_value(value_text).bands
+def bands_needed(value_text, names) -> dict:
+    """{raster name: (band numbers)} a door must read for this value
+    box, the names being its rasters' (layer names): 'ndvi("nir",
+    "red")' -> {'nir': (1,), 'red': (1,)}. Refuses a name that is not
+    there, or a formula that names none when there are several."""
+    f = parse_value(value_text)
+    found = {}
+    for ref in f.rasters:
+        name = _resolve(ref, list(names))
+        found.setdefault(name, set()).update(f.bands(ref))
+    return {n: tuple(sorted(b)) for n, b in found.items()}
+
+
+#: endings a raster's file can have, which a formula may leave out
+_ENDINGS = (".tif", ".tiff", ".jp2", ".img", ".vrt", ".asc", ".nc",
+            ".hdf", ".dem", ".bil", ".grd", ".sdat", ".png", ".jpg")
+
+
+def _bare(name):
+    """A name in lower case, without the ending of a raster file."""
+    n = str(name).strip().lower()
+    for e in _ENDINGS:
+        if n.endswith(e) and len(n) > len(e):
+            return n[: -len(e)]
+    return n
+
+
+def unused(value_text, names) -> list:
+    """The rasters given that the formula does not name - a door says
+    so, and does not read them."""
+    try:
+        want = bands_needed(value_text, names)
+    except BadNumber:
+        return []
+    return [n for n in names if n not in want]
+
+
+def _resolve(ref, names):
+    """A formula's raster -> the name of one of the rasters given."""
+    from ..bandmath import ONLY
+    if len(set(names)) != len(names):
+        dup = sorted({n for n in names if names.count(n) > 1})
+        raise BadNumber(f"Two rasters are both called {dup[0]!r}. Rename "
+                        "one of the layers, so a formula can tell them "
+                        "apart.")
+    if ref is ONLY:
+        if len(names) == 1:
+            return names[0]
+        raise BadNumber(
+            f"There are {len(names)} rasters, so the pixel value must "
+            "name the one it means, in quotes: "
+            + ", ".join(f'"{n}"' for n in names) + ".")
+    if ref in names:
+        return ref
+    # Pro names a layer by its file, extension and all ("B04.tif");
+    # QGIS without ("B04"). Either spelling finds either, whatever the
+    # case, so one formula runs at both doors.
+    for key in (str.lower, _bare):
+        same = [n for n in names if key(n) == key(ref)]
+        if len(same) == 1:
+            return same[0]
+        if len(same) > 1:
+            raise BadNumber(
+                f'"{ref}" could be any of '
+                + ", ".join(f'"{n}"' for n in same)
+                + ". Write the name exactly as the layer is called.")
+    raise BadNumber(
+        f'The pixel value names "{ref}", but no raster is called that. '
+        "The rasters are: " + ", ".join(f'"{n}"' for n in names)
+        + ". (A raster is named by its layer name; rename a layer to "
+          "something short to type less.)")
 
 
 def parse_range(text, box="base", required=False):
@@ -172,31 +249,44 @@ def result_names(hectares_text, radius_text="", treatment_text="") \
     return names
 
 
-def _bands(raster, formula):
-    """{band: float32 array, nodata as NaN} for the formula's bands, and
-    where the grid lies."""
+def _name_of(raster):
+    """A raster's name when none was given: the payload's, or the
+    file's name without its extension."""
+    import os
+    if isinstance(raster, dict):
+        return str(raster.get("name") or "raster")
+    return os.path.splitext(os.path.basename(str(raster)))[0]
+
+
+def _read_one(raster, want, name):
+    """One raster's bands `want` -> ({band: float32 array, nodata as
+    NaN}, meta)."""
+    import os
+
     import numpy as np
-    want = formula.bands
+    label = f'"{name}"'
     if isinstance(raster, dict):
         meta = {k: raster[k] for k in ("x_min", "y_max", "cell_w",
                                        "cell_h")}
         meta["geographic"] = bool(raster.get("geographic"))
+        meta["source"] = str(raster.get("source") or name)
         nd = raster.get("nodata")
         got = {}
         if "bands" in raster:
             have = raster["bands"]
+            meta["count"] = raster.get("count", max(have) if have else 0)
             for b in want:
                 if b not in have:
-                    raise BadNumber(f"Band {b} was not read from the "
-                                    "raster.")
+                    raise BadNumber(f"Band {b} of {label} was not read.")
                 got[b] = have[b]
         else:                           # 1.65.0's payload
             a = np.asarray(raster["array"])
             n = a.shape[0] if a.ndim == 3 else 1
+            meta["count"] = n
             for b in want:
                 if b > n:
                     raise BadNumber(
-                        f"The raster has {n} band{'s' if n > 1 else ''}; "
+                        f"{label} has {n} band{'s' if n > 1 else ''}; "
                         f"band {b} does not exist.")
                 got[b] = a[b - 1] if a.ndim == 3 else a
         nds = {b: (nd.get(b) if isinstance(nd, dict) else nd)
@@ -207,45 +297,161 @@ def _bands(raster, formula):
         with rasterio.open(raster) as src:
             T = src.transform
             if T.b or T.d:
-                raise BadNumber(f"{raster} is a rotated raster; warp it "
-                                "to a north-up grid first.")
+                raise BadNumber(f"{label} is rotated; warp it to a "
+                                "north-up grid first.")
             for b in want:
                 if b > src.count:
                     raise BadNumber(
-                        f"The raster has {src.count} band"
+                        f"{label} has {src.count} band"
                         f"{'s' if src.count > 1 else ''}; band {b} does "
                         "not exist.")
             got = {b: src.read(b) for b in want}
             nds = {b: src.nodatavals[b - 1] for b in want}
             meta = {"x_min": T.c, "y_max": T.f, "cell_w": T.a,
-                    "cell_h": -T.e,
-                    "geographic": bool(src.crs and src.crs.is_geographic)}
+                    "cell_h": -T.e, "count": src.count,
+                    "geographic": bool(src.crs and src.crs.is_geographic),
+                    "source": os.path.basename(str(raster))}
     out = {}
     for b, a in got.items():
         a = np.array(a, np.float32)            # a copy: NaN goes in
         if a.ndim != 2:
-            raise BadNumber(f"Band {b} is not a single band.")
+            raise BadNumber(f"Band {b} of {label} is not a single band.")
         v = nds.get(b)
         if v is not None and not (isinstance(v, float) and np.isnan(v)):
             a[a == np.float32(v)] = np.nan
         out[b] = a
     shapes = {a.shape for a in out.values()}
-    if len(shapes) > 1:
-        raise BadNumber("The bands are not on one grid. All bands of a "
-                        "formula must come from one raster with one "
-                        "pixel size.")
+    if len(shapes) > 1:                         # pragma: no cover
+        raise BadNumber(f"The bands of {label} differ in size.")
+    meta["shape"] = shapes.pop()
     return out, meta
 
 
-def run(people: pd.DataFrame, raster, *, value="", base="", treatment="",
-        hectares="", radius="", cell="", layer_is_metric: bool = True,
-        same_crs: bool = True, say=print) -> pd.DataFrame:
+def _named(rasters, raster=None):
+    """The rasters as [(name, source)], from a dict {name: source}, a
+    list of pairs, or a single raster."""
+    pairs = []
+    if isinstance(rasters, dict):
+        pairs = list(rasters.items())
+    elif rasters:
+        pairs = [tuple(p) for p in rasters]
+    if raster is not None:
+        pairs.append((_name_of(raster), raster))
+    if not pairs:
+        raise BadNumber("Choose a raster.")
+    return pairs
+
+
+def _bands(rasters, formula, say=print):
+    """{formula ref: array} for every raster and band the formula reads,
+    cut to the rasters' common overlap, and where that lies. `rasters`
+    is [(name, source)]."""
+    names = [n for n, _ in rasters]
+    sources = dict(rasters)
+    which = {ref: _resolve(ref, names) for ref in formula.rasters}
+    want = {}
+    for ref, name in which.items():
+        want.setdefault(name, set()).update(formula.bands(ref))
+    read = {name: _read_one(sources[name], tuple(sorted(b)), name)
+            for name, b in want.items()}
+    first = next(iter(read))
+    ref_meta = read[first][1]
+    w, h = abs(float(ref_meta["cell_w"])), abs(float(ref_meta["cell_h"]))
+    spans = {}
+    for name, (_, m) in read.items():
+        mw, mh = abs(float(m["cell_w"])), abs(float(m["cell_h"]))
+        if abs(mw - w) > 1e-6 * w or abs(mh - h) > 1e-6 * h:
+            raise BadNumber(
+                f'"{name}" has {mw:g} x {mh:g} pixels and "{first}" '
+                f"{w:g} x {h:g}. A formula needs one pixel size: resample "
+                "one of them first (Sentinel-2's B11 and B12 are 20 m - "
+                "resample them to 10 m), since EquiPop never resamples "
+                "behind your back.")
+        if m["geographic"] != ref_meta["geographic"]:
+            raise BadNumber(f'"{name}" and "{first}" are in different '
+                            "coordinate systems.")
+        dc = (float(m["x_min"]) - float(ref_meta["x_min"])) / w
+        dr = (float(ref_meta["y_max"]) - float(m["y_max"])) / h
+        if abs(dc - round(dc)) > 1e-3 or abs(dr - round(dr)) > 1e-3:
+            raise BadNumber(
+                f'"{name}" is not on the grid of "{first}": its pixels '
+                "are shifted by part of a pixel. Snap one to the other "
+                "first (Pro: Environments > Snap Raster; QGIS: Align "
+                "Rasters).")
+        r0, c0 = int(round(dr)), int(round(dc))
+        spans[name] = (r0, c0, r0 + m["shape"][0], c0 + m["shape"][1])
+    r_lo = max(v[0] for v in spans.values())
+    c_lo = max(v[1] for v in spans.values())
+    r_hi = min(v[2] for v in spans.values())
+    c_hi = min(v[3] for v in spans.values())
+    if r_lo >= r_hi or c_lo >= c_hi:
+        raise BadNumber("The rasters do not overlap.")
+    cut = {}
+    for name, (bands, m) in read.items():
+        r0, c0 = spans[name][:2]
+        for b, a in bands.items():
+            cut[(name, b)] = a[r_lo - r0:r_hi - r0, c_lo - c0:c_hi - c0]
+        n = m.get("count", len(bands))
+        say(f'[pixels] "{name}" = {m["source"]}: {n} band'
+            f"{'s' if n != 1 else ''}, {w:g} m pixels, "
+            f"{m['shape'][0]:,} x {m['shape'][1]:,}")
+    if len(read) > 1 and any(
+            (v[2] - v[0], v[3] - v[1]) != (r_hi - r_lo, c_hi - c_lo)
+            for v in spans.values()):
+        say(f"[pixels] the rasters overlap in {r_hi - r_lo:,} x "
+            f"{c_hi - c_lo:,} pixels; only the overlap is used")
+    out = {(ref, b): cut[(name, b)] for ref, name in which.items()
+           for b in formula.bands(ref)}
+    meta = {"x_min": float(ref_meta["x_min"]) + c_lo * w,
+            "y_max": float(ref_meta["y_max"]) - r_lo * h,
+            "cell_w": w, "cell_h": h,
+            "geographic": ref_meta["geographic"],
+            "which": which,
+            "sources": {k: m["source"] for k, (_, m) in read.items()}}
+    return out, meta
+
+
+#: Sentinel-2's band codes in a file name, and the codes each role of a
+#: named index expects. A warning only: names can be anything.
+_S2 = re.compile(r"(?<![A-Za-z0-9])B(0[1-9]|1[0-2]|8A)(?![0-9A-Za-z])")
+_S2_ROLE = {"nir": {"08", "8A"}, "red": {"04"}, "green": {"03"},
+            "swir": {"11", "12"}}
+
+
+def _say_roles(formula, meta, say):
+    """The run log's line per named index - which raster plays which
+    part - and a warning when a Sentinel-2 band code in a raster's name
+    or file does not fit its part."""
+    from ..bandmath import roles
+    for name, parts in roles(formula):
+        words = []
+        for role, (ref, band) in parts:
+            raster = meta["which"][ref]
+            shown = f'"{raster}"' + (f"[{band}]" if band != 1 else "")
+            words.append(f"{role} = {shown}")
+            if band == 1:
+                text = f"{raster} {meta['sources'].get(raster, '')}"
+                found = set(_S2.findall(text))
+                if len(found) == 1 and not found & _S2_ROLE[role]:
+                    say(f"[pixels] WARNING: {name}() takes {shown} as "
+                        f"{role}, but its name says Sentinel-2 band "
+                        f"B{found.pop()}, which is not {role}. Are two "
+                        "rasters swapped?")
+        say(f"[pixels] {name}: " + ", ".join(words))
+
+
+def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
+        base="", treatment="", hectares="", radius="", cell="",
+        layer_is_metric: bool = True, same_crs: bool = True,
+        say=print) -> pd.DataFrame:
     """For each row of `people` (x, y): the chain, as the module's top
     says. Rows without coordinates (an empty geometry) get empty
     results; the others are computed as if they were alone.
 
-    layer_is_metric and same_crs are the door's own reading of its two
-    layers: the distances are in the layer's units, so they must be
+    `raster` is one raster; `rasters` = {name: raster} (or a list of
+    (name, raster) pairs) gives any number, named for the formula. layer_is_metric and same_crs are the door's own
+    reading of its layers (same_crs: EVERY raster in the people's
+    system): the distances are in the layer's units, so they must be
     metres, and the pixels are placed in the raster's coordinates, so
     the two must agree. Both are refused with a sentence that says what
     to do, never computed wrongly.
@@ -282,14 +488,15 @@ def run(people: pd.DataFrame, raster, *, value="", base="", treatment="",
         raise BadNumber("Give hectares to gather (such as 1 5 20), a "
                         "radius, or both.")
     cell_m = parse_cell(cell)
-    bands, meta = _bands(raster, formula)
+    pairs = _named(rasters, raster)
+    bands, meta = _bands(pairs, formula, say)
+    _say_roles(formula, meta, say)
     v = evaluate(formula, bands)
-    say(f"[pixels] value: {formula.text}"
-        + ("" if formula.single_band else
-           f" (bands {', '.join(map(str, formula.bands))})")
-        + f", {v.shape[0]:,} x {v.shape[1]:,} pixels of "
-          f"{abs(meta['cell_w']):g} x {abs(meta['cell_h']):g}; "
-          f"{int(np.isfinite(v).sum()):,} with a value")
+    say(f"[pixels] value: {formula.text or 'the raster as it is'}, "
+        f"{v.shape[0]:,} x "
+        f"{v.shape[1]:,} pixels of {abs(meta['cell_w']):g} x "
+        f"{abs(meta['cell_h']):g}; {int(np.isfinite(v).sum()):,} with a "
+        "value")
     try:
         mass = mass_from_values(
             v, meta["x_min"], meta["y_max"], meta["cell_w"],
@@ -300,7 +507,7 @@ def run(people: pd.DataFrame, raster, *, value="", base="", treatment="",
     if mass.empty:
         raise BadNumber(
             "No pixel is in the base. Check the base"
-            + (" and the value" if not formula.single_band else "")
+            + (" and the pixel value" if formula.text else "")
             + " against the raster: Identify a few pixels to see their "
               "values.")
     say(f"[pixels] base: {mass.ha.sum():,.1f} ha"

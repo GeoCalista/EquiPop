@@ -654,6 +654,11 @@ class QgsProcessingParameterFeatureSink(_Param):
     pass
 
 
+class QgsProcessingParameterMultipleLayers(_Param):
+    """v1.66.0, BACKLOG 510: tool 3b's rasters box."""
+    pass
+
+
 class QgsProcessingParameterBand(_Param):
     """v1.65.0, BACKLOG 509: tool 3b's band box."""
     pass
@@ -769,7 +774,8 @@ class FakeRasterLayer:
     """Enough of QgsRasterLayer for the friction and slope paths."""
 
     def __init__(self, arr, xmin=0.0, ymax=1000.0, cw=100.0,
-                 ch=100.0, nodata=None, crs="EPSG:3006", source=""):
+                 ch=100.0, nodata=None, crs="EPSG:3006", source="",
+                 name="raster"):
         import numpy as _np
         self.arr = _np.asarray(arr, float)
         self._p = _Provider(self.arr, nodata)
@@ -780,9 +786,13 @@ class FakeRasterLayer:
         # so the door reads it through the provider, as here.
         self._crs = QgsCoordinateReferenceSystem(crs)
         self._source = source
+        self._name = name          # v1.66.0: a formula names it
 
     def crs(self):
         return self._crs
+
+    def name(self):
+        return self._name
 
     def source(self):
         return self._source
@@ -971,6 +981,14 @@ class QgsProcessingAlgorithm:
     def parameterAsRasterLayer(self, parameters, name, context):
         return parameters.get(name)
 
+    def parameterAsLayerList(self, parameters, name, context):
+        """v1.66.0, BACKLOG 510: tool 3b's rasters box - a list of
+        layers, as real PyQGIS returns it."""
+        v = parameters.get(name)
+        if v is None:
+            return []
+        return list(v) if isinstance(v, (list, tuple)) else [v]
+
     def parameterAsEnum(self, parameters, name, context):
         """The SINGULAR form. Real PyQGIS has both - parameterAsEnum
         for a single choice and parameterAsEnums for allowMultiple -
@@ -1048,6 +1066,7 @@ _NAMES = [
     "QgsProcessingParameterFeatureSink",
     "QgsProcessingParameterDefinition",
     "QgsProcessingParameterRasterLayer", "QgsProcessingParameterBand",
+    "QgsProcessingParameterMultipleLayers",
     "QgsWkbTypes",
     "QgsProcessingParameterFile", "QgsProcessingParameterCrs",
     "QgsProcessingParameterFolderDestination",

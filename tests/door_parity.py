@@ -112,5 +112,5 @@ LADDER_CASES = [
 # its chain. Every box decides the answer: which raster, the value of a
 # pixel (a band or a formula), the base and the treatment, how many
 # hectares, the radius, and the analysis cell.
-CORE_PIXELS = {"layer", "raster", "value", "base", "treatment", "hectares",
+CORE_PIXELS = {"layer", "rasters", "value", "base", "treatment", "hectares",
                "radius", "cell"}
