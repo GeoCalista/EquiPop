@@ -4076,7 +4076,8 @@ class PixelReach:
                                 "(0,7 to 1; optional)", "GPString",
                    required=False),
                 hectares,
-                _p("radius", "Radius in metres (optional)", "GPString",
+                _p("radius", "Radius in metres, with spaces between "
+                             "(100 200; optional)", "GPString",
                    required=False),
                 _p("cell", "Analysis cell in metres (optional; empty = "
                            "the image's pixel)", "GPString",

@@ -3747,6 +3747,10 @@ because machine 3 stores tiles that way and says so in its manifest.
   56 m minimum John saw on Malta is the radius of a 1 ha disc. Claude
   had called it the home cell's floor on 21 November; that was wrong,
   and the board paper says so.
+  FOUND IN JOHN'S TRY, 22 November: '100 200' in the radius box was
+  read as ONE radius of 100,200 m (a space as a thousands separator),
+  a 100 km circle round each of 9,185 points on Malta - hours. The
+  radius box now takes several radii, like the hectares box.
   NOT YET: rasters in degrees (decision d) - the GIS doors must convert
   each pixel centre with their own tools, a pull request of its own.
   Tests broken on purpose: treatment counted outside the base, the

@@ -285,3 +285,19 @@ def test_result_names_are_the_columns_run_writes(town, hectares, radius,
     assert result_names(hectares, radius, treatment) == [
         c for c in got.columns if c not in ("x", "y")]
     assert not [c for c in got.columns if "." in c]
+
+
+def test_the_radius_box_takes_several_radii_never_thousands(town):
+    """John, 22 November 2026: '100 200' in the radius box was read as
+    100,200 m - one radius as wide as Malta, round 9,185 points, hours.
+    It is two radii, like the hectares box. BROKEN WITH: parse_radius
+    back on to_float, which reads a space as a thousands separator."""
+    from equipop.doors.pixelsdoor import parse_radius
+    assert parse_radius("100 200") == [100.0, 200.0]
+    assert parse_radius("150,5") == [150.5]
+    assert parse_radius("") == []
+    path, people = town
+    got = run(people, path, base="10 20", hectares="", radius="100 200",
+              **QUIET)
+    assert list(got.columns) == ["x", "y", "B_r100", "B_r200"]
+    assert (got.B_r200 >= got.B_r100).all()

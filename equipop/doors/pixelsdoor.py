@@ -26,7 +26,7 @@ The boxes, as a person types them:
     Treatment (opt.)    0,7 to 1             which of those are looked
                                              for: gives T_k and R_k
     Hectares to gather  1 5 20               k, in hectares
-    Radius (optional)   300                  metres: B_r, T_r, R_r
+    Radius (optional)   100 200              metres: B_r, T_r, R_r
     Analysis cell (opt) 50                   metres; empty = the pixel
 
 The raster arrives either as a file path (Python, the runner scripts)
@@ -119,15 +119,21 @@ def parse_hectares(text) -> list[float]:
     return sorted(set(ks))
 
 
-def parse_radius(text):
-    """'' -> None; '300' -> 300.0; refuses 0 and below."""
+def parse_radius(text) -> list[float]:
+    """'' -> []; '300' -> [300.0]; '100 200' -> [100.0, 200.0].
+
+    SEVERAL RADII, like the hectares box - never one number with a
+    space for thousands. John, 22 November 2026, typed '100 200' and the
+    box read 100,200 m: a 100 km circle round each of 9,185 points on
+    Malta, hours of work for a number nobody asked for."""
     if is_blank(text):
-        return None
-    r = to_float(text)
-    if r is None or not r > 0:
-        raise BadNumber("The radius must be one number above 0 metres, "
-                        "such as 300, or left empty.")
-    return float(r)
+        return []
+    rs = numlist(text)
+    if not rs or min(rs) <= 0:
+        raise BadNumber("A radius is in metres and above 0: one or more "
+                        "with spaces between, such as 100 200, or left "
+                        "empty.")
+    return sorted(set(float(r) for r in rs))
 
 
 def parse_cell(text):
@@ -159,8 +165,7 @@ def result_names(hectares_text, radius_text="", treatment_text="") \
         names.append(f"Dist_{_tag(k)}")
         if treat:
             names += [f"T_{_tag(k)}", f"R_{_tag(k)}"]
-    r = parse_radius(radius_text)
-    if r is not None:
+    for r in parse_radius(radius_text):
         names.append(f"B_r{_tag(r)}")
         if treat:
             names += [f"T_r{_tag(r)}", f"R_r{_tag(r)}"]
@@ -272,8 +277,8 @@ def run(people: pd.DataFrame, raster, *, value="", base="", treatment="",
     base_spec = parse_range(base, "base")
     treat_spec = parse_range(treatment, "treatment")
     ks = parse_hectares(hectares)
-    r = parse_radius(radius)
-    if not ks and r is None:
+    rs = parse_radius(radius)
+    if not ks and not rs:
         raise BadNumber("Give hectares to gather (such as 1 5 20), a "
                         "radius, or both.")
     cell_m = parse_cell(cell)
@@ -316,7 +321,7 @@ def run(people: pd.DataFrame, raster, *, value="", base="", treatment="",
         say(f"[pixels] {int((~have).sum()):,} row(s) have no "
             "coordinates (empty geometry) and get empty results.")
     here = pd.DataFrame({"x": x[have], "y": y[have]})
-    part = reach(here, mass, ks, r_values=[r] if r else [],
+    part = reach(here, mass, ks, r_values=rs,
                  treat_col="t_ha" if treat_spec is not None else None)
     total = mass.ha.sum()
     for k in ks:

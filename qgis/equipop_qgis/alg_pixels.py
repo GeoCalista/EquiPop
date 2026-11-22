@@ -76,7 +76,8 @@ class PixelReach(EquipopAlgorithm):
             "hectares", "6. Hectares to gather, with spaces between "
                         "(1 5 20)", defaultValue="1 5 20", optional=True))
         self.add(QgsProcessingParameterString(
-            "radius", "7. Radius in metres (optional)", optional=True))
+            "radius", "7. Radius in metres, with spaces between (100 200; "
+                      "optional)", optional=True))
         self.add(QgsProcessingParameterString(
             "cell", "8. Analysis cell in metres (optional; empty = the "
                     "image's pixel)", optional=True))
@@ -96,9 +97,9 @@ class PixelReach(EquipopAlgorithm):
             parse_range(box("base"), "base")
             parse_range(box("treatment"), "treatment")
             ks = parse_hectares(box("hectares"))
-            r = parse_radius(box("radius"))
+            rs = parse_radius(box("radius"))
             parse_cell(box("cell"))
-            if not ks and r is None:
+            if not ks and not rs:
                 return False, ("Give hectares to gather (such as 1 5 20), "
                                "a radius, or both.")
         except BadNumber as bad:

@@ -934,10 +934,13 @@ HELP = {
                 "can be is the radius of a disc of k hectares: 56 m for "
                 "1 ha, 126 m for 5 ha. Where the whole raster holds "
                 "less than k hectares of base, Dist_ is left empty.",
-    "radius": "OPTIONAL. A radius in metres - 300 - adds B_r, the "
-              "hectares of base within it, and with a treatment T_r and "
-              "R_r, the treatment's hectares and their share of the "
-              "base within the circle.",
+    "radius": "OPTIONAL. One or more radii in metres, with spaces "
+              "between - 100 200. Each adds B_r, the hectares of base "
+              "within it, and with a treatment T_r and R_r, the "
+              "treatment's hectares and their share of the base within "
+              "the circle. A radius as wide as the whole raster makes "
+              "every point count every pixel: slow, and no different "
+              "from the raster's own totals.",
     "cell": "OPTIONAL. THE ANALYSIS CELL in metres - 50. Base and "
             "treatment are decided at the image's own resolution first, "
             "pixel by pixel, and only THEN are the hectares summed into "
