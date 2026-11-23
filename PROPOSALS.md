@@ -1268,8 +1268,8 @@ output question early, while answering it is still cheap.
     [ ]  Literature checked against sources, NOT from memory
     [x]  Decide whether the deterministic measure goes first
          (flows mode, point 2 of "AGREED 22-23 NOVEMBER")
-    [ ]  Only then: a backlog entry, with doors deliberately deferred
-         - after release 1.66.0, when John says go
+    [x]  Only then: a backlog entry - BACKLOG 515, step 1 BUILT 23
+         November 2026 (John: "Please start"), in both GIS doors
 
 **Literature named from memory and NOT verified** — Huff on retail
 gravity, Fotheringham on competing destinations, Luo and Wang on

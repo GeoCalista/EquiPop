@@ -18,12 +18,90 @@ Text moved unchanged from arcgis/make_help_xml.py in 1.18.0.
 """
 
 HELP = {
+    # -- machine 7, step 1: tool 7, who goes where (BACKLOG 515) ------
+    "origins":
+        "THE PEOPLE: a point layer, in a projected system in metres - "
+        "homes, address points, or the cells of a population grid as "
+        "points. Each point sends its people to the destinations.",
+    "peoplefield":
+        "HOW MANY LIVE AT EACH POINT - a population field. Leave empty "
+        "when every point is one person. A point with no value is "
+        "refused rather than read as 0.",
+    "dests":
+        "THE DESTINATIONS: a point layer in the same coordinate system "
+        "as the people - schools, preschools, workplaces, clinics, "
+        "shops.",
+    "capfield":
+        "HOW MANY EACH DESTINATION TAKES - places, seats, jobs. Leave "
+        "empty for no limit at all (then nobody is turned away). 0 is "
+        "a destination that is closed. A destination with no value is "
+        "refused rather than read as 0.",
+    "choose":
+        "HOW PEOPLE CHOOSE. Random order, the nearest with room: groups "
+        "of people from every point join one queue in a random order, "
+        "and each takes the nearest destination that still has room - "
+        "first come, first served, as at a clinic or a shop. Random "
+        "order, drawn by distance decay: the same queue, but each group "
+        "draws among the destinations with room, a nearer one more "
+        "often (set the half-life). Closest first: no randomness - the "
+        "closest person-destination pairs are matched first, as when "
+        "the nearest have priority (preschools, schools). Flows: no "
+        "queue and no capacity - each point's people are spread over "
+        "the destinations by distance decay, and each destination's "
+        "load is the PRESSURE on it, which Sim_Ratio compares with its "
+        "places.",
+    "decayhalf":
+        "THE HALF-LIFE, in metres, for 'drawn by distance decay' and "
+        "'flows': a destination this far away weighs half as much as "
+        "one at the door, twice as far a quarter. With destinations "
+        "spread evenly the average trip comes out near 2.9 half-lives "
+        "and the most common one near 1.4 (John's point, 23 November "
+        "2026). Not used by the other two choices.",
+    "farthest":
+        "THE FARTHEST anyone goes, in metres. Beyond it nobody travels: "
+        "people whose destinations within it are all full are counted "
+        "as unmet. Empty: no limit, so people are unmet only when every "
+        "destination is full.",
+    "groupsize":
+        "PEOPLE WHO MOVE TOGETHER in the random queue - 10 by default, "
+        "1 for one person at a time. Groups of equal size keep a big "
+        "point from taking all its luck at once. A group that finds "
+        "less room than it has people fills it, and the rest go on to "
+        "the next choice.",
+    "runs":
+        "HOW MANY TIMES the random queue is drawn. The Sim_ columns are "
+        "averages over the runs, and Sim_Spread and Sim_LoadSd say how "
+        "much they move from run to run. 20 is a start; more runs, "
+        "steadier averages. Closest first and flows draw nothing, so "
+        "they run once.",
+    "runseed":
+        "THE SEED: the same seed, the same numbers, on any computer. "
+        "The queue's order and the choices are drawn from two separate "
+        "streams of it. To compare two situations - a school closed, a "
+        "new one built - keep the seed, so the difference is the change "
+        "and not luck.",
+    "speed":
+        "THE SPEED, in km/h, that turns metres into minutes: 5 for "
+        "walking, 15 for cycling. Distances are straight lines in this "
+        "first version; streets, barriers and slope come later.",
+    "out_origins":
+        "THE PEOPLE, WITH THEIR RESULTS: the people layer, each point "
+        "with how many found a place, how many did not, and how far "
+        "they went.",
+    "out_dests":
+        "THE DESTINATIONS, WITH THEIR LOAD: how many came, against how "
+        "many places, and how often each filled.",
+    "out_trips":
+        "THE TRIPS: one line from a people point to a destination for "
+        "each pair used in the FIRST run, with how many made it. A map "
+        "of who goes where.",
     # v1.62.0, BACKLOG 438: tool 0's one box.
     "show":
         "WHICH TOOLS THE TOOLBOX SHOWS. Tools 1 and 2 - counts and "
-        "shares, value statistics - are always shown. Tools 3 to 6 - "
+        "shares, value statistics - are always shown. Tools 3 to 7 - "
         "raster curation, spatial demography, the downloads (5a to "
-        "5c) and the folder inventory - are hidden until you choose "
+        "5c), the folder inventory and who goes where - are hidden "
+        "until you choose "
         "'All tools' here. Hiding only changes the list: nothing is "
         "uninstalled, results do not change, and the choice is kept "
         "for the next session and for both QGIS and ArcGIS Pro on this "
@@ -976,7 +1054,7 @@ HELP = {
 LABELS = {
     # v1.62.0, BACKLOG 438. Numbered 0: it is about the toolbox, not
     # an analysis, and it must sort first so it is found.
-    "ShowTools": "0. Show or hide tools 3-6",
+    "ShowTools": "0. Show or hide tools 3-7",
     "CountsShares": "1. Counts and Shares (k / radius / decay)",
     "ValueStatistics": "2. Value Statistics (numeric fields among the "
                        "k nearest)",
@@ -989,6 +1067,8 @@ LABELS = {
     # v1.65.0, BACKLOG 509. 3b: it belongs with raster curation, and the
     # board's first target (image analysis) starts here.
     "PixelReach": "3b. Pixels as mass: green reach and share",
+    # v1.66.0, BACKLOG 515: machine 7, step 1 (PROPOSALS.md section 3).
+    "Assignment": "7. Who goes where: destinations that fill up",
     # v1.58.0 in QGIS, v1.59.0 in Pro (BACKLOG 414): look, select, fetch.
     "WorldPopCatalogue": "5a. WorldPop - what is there? (lists, downloads "
                          "nothing)",
@@ -1000,6 +1080,18 @@ LABELS = {
 
 
 SUMMARY = {
+    "Assignment":
+        "Sends the people at each point to destinations that can fill "
+        "up - schools, preschools, workplaces, clinics. People choose "
+        "the nearest destination with room, or draw one by distance "
+        "decay, in a random order repeated over several runs; or the "
+        "closest pairs are matched first; or, without capacity, each "
+        "point's people are spread as flows to show the pressure on "
+        "each destination. Three layers come back: the people with how "
+        "many found a place and how far they went, the destinations "
+        "with their load against their places, and the trips of the "
+        "first run as lines. Machine 7, step 1: straight-line "
+        "distances, one activity at a time.",
     "PixelReach":
         "Treats the pixels of an image or a land-cover map as MASS and "
         "measures, from every point, how far one must go to gather k "
@@ -1013,10 +1105,11 @@ SUMMARY = {
         "they mean in Counts and Shares. k is in HECTARES, so a 10 m "
         "and a 30 m map give the same answer for the same ground.",
     "ShowTools":
-        "Shows or hides tools 3 to 6 in the toolbox. Tools 1 and 2 are "
-        "EquiPop's standard set and are always there; 3 to 6 - raster "
+        "Shows or hides tools 3 to 7 in the toolbox. Tools 1 and 2 are "
+        "EquiPop's standard set and are always there; 3 to 7 - raster "
         "curation, spatial demography, downloads from WorldPop and "
-        "OpenStreetMap, and the folder inventory - are hidden until "
+        "OpenStreetMap, the folder inventory and who goes where - are "
+        "hidden until "
         "you show them here. Nothing is installed or removed, and no "
         "result changes.",
     "WorldPopCatalogue":
@@ -1122,6 +1215,20 @@ SUMMARY = {
 }
 
 USAGE = {
+    "Assignment":
+        "Start with your people and destinations in one projected "
+        "system in metres, and a capacity field if places are limited. "
+        "'Random order: the nearest with room' is the plain question: "
+        "who gets a place, and how far do the others have to go? Keep "
+        "the seed when you compare two situations - a destination "
+        "closed, one added - so the difference is the change, not "
+        "luck. The Sim_ columns are averages over the runs: read "
+        "Sim_Spread before trusting a small difference. 'Flows' asks "
+        "something else - not who gets in, but how many would like to "
+        "- and is the planner's view of the pressure on each place. "
+        "Straight lines are a first version: friction, barriers and "
+        "travel modes follow. "
+        "MORE TOOLS: 3 to 7 are hidden until shown; {showtools}",
     "PixelReach":
         "Give the people layer and the raster - or several rasters - in "
         "the same metric coordinate system. Pixel value: empty for the "
@@ -1134,7 +1241,7 @@ USAGE = {
         "tens of millions of pixels: clip it to the study area, or give "
         "an analysis cell of 50 m.",
     "ShowTools":
-        "Choose 'All tools, 1 to 6' and run; {afterswitch} Run it again "
+        "Choose 'All tools, 1 to 7' and run; {afterswitch} Run it again "
         "with 'Only tools 1 and 2' to hide them. The choice is saved "
         "for both QGIS and ArcGIS Pro on this computer.",
     "WorldPopCatalogue":
@@ -1217,8 +1324,9 @@ USAGE = {
         "quarters the number of origins. Long result names need a "
         "roomy target: shapefile field names cap at 10 characters, "
         "so {container} is the safer home for them. "
-        "MORE TOOLS: 3 to 6 - raster curation, spatial demography, "
-        "downloads and the folder inventory - are hidden until shown; "
+        "MORE TOOLS: 3 to 7 - raster curation, spatial demography, "
+        "downloads, the folder inventory and who goes where - are "
+        "hidden until shown; "
         "{showtools}",
     "ValueStatistics":
         "Give the treatment values, tick the measures, set k. Use the "
@@ -1229,8 +1337,9 @@ USAGE = {
         "split inequality between and within groups. As with "
         "machine 1, cell size controls the "
         "runtime and {container} avoids the shapefile name limit. "
-        "MORE TOOLS: 3 to 6 - raster curation, spatial demography, "
-        "downloads and the folder inventory - are hidden until shown; "
+        "MORE TOOLS: 3 to 7 - raster curation, spatial demography, "
+        "downloads, the folder inventory and who goes where - are "
+        "hidden until shown; "
         "{showtools}",
 }
 
@@ -1257,7 +1366,7 @@ USAGE = {
 # first".
 VOCAB = {
     # v1.62.0, BACKLOG 438: how hidden tools are shown, in each door
-    "showtools": ("run 0. Show or hide tools 3-6, then right-click the "
+    "showtools": ("run 0. Show or hide tools 3-7, then right-click the "
                   "EquiPop toolbox in the Catalog pane and choose "
                   "Refresh."),
     "afterswitch": ("then right-click the EquiPop toolbox in the "
@@ -1275,7 +1384,7 @@ VOCAB = {
                       "selected)"),
 }
 VOCAB_QGIS = {
-    "showtools": ("run 0. Show or hide tools 3-6 in the EquiPop group "
+    "showtools": ("run 0. Show or hide tools 3-7 in the EquiPop group "
                   "of the Processing Toolbox."),
     "afterswitch": ("they appear in the Processing Toolbox at once (if "
                     "not, restart QGIS). Hidden tools still run from "

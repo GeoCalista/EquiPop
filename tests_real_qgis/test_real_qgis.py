@@ -368,3 +368,58 @@ def test_pixel_reach_honours_a_gdal_mask(tmp_path):
     for col in ("Dist_1", "Dist_20", "B_r300"):
         np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
                                    rtol=1e-9, atol=1e-9, err_msg=col)
+
+
+def _schools(n=8, seed=3):
+    """Destinations in the same town, with a capacity field."""
+    rng = np.random.RandomState(seed)
+    x = 674000 + rng.uniform(0, 3000, n)
+    y = 6580000 + rng.uniform(0, 3000, n)
+    places = rng.randint(30, 200, n).astype(float)
+    lyr = QgsVectorLayer("Point?crs=EPSG:3006&field=sid:integer"
+                         "&field=places:double", "schools", "memory")
+    feats = []
+    for i in range(n):
+        f = QgsFeature(lyr.fields())
+        f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x[i], y[i])))
+        f.setAttributes([i, float(places[i])])
+        feats.append(f)
+    assert lyr.dataProvider().addFeatures(feats)
+    lyr.updateExtents()
+    return lyr, {"x": x, "y": y, "places": places}
+
+
+@pytest.mark.parametrize("choose", [0, 1, 2, 3])
+def test_assignment_through_processing_run(tmp_path, choose):
+    """Tool 7 (BACKLOG 515) through processing.run, written to
+    GeoPackages and read back: the numbers are equipop.assign's for the
+    same points, and the trips are lines."""
+    import pandas as pd
+    from equipop.assign import assign
+    from equipop.doors.assigndoor import METHOD_KEYS
+    people, d = _points()
+    schools, s = _schools()
+    out = {k: str(tmp_path / f"{k}.gpkg") for k in ("o", "d", "t")}
+    processing.run("equipop:assignment", dict(
+        origins=people, peoplefield="pop", dests=schools,
+        capfield="places", choose=choose, decayhalf="700", runs="3",
+        out_origins=out["o"], out_dests=out["d"], out_trips=out["t"]))
+    want = assign(pd.DataFrame({"x": d["x"], "y": d["y"],
+                                "pop": d["pop"]}),
+                  pd.DataFrame({"x": s["x"], "y": s["y"],
+                                "places": s["places"]}),
+                  method=METHOD_KEYS[choose], people="pop",
+                  capacity="places", half_life=700.0, runs=3)
+    got = _read(out["o"])
+    np.testing.assert_allclose(_num(got["Sim_Placed"]),
+                               want.origins.Sim_Placed.to_numpy(),
+                               rtol=1e-9, atol=1e-9)
+    lyr = QgsVectorLayer(out["d"], "d", "ogr")
+    loads = sorted((f["sid"], f["Sim_Load"]) for f in lyr.getFeatures())
+    np.testing.assert_allclose([v for _, v in loads],
+                               want.destinations.Sim_Load.to_numpy(),
+                               rtol=1e-9, atol=1e-9)
+    trips = QgsVectorLayer(out["t"], "t", "ogr")
+    assert trips.isValid() and trips.featureCount() == len(want.trips)
+    f = next(trips.getFeatures())
+    assert len(list(f.geometry().vertices())) == 2      # one straight line

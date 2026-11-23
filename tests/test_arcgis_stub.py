@@ -366,7 +366,12 @@ def _install_fake_arcpy(table: pd.DataFrame):
         # (field, Malta, v1.20 - this is what made KeyError 'OBJECTID'
         # possible). The simulator must rename it too, or the bug is
         # invisible here.
-        t = state["table"].copy()
+        # v1.66.0, BACKLOG 515: the layer ASKED FOR, when the test
+        # named one - tool 7 copies two layers, people and
+        # destinations, and copying "the" table for both would write
+        # the destinations' results onto a copy of the people
+        named = state.get("layers", {}).get(_unalias(_layer))
+        t = (named if named is not None else state["table"]).copy()
         src_oid = state.get("oid_names", {}).get(str(_layer),
                                                  "OBJECTID")
         dst_oid = state.get("oid_names", {}).get(str(out), "OBJECTID")
@@ -692,6 +697,39 @@ def _install_fake_arcpy(table: pd.DataFrame):
         return (table_key(target) in state.get("created", {})
                 or Exists(target))
 
+    # ---- v1.66.0, BACKLOG 515: a LINE feature class written row by
+    # row - tool 7's trips. CreateFeatureclass files it like a table,
+    # with SHAPE@ as a field InsertCursor accepts; a geometry must be a
+    # Polyline built from an Array of Points, with a spatial reference.
+    def CreateFeatureclass(out_path, out_name, geometry_type="POINT",
+                           *a, spatial_reference=None, **kw):
+        key = table_key(f"{out_path}/{out_name}")
+        state.setdefault("created", {})[key] = pd.DataFrame()
+        state.setdefault("field_types", {})[key] = {
+            "SHAPE@": ("GEOMETRY", None)}
+        state.setdefault("geometry_types", {})[key] = str(geometry_type)
+        state.setdefault("created_sr", {})[key] = spatial_reference
+        return key
+
+    class Point:
+        def __init__(self, X=0.0, Y=0.0, *a):
+            self.X, self.Y = float(X), float(Y)
+
+    class Array(list):
+        pass
+
+    class Polyline:
+        def __init__(self, array, spatial_reference=None, *a):
+            pts = list(array)
+            if len(pts) < 2 or not all(isinstance(p, Point)
+                                       for p in pts):
+                raise ValueError("Polyline: an Array of two or more "
+                                 "Points")
+            self.points = [(p.X, p.Y) for p in pts]
+            self.spatialReference = spatial_reference
+
+    arcpy.Point, arcpy.Array, arcpy.Polyline = Point, Array, Polyline
+    mgmt.CreateFeatureclass = CreateFeatureclass
     mgmt.CreateTable = CreateTable
     mgmt.AddField = AddFieldAnywhere
     mgmt.Delete = DeleteAnything

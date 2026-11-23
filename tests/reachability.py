@@ -126,6 +126,18 @@ MATRIX = {
             "points and run machine 1; to be asked of the board.", 507,
             absent=("stata/equipop.ado", "pixels_to_mass")),
     },
+    # BACKLOG 515, 23 November 2026: machine 7, step 1 - who goes where
+    # when destinations fill up (PROPOSALS.md section 3). Both GIS
+    # doors from the start, hidden with 3 to 7 until tool 0 shows it.
+    "machine 7 - who goes where (assignment with capacity)": {
+        "python": door("equipop/assign.py", "def assign("),
+        "qgis": door("qgis/equipop_qgis/alg_assign.py", "assigndoor"),
+        "pro": door("arcgis/EquiPop.pyt", "class Assignment"),
+        "stata": not_yet(
+            "Not planned yet: the board to decide whether Stata users "
+            "need it, after steps 2 and 3.", 515,
+            absent=("stata/equipop.ado", "assign")),
+    },
     # ---------------------------------------------------- the machines
     "machine 1 - counts and shares": {
         "python": PYTHON,
@@ -496,6 +508,9 @@ INTERNAL = {
     # v1.60.0, BACKLOG 416. The arithmetic behind machine 4's rates and
     # life expectancies; reached through doors.demography.run_indices.
     "doors.vital",
+    # v1.66.0, BACKLOG 515: machine 7's engine (its capability is the
+    # matrix row above) and the half both GIS doors share
+    "assign", "doors.assigndoor",
     "doors.help", "doors.report", "doors.fields", "doors.loader",
     "doors.rungs", "doors.registry", "doors.reference",
     "doors.decaynames", "doors.demography", "doors.continental",

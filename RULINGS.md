@@ -89,6 +89,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
 | R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
 | R-55 | Mass inside a cell is spread evenly over the cell's real area | In force |
+| R-56 | Who goes where: one queue of equal groups in a random order, full is full | In force |
 
 ---
 
@@ -532,4 +533,13 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** The external review, 23 November 2026: one 10 m pixel, k = 0.01 ha, gave 56.42 m - the disc of a hidden 100 m cell - where the pixel's own disc is 5.64 m. Of the three ways to read a little green in a coarse cell (spread evenly, packed in a disc at the centre, or zero), John chose spread evenly, which is how EquiPop already treats people in their own cell. Built the same day, it showed the hidden size reached further than the review found: everyone's first ring starts at the edge of their own cell's disc, so a 100 m cell moved every distance gathered in the nearest pixel (215.85 m against 212.17 m with the real 10 m pixel).
 **Source.** BACKLOG 512.
 **Pinned by.** `tests/test_pixels_door.py::test_a_person_on_a_pixel_gathers_it_within_the_pixel_s_own_disc`, `tests/test_pixels_door.py::test_a_partly_green_analysis_cell_spreads_its_green_over_the_cell`, `tests/test_pixels_door.py::test_a_non_square_pixel_counts_by_its_area`, `tests/test_pixels_door.py::test_the_first_ring_starts_at_the_edge_of_the_real_cell`
+**Status.** In force.
+
+## J. Who goes where (machine 7)
+
+### R-56 · Who goes where: one queue of equal groups in a random order, full is full
+**Rule.** When destinations can fill up, every point's people join ONE queue as groups of equal size (10 by default), in an order drawn at random; each group takes its choice among the destinations that still have room, and a group finding less room than it has people fills it and sends the rest to its next choice. A full destination is full for everyone after it, whatever their point. The order and the choices are drawn from separate seed streams, and the numbers are averaged over repeated runs and named Sim_. Where the nearest have priority instead, the closest person-destination pairs are matched first (the stable matching). Flows ignore capacity and report the pressure.
+**Why.** John and Claude, 21-23 November 2026 (PROPOSALS.md section 3): capacity makes one person's outcome depend on everyone else's, so the order must be stated; a random order of equal groups keeps a big point from taking all its luck at once ("what if we pick the locations at random and run all individuals there at the same time"), and "closest first" is the deterministic alternative for places with priority by distance.
+**Source.** BACKLOG 515.
+**Pinned by.** `tests/test_assign.py::test_everyone_arrives_or_is_unmet_and_no_destination_overflows`, `tests/test_assign.py::test_unlimited_capacity_gives_everyone_their_nearest_whatever_the_seed`, `tests/test_assign.py::test_the_same_seed_gives_the_same_numbers_and_another_seed_differs`, `tests/test_assign.py::test_closest_first_is_the_stable_matching`
 **Status.** In force.

@@ -41,7 +41,9 @@ STANDARD = ("ShowTools", "CountsShares", "ValueStatistics")
 #: Hidden until shown. SpatialDataFetch (5d) is QGIS's older fetch.
 EXTENDED = ("ContinentalRasters", "PixelReach", "SpatialDemography",
             "WorldPopCatalogue", "OsmCatalogue", "FetchSelected",
-            "SpatialDataFetch", "FolderInventory")
+            "SpatialDataFetch", "FolderInventory",
+            # machine 7, step 1 (BACKLOG 515): new, so hidden too
+            "Assignment")
 ENV = "EQUIPOP_SHOW_ALL_TOOLS"
 KEY = "show_all_tools"
 #: John's ruling: hidden unless chosen.
@@ -49,7 +51,7 @@ DEFAULT = False
 
 #: The two answers tool 0 offers, in this order in both doors.
 CHOICES = ("Only tools 1 and 2 (the standard set)",
-           "All tools, 1 to 6")
+           "All tools, 1 to 7")
 
 _cache: dict = {}
 
@@ -91,7 +93,7 @@ def _read() -> dict:
 
 
 def show_all() -> bool:
-    """True when tools 3 to 6 should be shown."""
+    """True when tools 3 to 7 should be shown."""
     env = _env_choice()
     if env is not None:
         return env
@@ -128,8 +130,8 @@ def state_sentence() -> str:
     """What the toolbox shows now, and why - for tool 0's messages."""
     env = _env_choice()
     shown = show_all()
-    what = ("all tools, 1 to 6" if shown
-            else "only tools 1 and 2 (3 to 6 are hidden)")
+    what = ("all tools, 1 to 7" if shown
+            else "only tools 1 and 2 (3 to 7 are hidden)")
     if env is not None:
         return (f"The toolbox shows {what}: the environment variable "
                 f"{ENV} says so, and it overrides the saved choice.")

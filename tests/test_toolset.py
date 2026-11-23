@@ -2,7 +2,7 @@
 """Tools 3 to 6 hidden until shown (v1.62.0, BACKLOG 438).
 
 John, 25 October 2026: one plugin, the same in every detail except
-whether tools 3 to 6 are listed - "let us make the default to hide -
+whether tools 3 to 7 are listed - "let us make the default to hide -
 but please indicate in help etc., how it can be lifted".
 
 Hiding must change the LIST and nothing else: in QGIS every tool stays
@@ -228,7 +228,7 @@ def test_tools_1_and_2_say_how_to_show_the_rest(vocab, where):
     BROKEN WITH: the sentence left out of tool 2's usage."""
     for tool in ("CountsShares", "ValueStatistics"):
         text = usage_for(tool, vocab)
-        assert "0. Show or hide tools 3-6" in text, tool
+        assert "0. Show or hide tools 3-7" in text, tool
         assert where in text, tool
 
 
@@ -237,5 +237,5 @@ def test_tools_1_and_2_say_how_to_show_the_rest(vocab, where):
 def test_the_guides_say_how_to_show_the_rest(doc):
     """BROKEN WITH: the QGIS readme still listing two tools only."""
     text = (ROOT / doc).read_text(encoding="utf-8")
-    assert "0. Show or hide tools 3-6" in text
+    assert "0. Show or hide tools 3-7" in text
     assert "hidden" in text

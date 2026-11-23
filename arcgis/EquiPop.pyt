@@ -4629,6 +4629,237 @@ def _inventory_rows(got):
     return out
 
 
+class Assignment:
+    """TOOL 7 for Pro: who goes where when destinations fill up
+    (machine 7, step 1; BACKLOG 515; ruling R-56). The QGIS twin is
+    qgis/equipop_qgis/alg_assign.py.
+
+    Thin. Every number is made in equipop.assign and
+    equipop.doors.assigndoor, which QGIS calls with the same boxes.
+    What is Pro's own: reading two point layers and their fields,
+    comparing their spatial references, and writing three feature
+    classes - the people and the destinations COPIED and given their
+    results (matched on the copies' own identifiers, BACKLOG 164), and
+    the trips of the first run as lines.
+    """
+
+    def __init__(self):
+        self.label = "7. Who goes where: destinations that fill up"
+        from equipop.doors.help import SUMMARY
+        self.description = SUMMARY["Assignment"]
+
+    def getParameterInfo(self):
+        from equipop.doors.assigndoor import METHOD_LABELS
+        people = _p("peoplefield", "How many live at each point (empty = "
+                                   "one each)", "Field", required=False)
+        people.parameterDependencies = ["origins"]
+        people.filter.list = ["Short", "Long", "Float", "Double"]
+        cap = _p("capfield", "How many each destination takes (empty = "
+                             "no limit)", "Field", required=False)
+        cap.parameterDependencies = ["dests"]
+        cap.filter.list = ["Short", "Long", "Float", "Double"]
+        choose = _p("choose", "How people choose", "GPString")
+        choose.filter.type = "ValueList"
+        choose.filter.list = list(METHOD_LABELS)
+        choose.value = METHOD_LABELS[0]
+        runs = _p("runs", "Runs - the random queue drawn this many times",
+                  "GPString", required=False)
+        runs.value = "20"
+        speed = _p("speed", "Speed in km/h, for minutes (5 walking, 15 "
+                            "cycling)", "GPString", required=False)
+        speed.value = "5"
+        group = _p("groupsize", "Group size - people who move together "
+                                "in the queue", "GPString",
+                   required=False, category="More settings")
+        group.value = "10"
+        seed = _p("runseed", "Seed - the same seed gives the same "
+                             "numbers", "GPString", required=False,
+                  category="More settings")
+        seed.value = "1"
+        return [_p("origins", "The people - a point layer in metres",
+                   "GPFeatureLayer"),
+                people,
+                _p("dests", "The destinations - a point layer, same "
+                            "system", "GPFeatureLayer"),
+                cap, choose,
+                _p("decayhalf", "Half-life in metres (for distance decay "
+                                "and flows)", "GPString", required=False),
+                _p("farthest", "Farthest anyone goes, in metres (empty = "
+                               "no limit)", "GPString", required=False),
+                runs, speed, group, seed,
+                _p("out_origins", "The people, with their results (new "
+                                  "feature class)", "DEFeatureClass",
+                   direction="Output"),
+                _p("out_dests", "The destinations, with their load (new "
+                                "feature class)", "DEFeatureClass",
+                   direction="Output"),
+                _p("out_trips", "The trips of the first run, as lines "
+                                "(new feature class)", "DEFeatureClass",
+                   direction="Output")]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        return
+
+    @staticmethod
+    def _boxes(pm):
+        return dict(method=_txt(pm, "choose"),
+                    half_life=_txt(pm, "decayhalf"),
+                    farthest=_txt(pm, "farthest"),
+                    group_size=_txt(pm, "groupsize"),
+                    runs=_txt(pm, "runs"), seed=_txt(pm, "runseed"),
+                    speed=_txt(pm, "speed"))
+
+    def updateMessages(self, parameters):
+        """The typed boxes refused while the dialog is still open, on
+        the box that is wrong."""
+        if _doors(strict=False) is None:
+            return
+        from equipop.doors.assigndoor import parse_boxes
+        from equipop.doors.numbers import BadNumber
+        pm = _byname(parameters)
+        try:
+            parse_boxes(**self._boxes(pm))
+        except BadNumber as bad:
+            text = str(bad)
+            box = ("decayhalf" if "half-life" in text else
+                   "farthest" if "farthest" in text else
+                   "groupsize" if "group size" in text else
+                   "runs" if text.startswith("Runs") else
+                   "runseed" if "seed" in text else
+                   "speed" if "speed" in text else "choose")
+            if pm.get(box) is not None:
+                pm[box].setErrorMessage(text)
+
+    def execute(self, parameters, messages):
+        _announce_version(messages)
+        _doors()
+        import pandas as pd
+
+        from equipop.doors.assigndoor import (describe, parse_boxes, run,
+                                              tables)
+        from equipop.doors.numbers import BadNumber
+
+        pm = _byname(parameters)
+        ch = _channel(messages)
+        origins, dests = _txt(pm, "origins"), _txt(pm, "dests")
+        outs = {k: _txt(pm, k) for k in ("out_origins", "out_dests",
+                                          "out_trips")}
+        for value, box in ((origins, "the people layer"),
+                           (dests, "the destinations layer"),
+                           (outs["out_origins"], "a new feature class "
+                                                 "for the people"),
+                           (outs["out_dests"], "a new feature class "
+                                               "for the destinations"),
+                           (outs["out_trips"], "a new feature class "
+                                               "for the trips")):
+            if not value:
+                raise arcpy.ExecuteError(f"Choose {box}.")
+        pf, cf = _txt(pm, "peoplefield"), _txt(pm, "capfield")
+        boxes = self._boxes(pm)
+        try:
+            kw = parse_boxes(**boxes)
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+
+        # both systems checked BEFORE anything is copied or read
+        sr = _require_crs(arcpy.Describe(origins), "The people layer")
+        srd = _require_crs(arcpy.Describe(dests),
+                           "The destinations layer")
+        metric = (str(getattr(sr, "type", "")) != "Geographic"
+                  and _crs_unit_name(getattr(sr, "linearUnitName",
+                                             None))
+                  in ("metres", "map units"))
+        same = _same_crs(sr, srd)
+        if not (metric and same):
+            try:
+                run(pd.DataFrame({"x": [0.0], "y": [0.0]}),
+                    pd.DataFrame({"x": [0.0], "y": [0.0]}),
+                    layer_is_metric=metric, same_crs=same, say=ch.info,
+                    **boxes)
+            except BadNumber as bad:
+                raise arcpy.ExecuteError(str(bad))
+
+        with _stage(messages, "reading the people"):
+            arcpy.management.CopyFeatures(origins, outs["out_origins"])
+            _, data_o, oid_o = _read_input(
+                outs["out_origins"], _COORD_GEOM, None, None, [pf],
+                messages, context="people layer")
+        with _stage(messages, "reading the destinations"):
+            _, data_d, _ = _read_input(dests, _COORD_GEOM, None, None,
+                                       [cf], messages,
+                                       context="destinations layer")
+        try:
+            with _stage(messages, "calculating"):
+                a = run(pd.DataFrame({"x": data_o["x"],
+                                      "y": data_o["y"]}),
+                        pd.DataFrame({"x": data_d["x"],
+                                      "y": data_d["y"]}),
+                        people=data_o[pf] if pf else None,
+                        capacity=data_d[cf] if cf else None,
+                        say=ch.info, **boxes)
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+        t = tables(a, bool(cf), kw["speed_kmh"])
+        texts = describe(a.method, a.runs, bool(cf), kw["speed_kmh"])
+
+        def extend(out, oid, ids, frame):
+            order = list(frame.columns)
+            sub = np.empty(len(frame), dtype=[(str(oid), "<i8")]
+                           + [(c, "<f8") for c in order])
+            sub[str(oid)] = np.asarray(ids, np.int64)
+            for c in order:
+                sub[c] = frame[c].to_numpy(float)
+            _add_columns(out, oid, sub, order, messages)
+            messages.addMessage(f"Wrote {len(frame):,} rows with "
+                                f"{len(order)} new columns to {out}: "
+                                + ", ".join(order))
+
+        with _stage(messages, "writing output"):
+            extend(outs["out_origins"], oid_o, data_o[oid_o],
+                   t["origins"])
+            # the destinations are copied now, after the people's copy
+            # is finished, and read back for the COPY's identifiers
+            arcpy.management.CopyFeatures(dests, outs["out_dests"])
+            _, back, oid_d = _read_input(outs["out_dests"], _COORD_GEOM,
+                                         None, None, [], messages,
+                                         context="destinations copy")
+            extend(outs["out_dests"], oid_d, back[oid_d],
+                   t["destinations"])
+            _write_trips(outs["out_trips"], sr, t["trips"], data_o,
+                         data_d, dict(texts["trips"]), messages)
+
+
+def _write_trips(out, sr, trips, o, d, texts, messages):
+    """The trips of the first run, as straight lines from the people
+    point to the destination, written row by row (BACKLOG 515)."""
+    ws, name = os.path.split(str(out).replace("\\", "/"))
+    arcpy.management.CreateFeatureclass(ws, name, "POLYLINE",
+                                        spatial_reference=sr)
+    for f, kind in (("Origin", "LONG"), ("Dest", "LONG"),
+                    ("People", "DOUBLE"), ("Metres", "DOUBLE"),
+                    ("Minutes", "DOUBLE")):
+        arcpy.management.AddField(out, f, kind,
+                                  field_alias=texts.get(f, "")[:255])
+    ox, oy = np.asarray(o["x"], float), np.asarray(o["y"], float)
+    dx, dy = np.asarray(d["x"], float), np.asarray(d["y"], float)
+    with arcpy.da.InsertCursor(out, ["SHAPE@", "Origin", "Dest",
+                                     "People", "Metres",
+                                     "Minutes"]) as cur:
+        for row in trips.itertuples(index=False):
+            i, j = int(row.Origin) - 1, int(row.Dest) - 1
+            line = arcpy.Polyline(arcpy.Array(
+                [arcpy.Point(ox[i], oy[i]), arcpy.Point(dx[j], dy[j])]),
+                sr)
+            cur.insertRow([line, int(row.Origin), int(row.Dest),
+                           float(row.People), float(row.Metres),
+                           float(row.Minutes)])
+    messages.addMessage(f"Wrote {len(trips):,} trips (the first run) as "
+                        f"lines to {out}.")
+
+
 class ContinentalRasters:
     """BACKLOG 38. A folder of population rasters, at continental scale.
 
@@ -5492,14 +5723,14 @@ class FetchSelected:
 #: imported, so the dialog opens even under an older package; the same
 #: words as equipop.doors.toolset.CHOICES - a test pins it.
 SHOW_CHOICES = ["Only tools 1 and 2 (the standard set)",
-                "All tools, 1 to 6"]
+                "All tools, 1 to 7"]
 
 
 class ShowTools:
-    """TOOL 0 - show or hide tools 3 to 6 (v1.62.0, BACKLOG 438).
+    """TOOL 0 - show or hide tools 3 to 7 (v1.62.0, BACKLOG 438).
 
     John, 25 October 2026: the same toolbox for everybody, differing
-    in one thing - whether tools 3 to 6 are listed - and "let us make
+    in one thing - whether tools 3 to 7 are listed - and "let us make
     the default to hide - but please indicate in help etc., how it can
     be lifted". The rule and the saved choice are in
     equipop.doors.toolset, shared with QGIS. A Python toolbox has no
@@ -5508,12 +5739,12 @@ class ShowTools:
     """
 
     def __init__(self):
-        self.label = "0. Show or hide tools 3-6"
+        self.label = "0. Show or hide tools 3-7"
         try:
             from equipop.doors.help import summary_for
             self.description = summary_for("ShowTools")
         except Exception:                            # pragma: no cover
-            self.description = ("Shows or hides tools 3 to 6 in this "
+            self.description = ("Shows or hides tools 3 to 7 in this "
                                 "toolbox.")
         self.canRunInBackground = False
 
@@ -5560,7 +5791,7 @@ class ShowTools:
 
 
 def _shown_tools(every):
-    """The tools the toolbox lists: tools 3 to 6 only when shown. If
+    """The tools the toolbox lists: tools 3 to 7 only when shown. If
     the rule cannot be read - an older package - every tool is listed,
     because a tool hidden by an error could not be found at all."""
     try:
@@ -5585,11 +5816,12 @@ class Toolbox:
         # and the tests read THIS list, so a hidden tool still gets
         # its '?' page and its tests. What Pro LISTS is `tools`: tool
         # 0 and tools 1 and 2, and 3 to 6 once tool 0 shows them.
+        # v1.66.0, BACKLOG 515: machine 7, step 1 - Assignment, tool 7
         self.all_tools = [ShowTools, CountsShares, ValueStatistics,
                           ContinentalRasters, PixelReach,
                           SpatialDemography,
                           WorldPopCatalogue, OsmCatalogue, FetchSelected,
-                          FolderInventory]
+                          FolderInventory, Assignment]
         self.tools = _shown_tools(self.all_tools)
         # two machines, one shared loader (v1.16). Friction/slope
         # stay DISTANCE INGREDIENTS on machine 1, not tools.

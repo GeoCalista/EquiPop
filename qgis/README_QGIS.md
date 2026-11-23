@@ -68,14 +68,14 @@ Install Plugins ▸ Installed.
 
 The tools appear in the Processing Toolbox under **EquiPop**:
 
-- 0. Show or hide tools 3-6
+- 0. Show or hide tools 3-7
 - 1. Counts and Shares (k / radius / decay)
 - 2. Value Statistics (numeric fields among the k nearest)
 
-**Tools 3 to 6 are hidden until you show them** (since 1.62.0): raster
+**Tools 3 to 7 are hidden until you show them** (since 1.62.0): raster
 curation, spatial demography, the downloads from WorldPop and
 OpenStreetMap (5a to 5d) and the folder inventory. Run **0. Show or
-hide tools 3-6**, choose *All tools, 1 to 6*, and they appear at once
+hide tools 3-6**, choose *All tools, 1 to 7*, and they appear at once
 (if not, restart QGIS). Run it again with *Only tools 1 and 2* to hide
 them. Hiding changes only the list: every tool stays installed, and a
 saved model or script that uses a hidden tool still runs. The choice
