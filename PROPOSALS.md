@@ -771,6 +771,184 @@ by field or constant, destination capacity, and rounds to fill it —
 in order to simulate **how accessibility changes as the landscape is
 altered**?
 
+## AGREED 22-23 NOVEMBER 2026 - THE FIRST VERSION (NO CODE YET)
+
+**John and Claude talked this to a conclusion on 22-23 November.
+John: "knowing we are not aiming for the full version". Nothing below
+is built; it is the design the first pull requests will follow, and
+the board can read it before any code is written.** It answers most of
+"DECISIONS ONLY JOHN CAN MAKE" further down, and replaces that
+section's "refuse trip chains": one stop is allowed (point 6).
+
+**1. WHAT IT IS.** Capacity-constrained accessibility assignment over
+bespoke neighbourhoods. Not called an ABM in print. Every column it
+writes is labelled as simulated.
+
+**2. WHO MOVES.** Two options, one box:
+- *Groups of m people* per cell and per population group (children,
+  workers...), 10 by default, 1 for individuals. Needed for a person's
+  activity space.
+- *Flows*: each cell's people spread over destinations by the decay
+  shares, as fractions, with no randomness. John: planners need "the
+  overall pressure at any location j". With capacity, fca.py's
+  balance= already gives the flow solution. Flows give no person, but
+  each origin cell gets an expected activity space from its shares.
+
+**3. THREE TIERS, IN PRIORITY ORDER** (John, 22 November):
+1. necessities - school for children, work for employed adults;
+2. services - named by the user: supermarket, chemist...;
+3. recreation and choice - church, sports, library.
+Not all need to be given. Tiers that use different destinations do
+not compete for places, so the priority is the order in which a
+person's TIME is spent: tier 1 takes its hours first, tier 2 gets what
+is left, then tier 3.
+People outside the tier-1 groups (unemployed, retired, children below
+school age) are anchored at home with the whole slot for tiers 2 and
+3. T1_status says none, met or unmet - "unmet" is a person who sought
+tier 1 and found every place within reach full, and is the shortage
+measure. A person is in at most one tier-1 group per slot; overlapping
+groups are refused, never counted twice.
+
+**4. THE DIALOG: ONE ACTIVITY PER RUN, RUN IN PRIORITY ORDER.** About
+ten boxes (John chose this over a box per tier, which grows to twenty
+and cannot hold several services):
+- start: the people layer, or the previous run's result, which carries
+  each group's anchors and the time it has left;
+- destinations, and an optional capacity field;
+- who takes part (a group field and its values);
+- hours, as a number or a field;
+- the time slot (from - to); for tier 1 also "break at" and "break
+  length";
+- days: weekdays, weekends, or a week weighted 5:2;
+- mode, and speed - one, or a field per group (4 km/h walking for the
+  elderly, say);
+- seed and number of runs; include home (a checkbox); ellipse SD.
+An activity table that runs everything at once can come later, "as we
+see things being used".
+
+**5. COMPETITION.** One run per activity puts every group of people -
+of every kind and every mode - in ONE random queue, with ONE capacity
+count per destination. Each group takes the best destination that
+still has room, by its own travel times; a full one is gone for
+everyone after it; the rest go to their next best, or are unmet. A
+location's people enter as groups of equal size, so a big location
+does not get all its luck at once. (In matching theory this is random
+serial dictatorship, or random priority - a name from memory, to check
+before print.) With unlimited capacity the order cannot matter.
+Two other uses, on purpose only: priority by design ("locals first":
+run one group, then start the next run from the destinations'
+remaining capacity), and mode comparisons (everyone walks against
+everyone drives: two complete runs, compared).
+"Closest first" (preschools, schools) is the deterministic alternative
+to a random order: match the closest person-destination pairs first.
+With both sides ranking by distance it is also the stable matching.
+
+**6. TIME, SLOTS AND ANCHORS.**
+- Effort is already flat-ground length: moves of one or sqrt(2) cell
+  widths, times (1 + friction), with slope by Tobler. MINUTES = effort
+  x cell size / speed. Speeds on open ground: walking 5 km/h (Tobler's
+  flat speed is 5.04), cycling 15, car as the user sets it.
+- A tier-1 day with a break becomes three slots: 8:00-12:00 at work,
+  12:00-12:45 work -> X -> work, 12:45-16:45 at work. The lunch slot's
+  budget is small, so only places near work fit - or home, for those
+  who live close.
+- A tier-2 or tier-3 stop X is inserted between its slot's two
+  anchors and costs the detour:
+      extra minutes = t(previous anchor -> X) + t(X -> next anchor)
+                      - t(previous anchor -> next anchor)
+  Lunch: work -> X -> work. On the way home: work -> X -> home. An
+  evening errand: home -> X -> home. So tier 1 is solved first, and
+  travel times are needed from each work or school place as well as
+  from homes. The longest chain is home -> tier-1 place -> one stop ->
+  home.
+- The week: two day types, weekday and weekend, weighted 5:2 (or
+  either alone), not seven simulated days. A week's variety (a
+  different supermarket on Tuesday) comes from the repeated runs.
+
+**7. MODES.** One friction layer and one speed per mode. Friction
+above -1 already works as a facilitator (-0.5 halves a cell's cost),
+so roads and paths need nothing new.
+- walk, bike, car; "all" = the quickest of the modes a group has.
+  Written in the docs: no traffic jams, no parking, no costs - car
+  times are a best case. Later, perhaps: a time cost on cells where
+  too many vehicles meet at once, fed back into the friction.
+- walk + public transport: a low-friction corridor would let people
+  board anywhere along a line. Instead, stop-to-stop links are added
+  to the walking network, each costing its in-vehicle minutes plus
+  half the time between departures. The engine already routes on a
+  network of links (scipy's dijkstra), so they slot in.
+- Order of work: one mode per run first; then a mode per group, with a
+  car-access share per cell (a field) splitting each cell's people;
+  then the public-transport links.
+
+**8. CHOICE AND COMMUTING.** A group takes the nearest destination
+with room, or draws one by the decay weights (a Huff model). John's
+point, 23 November: with destinations spread evenly and decay
+e^(-a r), a = ln 2 / half-life, the ring at distance r grows with r,
+so choices fall at r with weight r e^(-a r): the most common distance
+is 1/a and the average 2/a. A 5 km half-life gives 7.2 km and 14.4
+km. Capacity pushes people outward and clustered jobs and homes bend
+the curve - that is the experiment, and the gap between "nearest free
+job" (the minimum commute) and decay choice is a measure in itself.
+Where home and work coordinates are known, tier 1 can be READ rather
+than simulated; the same data test the model (simulated against
+observed commute distances) and fit a to the observed mean.
+
+**9. WHAT IS SAVED.** One GeoPackage or geodatabase, four layers:
+- origins: points with each cell's summaries - minutes and metres per
+  tier (mean and spread over runs), T1_status counts, unmet;
+- destinations: load, capacity, load / capacity, unmet demand, and in
+  flows mode the pressure;
+- trips: one row per group and slot - from, to, tier, mode, minutes,
+  metres;
+- activity spaces, per group (per cell in flows mode):
+  - the radius of gyration, and the standard deviational ellipse at
+    the chosen SD (1/2, 1, 2...): centre, angle, length, width;
+  - every place weighted by its minutes (work 480, school 360,
+    supermarket 30, home what is left); travel time can be added as
+    points along the route;
+  - "include home": ticked, how far daily life stretches around home;
+    unticked, how scattered the needed places are. A third variant
+    measures the spread around home rather than around the centre;
+  - weights do not make new places: with fewer than 3 distinct places
+    the ellipse is a line, so only the radius of gyration is given,
+    with a flag;
+  - for a normal spread a k-SD ellipse covers 1 - e^(-k^2/2): 1/2 SD
+    12 %, 1 SD 39 %, 2 SD 86 %. Tools define the ellipse differently
+    by a factor sqrt(2): ours is stated, and tested against Pro's
+    Directional Distribution on the same points;
+  - direction: tier 1's bearing and distance from home (the axis of
+    the day); tiers 2 and 3's mean bearing from home, weighted by
+    time, its concentration (0 = all directions, 1 = one direction),
+    and the angle to tier 1's bearing ("are services on the way to
+    work?"); the ellipse's angle is an axis (0-180 degrees), a
+    bearing has a front (0-360), and both are labelled;
+  - the prism: whether a stop lies inside the ellipse whose foci are
+    home and work, and its detour in minutes.
+
+**10. HOW IT IS CHECKED.** Everyone who leaves arrives or is unmet;
+no destination goes over capacity; the same seed gives an identical
+file; unlimited capacity gives the plain assignment exactly, in any
+order; no barriers and "nearest" give straight-line nearest
+(cKDTree); a barrier never increases the flow across it, a steeper
+decay never lengthens trips, more capacity never lowers a
+destination's load; flows with capacity equal fca.py's balance=; and,
+where known, observed commutes.
+
+**11. LEFT OUT, AND SAID SO.** Households: escorting children, joint
+trips (John: "let's keep it simple for now"); chains longer than one
+stop; traffic jams, parking and costs; agents that learn.
+
+**12. THE STEPS.**
+1. One activity with capacity: groups in random order, or flows;
+   minutes and metres; each destination's load.
+2. Tiers, anchors, slots with the break, days; the radius of
+   gyration, the ellipse, the directions, the prism.
+3. Modes: per group with a car-access share, then the
+   public-transport links; tier 1 read from observed home and work.
+Each step is one or more pull requests, each with its rulings. Step 1
+starts after release 1.66.0, when John says go.
+
 ## AMENDED 9 OCTOBER 2026 - MOST OF THIS IS ALREADY BUILT
 
 **THE RECOMMENDATION BELOW WAS WRONG AND IS CORRECTED HERE RATHER
@@ -1019,6 +1197,12 @@ seed belongs in it.
 
 ## DECISIONS ONLY JOHN CAN MAKE
 
+*Answered 22-23 November 2026 - see "AGREED 22-23 NOVEMBER 2026"
+above: an agent is a group of m people (or a flow); one stop per
+chain; a full destination sends people to their next best; the order
+of groups is drawn, and each source of randomness gets its own seed
+stream; the output is four layers.*
+
 - **What is an agent?** A *flow* of fractional people (then it is a
   spatial interaction model, fast, and not an ABM); an *individual*
   per person (6M for Denmark is fine, 450M for Europe is not); or a
@@ -1079,10 +1263,13 @@ output question early, while answering it is still cheap.
 
 ## Status
 
-    [ ]  John to settle: agent representation, capacity behaviour
+    [x]  John to settle: agent representation, capacity behaviour
+         (22-23 November 2026: groups or flows; random order)
     [ ]  Literature checked against sources, NOT from memory
-    [ ]  Decide whether the deterministic measure goes first
+    [x]  Decide whether the deterministic measure goes first
+         (flows mode, point 2 of "AGREED 22-23 NOVEMBER")
     [ ]  Only then: a backlog entry, with doors deliberately deferred
+         - after release 1.66.0, when John says go
 
 **Literature named from memory and NOT verified** — Huff on retail
 gravity, Fotheringham on competing destinations, Luo and Wang on
