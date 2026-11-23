@@ -193,7 +193,21 @@ def parse_hectares(text) -> list[float]:
                         "1 5 20.")
     if min(ks) <= 0:
         raise BadNumber("Hectares to gather must all be above 0.")
-    return sorted(set(ks))
+    ks = sorted(set(ks))
+    _distinct(ks, "Hectares")
+    return ks
+
+
+def _distinct(values, what):
+    """Two values one column name cannot tell apart stop the run
+    (BACKLOG 512 d): '0.1000001 0.1000002' gave Dist_0_1 twice, one
+    column silently holding the other's answer. labels.py's rule, as
+    Counts keeps it."""
+    from ..labels import LabelCollision, radius_suffixes
+    try:
+        radius_suffixes(values, what)
+    except LabelCollision as e:
+        raise BadNumber(str(e)) from None
 
 
 def parse_radius(text) -> list[float]:
@@ -210,7 +224,9 @@ def parse_radius(text) -> list[float]:
         raise BadNumber("A radius is in metres and above 0: one or more "
                         "with spaces between, such as 100 200, or left "
                         "empty.")
-    return sorted(set(float(r) for r in rs))
+    rs = sorted(set(float(r) for r in rs))
+    _distinct(rs, "Radius")
+    return rs
 
 
 def parse_cell(text):
@@ -299,17 +315,26 @@ def _read_one(raster, want, name):
             if T.b or T.d:
                 raise BadNumber(f"{label} is rotated; warp it to a "
                                 "north-up grid first.")
+            _check_system(src.crs, label)
             for b in want:
                 if b > src.count:
                     raise BadNumber(
                         f"{label} has {src.count} band"
                         f"{'s' if src.count > 1 else ''}; band {b} does "
                         "not exist.")
-            got = {b: src.read(b) for b in want}
+            got = {}
+            for b in want:
+                # the file's own validity mask - nodata, an internal
+                # mask or an alpha band - not only a nodata value
+                # (BACKLOG 512 c): a masked pixel has no value
+                a = src.read(b).astype(np.float32)
+                a[src.read_masks(b) == 0] = np.nan
+                got[b] = a
             nds = {b: src.nodatavals[b - 1] for b in want}
             meta = {"x_min": T.c, "y_max": T.f, "cell_w": T.a,
                     "cell_h": -T.e, "count": src.count,
-                    "geographic": bool(src.crs and src.crs.is_geographic),
+                    "geographic": bool(src.crs.is_geographic),
+                    "crs": src.crs,
                     "source": os.path.basename(str(raster))}
     out = {}
     for b, a in got.items():
@@ -325,6 +350,23 @@ def _read_one(raster, want, name):
         raise BadNumber(f"The bands of {label} differ in size.")
     meta["shape"] = shapes.pop()
     return out, meta
+
+
+def _check_system(crs, label):
+    """pixels.check_system, refused as a sentence for the doors."""
+    from ..pixels import check_system
+    try:
+        check_system(crs, label)
+    except ValueError as e:
+        raise BadNumber(str(e)) from None
+
+
+def _same_system(a, b):
+    """Two files' coordinate systems are the same one. Unknown (a
+    payload from a GIS door, which checks each raster itself) passes."""
+    if a is None or b is None:
+        return True
+    return a == b
 
 
 def _named(rasters, raster=None):
@@ -367,9 +409,13 @@ def _bands(rasters, formula, say=print):
                 "one of them first (Sentinel-2's B11 and B12 are 20 m - "
                 "resample them to 10 m), since EquiPop never resamples "
                 "behind your back.")
-        if m["geographic"] != ref_meta["geographic"]:
-            raise BadNumber(f'"{name}" and "{first}" are in different '
-                            "coordinate systems.")
+        if (m["geographic"] != ref_meta["geographic"]
+                or not _same_system(m.get("crs"), ref_meta.get("crs"))):
+            raise BadNumber(
+                f'"{name}" and "{first}" are in different coordinate '
+                "systems - the same easting and northing in two UTM "
+                "zones are two places hundreds of kilometres apart. "
+                "Project one to the other's system first.")
         dc = (float(m["x_min"]) - float(ref_meta["x_min"])) / w
         dr = (float(ref_meta["y_max"]) - float(m["y_max"])) / h
         if abs(dc - round(dc)) > 1e-3 or abs(dr - round(dr)) > 1e-3:
@@ -541,6 +587,12 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
     cell_m = parse_cell(cell)
     pairs = _named(rasters, raster)
     bands, meta = _bands(pairs, formula, say)
+    if meta["geographic"]:
+        raise BadNumber(
+            "The raster's coordinates are degrees (latitude and "
+            "longitude), and distances here are metres. Project it to "
+            "the people's system in metres first (QGIS: Raster > "
+            "Projections > Warp; Pro: Project Raster).")
     _say_roles(formula, meta, say)
     v = evaluate(formula, bands)
     say(f"[pixels] value: {formula.text or 'the raster as it is'}, "
@@ -593,8 +645,11 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
         say(f"[pixels] {int((~have).sum()):,} row(s) have no "
             "coordinates (empty geometry) and get empty results.")
     here = pd.DataFrame({"x": x[have], "y": y[have]})
+    # R-55: the real cell - the analysis cell, or the pixel
+    side = cell_m or float(np.sqrt(abs(meta["cell_w"] * meta["cell_h"])))
     part = reach(here, mass, ks, r_values=rs,
-                 treat_col="t_ha" if treat_spec is not None else None)
+                 treat_col="t_ha" if treat_spec is not None else None,
+                 unit_size=side)
     total = mass.ha.sum()
     for k in ks:
         short = int(part[f"Dist_{_tag(k)}"].isna().sum())

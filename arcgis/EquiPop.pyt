@@ -4222,6 +4222,43 @@ class PixelReach:
                             + ", ".join(order))
 
 
+def _read_bands(desc, src, bands, name=None):
+    """{band: array} for the bands asked, plus "count". A multiband
+    raster is read ONE BAND AT A TIME through <dataset>\\Band_<n>, so
+    one band of a 13-band Sentinel-2 tile costs one band's memory, not
+    thirteen (BACKLOG 512 e). Where a band cannot be read that way, or
+    the band count is unknown, the whole raster is read and the bands
+    picked from it, as before."""
+    label = f'"{name}"' if name else "The raster"
+
+    def refuse(count):
+        missing = [b for b in bands if b > count]
+        if missing:
+            raise arcpy.ExecuteError(
+                f"{label} has {count} band{'s' if count != 1 else ''}; "
+                f"band {missing[0]} does not exist.")
+
+    count = getattr(desc, "bandCount", None)
+    if isinstance(count, int) and count > 1:
+        refuse(count)
+        base = getattr(desc, "catalogPath", None) or src
+        got = {}
+        try:
+            for b in bands:
+                got[b] = np.asarray(arcpy.RasterToNumPyArray(
+                    os.path.join(str(base), f"Band_{b}")))
+            got["count"] = count
+            return got
+        except Exception:
+            pass                        # the whole raster, below
+    arr = np.asarray(arcpy.RasterToNumPyArray(src))
+    count = arr.shape[0] if arr.ndim == 3 else 1
+    refuse(count)
+    got = {b: (arr[b - 1] if arr.ndim == 3 else arr) for b in bands}
+    got["count"] = count
+    return got
+
+
 def _band_describe(desc, src, band):
     """Describe of one band of a raster: <dataset>\\Band_<n>, the dataset
     found from a layer through catalogPath. None when there is none."""
@@ -4275,15 +4312,8 @@ def _pixel_payload(raster, desc, bands, messages, name=None):
     raster comes back from RasterToNumPyArray as a stack; the bands are
     picked from it, counted from 1."""
     src = _ref(raster)
-    arr = np.asarray(arcpy.RasterToNumPyArray(src))
-    count = arr.shape[0] if arr.ndim == 3 else 1
-    missing = [b for b in bands if b > count]
-    if missing:
-        raise arcpy.ExecuteError(
-            (f'"{name}"' if name else "The raster")
-            + f" has {count} band{'s' if count != 1 else ''}; "
-            f"band {missing[0]} does not exist.")
-    got = {b: (arr[b - 1] if arr.ndim == 3 else arr) for b in bands}
+    got = _read_bands(desc, src, bands, name)
+    count = got.pop("count")
     # A MULTIBAND raster (a Sentinel-2 download, an orthophoto) keeps
     # its pixel size and nodata on each BAND, not on the dataset: its
     # Describe has no meanCellWidth at all (John, 21 November 2026,
@@ -4323,7 +4353,7 @@ def _pixel_payload(raster, desc, bands, messages, name=None):
            "source": os.path.basename(str(getattr(desc, "catalogPath",
                                                   None) or src)),
            "geographic": str(getattr(sr, "type", "")) == "Geographic"}
-    shape = arr.shape[-2:]
+    shape = next(iter(got.values())).shape[-2:]
     label = f'"{name}"' if name else "The raster"
     messages.addMessage(
         f"Raster {label} read by ArcGIS: band(s) "

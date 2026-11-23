@@ -46,8 +46,8 @@ all six are real - two reach further than the review says. Nothing is
 coded yet; John: "wait with coding until we have chatted to a
 conclusion". The detail is in 511-514.*
 
-A. **Tool 3b's own fixes (512), inside pull request #21**, before it
-   merges: the within-cell rule (R-55), the formula box, the raster
+A. **Tool 3b's own fixes (512), inside pull request #21** - BUILT 23
+   November - before it merges: the within-cell rule (R-55), the formula box, the raster
    checks on the Python route, clashing column names, Pro's band read.
 B. **An empty row moves other people's distances (511, R-54)** - in
    EVERY tool, not only 3b. Its own pull request, with numbers that
@@ -3781,9 +3781,27 @@ because machine 3 stores tiles that way and says so in its manifest.
   engine must accept it.
   (a) is a good first pull request for Marina or Umut.
 
-- 512 | OPEN 23 NOVEMBER 2026 (the external review, findings 2-4 and
-  two smaller ones; ruling R-55) | TOOL 3b: THE REVIEW'S FIXES, INSIDE
-  PULL REQUEST #21 BEFORE IT MERGES. All reproduced by Claude.
+- 512 | BUILT 23 NOVEMBER 2026, pull request #21, not released (the
+  external review, findings 2-4 and two smaller ones; ruling R-55) |
+  TOOL 3b: THE REVIEW'S FIXES, INSIDE PULL REQUEST #21 BEFORE IT
+  MERGES. All reproduced by Claude.
+  BUILT, in short: (a) reach() takes the real cell - the door passes
+  the analysis cell or the pixel (a non-square one by its area), and
+  mass_from_values() and pixels_from_array() record it for Python
+  callers; with nothing recorded and pixels of different sizes,
+  reach() asks for it. FOUND WHILE BUILDING: the hidden 100 m reached
+  further than the review saw - everyone's first ring starts at the
+  edge of their own cell's disc, so it moved EVERY distance gathered
+  in the nearest pixel (215.85 m against 212.17 m for half of a 10 m
+  pixel 300 m away), not only a person sitting on a pixel. (b) ^ is
+  turned into ** outside quotes before parsing; every step's infinity
+  is no value at once. (c) A file's coordinate system is checked -
+  none, or not metres or degrees, is refused, two different ones are
+  refused - and its own mask is read (rasterio's read_masks; QGIS's
+  GDAL mask band); a raster in degrees is refused until decision d.
+  (d) Hectares and radii a column name cannot tell apart are refused.
+  (e) Pro reads the dataset's Band_n one band at a time, and the whole
+  stack only where that fails.
   (a) THE WITHIN-CELL RULE (R-55, John: "a"). pixels.reach() hands the
   engine unit_size = 100 m whatever the pixel, and the engine's
   own-cell rule uses it whenever a person sits exactly on a pixel or

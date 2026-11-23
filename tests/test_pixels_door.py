@@ -480,3 +480,155 @@ def test_a_base_of_every_pixel_is_flagged_as_measuring_only_a_circle(
     run(PEOPLE, rasters=rasters, value=NDVI, base="0,5 to 1",
         hectares="0,5", say=said.append)
     assert not any("the radius of a circle" in s for s in said)
+
+
+# --- BACKLOG 512 a, ruling R-55: the real cell, never a hidden 100 m ------
+
+def _one(arr, cell_w=10.0, cell_h=10.0):
+    return {"bands": {1: np.asarray(arr, np.float32)}, "x_min": 0.0,
+            "y_max": cell_h * np.asarray(arr).shape[0], "cell_w": cell_w,
+            "cell_h": cell_h, "nodata": None, "geographic": False}
+
+
+def test_a_person_on_a_pixel_gathers_it_within_the_pixel_s_own_disc():
+    """The review's case: one 10 m pixel, the person at its centre,
+    k = 0.01 ha (all of it). Green spread evenly over the pixel (R-55)
+    is all gathered at the radius of the pixel's own disc, 5.64 m.
+    BROKEN WITH: unit_size left at 100 - 56.42 m, a 100 m cell's disc."""
+    got = run(pd.DataFrame({"x": [5.0], "y": [5.0]}), _one([[1.0]]),
+              hectares="0,01 0,005", **QUIET)
+    assert got.Dist_0_01[0] == pytest.approx(np.sqrt(100 / np.pi))
+    assert got.Dist_0_005[0] == pytest.approx(np.sqrt(50 / np.pi))
+
+
+def test_a_partly_green_analysis_cell_spreads_its_green_over_the_cell():
+    """A 50 m analysis cell holding 7 green 10 m pixels (0.07 ha), the
+    person at the cell's centre: half of it, 0.035 ha, lies within the
+    disc holding half the CELL's area - not half the pixels' area."""
+    a = np.zeros((5, 5), np.float32)
+    a.flat[[0, 3, 7, 11, 12, 18, 24]] = 1.0
+    got = run(pd.DataFrame({"x": [25.0], "y": [25.0]}), _one(a),
+              base="1", hectares="0,035", cell="50", **QUIET)
+    assert got.Dist_0_035[0] == pytest.approx(np.sqrt(2500 * 0.5 / np.pi))
+
+
+def test_a_non_square_pixel_counts_by_its_area():
+    got = run(pd.DataFrame({"x": [5.0], "y": [10.0]}),
+              _one([[1.0]], cell_w=10.0, cell_h=20.0), hectares="0,02",
+              **QUIET)
+    assert got.Dist_0_02[0] == pytest.approx(np.sqrt(200 / np.pi))
+
+
+def test_the_first_ring_starts_at_the_edge_of_the_real_cell():
+    """Not only a person on a pixel: everyone's first ring starts at the
+    edge of their own cell's disc, so the hidden 100 m moved every
+    distance gathered in the nearest pixel - 215.85 m here, against
+    212.17 m with the real 10 m pixel."""
+    from equipop.pixels import reach
+    p = pd.DataFrame({"x": [0.0], "y": [0.0]})
+    m = pd.DataFrame({"x": [300.0], "y": [0.0], "ha": [0.01]})
+    want = np.sqrt((10 / np.sqrt(np.pi)) ** 2 * 0.5 + 300 ** 2 * 0.5)
+    assert reach(p, m, [0.005]).Dist_0_005[0] == pytest.approx(want)
+    with pytest.raises(ValueError, match="give unit_size"):
+        reach(p, pd.DataFrame({"x": [300.0, 400.0], "y": [0.0, 0.0],
+                               "ha": [0.01, 0.02]}), [0.005])
+
+
+def test_a_pixel_whose_formula_divides_by_zero_adds_no_hectares():
+    """BACKLOG 512 b, through the base box: at r = 0, 1 / "r" > 0 has no
+    value, so that pixel is in no base - only one 0.01 ha pixel is, and
+    0.015 ha is never gathered. BROKEN WITH: only the final result
+    cleaned - the comparison turned the infinity into 1, both pixels
+    were base, and Dist_0_015 had a distance."""
+    got = run(pd.DataFrame({"x": [5.0], "y": [5.0]}),
+              rasters={"r": _one([[0.0, 2.0]])}, value='1 / "r" > 0',
+              base="1", hectares="0,005 0,015", **QUIET)
+    assert got.Dist_0_005.notna().all()
+    assert got.Dist_0_015.isna().all()
+
+
+# --- BACKLOG 512 c: a raster's coordinate system, unit and mask ---------
+
+def _tif2(path, a, crs="EPSG:3006", mask=None, x0=500000.0,
+          y1=6600020.0, cell=10.0):
+    rasterio = pytest.importorskip("rasterio")
+    from affine import Affine
+    a = np.asarray(a)
+    with rasterio.Env(GDAL_TIFF_INTERNAL_MASK=True):
+        with rasterio.open(path, "w", driver="GTiff", height=a.shape[0],
+                           width=a.shape[1], count=1, dtype=a.dtype,
+                           crs=crs,
+                           transform=Affine(cell, 0, x0, 0, -cell,
+                                            y1)) as d:
+            d.write(a, 1)
+            if mask is not None:
+                d.write_mask(np.where(mask, 255, 0).astype("uint8"))
+    return path
+
+
+ONE_PERSON = pd.DataFrame({"x": [500005.0], "y": [6600015.0]})
+
+
+def test_two_utm_zones_are_refused_not_combined(tmp_path):
+    """The same eastings and northings in UTM 32N and 33N are two
+    places some 600 km apart. BROKEN WITH: only "degrees or not"
+    compared - the review got 0.02 ha within 100 m."""
+    a = np.ones((2, 2), "uint8")
+    r32 = _tif2(tmp_path / "a.tif", a, crs="EPSG:32632")
+    r33 = _tif2(tmp_path / "b.tif", a, crs="EPSG:32633")
+    with pytest.raises(BadNumber, match="different coordinate systems"):
+        run(ONE_PERSON, rasters={"a": r32, "b": r33}, value='"a" + "b"',
+            hectares="0,01", **QUIET)
+    same = _tif2(tmp_path / "c.tif", a, crs="EPSG:32632")
+    got = run(ONE_PERSON, rasters={"a": r32, "c": same},
+              value='"a" + "c"', hectares="0,01", **QUIET)
+    assert got.Dist_0_01.notna().all()
+
+
+def test_a_raster_in_feet_or_without_a_system_is_refused(tmp_path):
+    """A 100 x 100 US survey foot pixel is 0.093 ha, and was read as 1
+    ha. BROKEN WITH: the unit left unchecked."""
+    from equipop.pixels import pixels_to_mass
+    feet = _tif2(tmp_path / "ft.tif", np.ones((2, 2), "uint8"),
+                 crs="EPSG:2263", cell=100.0)
+    with pytest.raises(BadNumber, match="US survey foot, not metres"):
+        run(ONE_PERSON, feet, hectares="1", **QUIET)
+    with pytest.raises(ValueError, match="US survey foot, not metres"):
+        pixels_to_mass(feet, classes=[1])
+    bare = _tif2(tmp_path / "none.tif", np.ones((2, 2), "uint8"),
+                 crs=None)
+    with pytest.raises(BadNumber, match="no coordinate system"):
+        run(ONE_PERSON, bare, hectares="0,01", **QUIET)
+
+
+def test_a_raster_in_degrees_is_refused_until_it_is_projected(tmp_path):
+    """Decision d is not built: degrees would come back as metres."""
+    deg = _tif2(tmp_path / "deg.tif", np.ones((2, 2), "uint8"),
+                crs="EPSG:4326", x0=18.0, y1=59.0, cell=0.0001)
+    with pytest.raises(BadNumber, match="degrees"):
+        run(ONE_PERSON, deg, hectares="0,01", **QUIET)
+
+
+def test_a_masked_pixel_has_no_value_even_without_nodata(tmp_path):
+    """Two 10 m pixels, the second masked by the file's own mask and
+    no nodata value: 0.01 ha, not 0.02. BROKEN WITH: raw band reads."""
+    from equipop.pixels import pixels_to_mass
+    r = _tif2(tmp_path / "m.tif", np.ones((1, 2), "uint8"),
+              mask=np.array([[True, False]]), y1=6600010.0)
+    got = run(ONE_PERSON.assign(y=6600005.0), r,
+              hectares="0,005 0,015", **QUIET)
+    assert got.Dist_0_005.notna().all() and got.Dist_0_015.isna().all()
+    assert pixels_to_mass(r, classes=[1]).ha.sum() == pytest.approx(0.01)
+
+
+def test_hectares_or_radii_one_column_name_cannot_tell_apart_stop_the_run():
+    """BACKLOG 512 d: '0.1000001 0.1000002' gave Dist_0_1 twice, one
+    column holding the other's answer. BROKEN WITH: the clash check
+    left out of parse_hectares."""
+    from equipop.doors.pixelsdoor import result_names
+    with pytest.raises(BadNumber, match="0.1000002 and 0.1000001 both"):
+        result_names("0.1000001 0.1000002")
+    with pytest.raises(BadNumber, match="Radius"):
+        result_names("1", "100.0000001 100.0000002")
+    assert result_names("0.1 0.2", "100 100,5") == [
+        "Dist_0_1", "Dist_0_2", "B_r100", "B_r100_5"]

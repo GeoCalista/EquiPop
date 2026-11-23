@@ -263,7 +263,15 @@ def read_bands(raster, bands, ch):
         arrays, nodata = {}, {}
         for b in bands:
             band = ds.GetRasterBand(b)
-            arrays[b] = band.ReadAsArray()
+            a = band.ReadAsArray()
+            # the file's own validity mask - an internal mask or an
+            # alpha band, not only a nodata value (BACKLOG 512 c)
+            if not band.GetMaskFlags() & gdal.GMF_ALL_VALID:
+                bad = band.GetMaskBand().ReadAsArray() == 0
+                if bad.any():
+                    a = a.astype(np.float32)
+                    a[bad] = np.nan
+            arrays[b] = a
             nodata[b] = band.GetNoDataValue()
         ch.info(f"Raster \"{raster.name()}\" read by GDAL: band(s) "
                 f"{', '.join(map(str, bands))} of {ds.RasterCount}, "

@@ -134,3 +134,38 @@ def test_a_huge_power_is_no_value_not_a_crash():
     v = evaluate(parse('"x" ** 1000'),
                  {("x", 1): np.full((2, 2), 9, np.float32)})
     assert np.isnan(v).all()
+
+
+# --- BACKLOG 512 b: the external review, 23 November 2026 ----------------
+
+@pytest.mark.parametrize("typed, want", [
+    ('"x" ^ 2 + 1', 5.0), ('"x" ** 2 + 1', 5.0), ('1 + "x" ^ 2', 5.0),
+    ('-"x" ^ 2', -4.0), ('-"x" ** 2', -4.0), ('(-"x") ^ 2', 4.0),
+    ('"x" ^ 3 ^ 2', 512.0), ('"x" ** 3 ** 2', 512.0),
+    ('"x" ^ -1', 0.5), ('2 * "x" ^ 2', 8.0), ('"x" ^ 2 / 4', 1.0),
+    ('"a^b" + 1', 3.0),
+])
+def test_a_power_binds_as_in_ordinary_maths_whichever_sign(typed, want):
+    """^ and ** are the same power, binding tighter than * and unary
+    minus and from the right. A ^ inside a quoted name stays a name.
+    BROKEN WITH: ^ parsed as Python's xor and mapped to a power after -
+    "x" ^ 2 + 1 is then "x" ^ 3 = 8, and -"x" ^ 2 is 4."""
+    b = {("x", 1): np.array([[2.0]], np.float32),
+         ("a^b", 1): np.array([[2.0]], np.float32)}
+    assert evaluate(parse(typed), b)[0, 0] == pytest.approx(want)
+
+
+@pytest.mark.parametrize("typed", [
+    '1 / "x" > 0', 'min(1 / "x", 5)', 'max(1 / "x", 5)',
+    'where(1 / "x" > 0, 1, 0)', 'not 1 / "x"', '1 / "x" > 0 or 1',
+    'abs(1 / "x") > 0', 'ln("x") < 0', '("x" - "x") / "x" == 0',
+])
+def test_an_infinity_is_no_value_at_once_not_at_the_end(typed):
+    """At x = 0, 1 / "x" is infinite. Left to the final cleanup, a
+    comparison or min() first turned it into a number: 1 / "x" > 0 read
+    1, min(1 / "x", 5) read 5. BROKEN WITH: only the final result
+    cleaned."""
+    v = evaluate(parse(typed), {("x", 1): np.array([[0.0, 2.0]],
+                                                  np.float32)})
+    assert np.isnan(v[0, 0]), typed
+    assert np.isfinite(v[0, 1]), typed

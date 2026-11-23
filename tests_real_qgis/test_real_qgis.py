@@ -325,3 +325,46 @@ def test_pixel_reach_names_two_files_by_their_layer_names(tmp_path):
         assert col in got, f"{col} missing; wrote {sorted(got)}"
         np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
                                    rtol=1e-9, atol=1e-9, err_msg=col)
+
+
+def test_pixel_reach_honours_a_gdal_mask(tmp_path):
+    """BACKLOG 512 c: a GeoTIFF whose west half is masked by the file's
+    own mask, with NO nodata value. QGIS reads it through GDAL, and the
+    masked pixels must have no value - the numbers are pixelsdoor.run's
+    for the same band with the west half empty. BROKEN WITH: the mask
+    band left unread - every pixel then counts."""
+    from osgeo import gdal, osr
+    from equipop.doors.pixelsdoor import run
+    import pandas as pd
+    a = np.ones((300, 300), np.uint8)
+    path = str(tmp_path / "masked.tif")
+    ds = gdal.GetDriverByName("GTiff").Create(path, 300, 300, 1,
+                                              gdal.GDT_Byte)
+    ds.SetGeoTransform((674000.0, 10.0, 0.0, 6583000.0, 0.0, -10.0))
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(3006)
+    ds.SetProjection(srs.ExportToWkt())
+    ds.GetRasterBand(1).WriteArray(a)
+    ds.CreateMaskBand(gdal.GMF_PER_DATASET)
+    m = np.full((300, 300), 255, np.uint8)
+    m[:, :150] = 0
+    ds.GetRasterBand(1).GetMaskBand().WriteArray(m)
+    ds.FlushCache()
+    ds = None
+    lyr, d = _points()
+    out = tmp_path / "masked.gpkg"
+    boxes = dict(value="", base="", treatment="", hectares="1 20",
+                 radius="300", cell="")
+    processing.run("equipop:pixelreach", dict(
+        layer=lyr, rasters=[path], outfc=str(out), **boxes))
+    got = _read(out)
+    west = a.astype(np.float32)
+    west[:, :150] = np.nan
+    want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}),
+               {"bands": {1: west}, "x_min": 674000.0,
+                "y_max": 6583000.0, "cell_w": 10.0, "cell_h": 10.0,
+                "nodata": None, "geographic": False},
+               say=lambda *x: None, **boxes)
+    for col in ("Dist_1", "Dist_20", "B_r300"):
+        np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
+                                   rtol=1e-9, atol=1e-9, err_msg=col)

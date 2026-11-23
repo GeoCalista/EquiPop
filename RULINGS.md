@@ -88,7 +88,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-52 | A trip's start and end squares count as ordinary ground | In force |
 | R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
 | R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
-| R-55 | Mass inside a cell is spread evenly over the cell's real area | In force, not yet built |
+| R-55 | Mass inside a cell is spread evenly over the cell's real area | In force |
 
 ---
 
@@ -529,7 +529,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 
 ### R-55 · Mass inside a cell is spread evenly over the cell's real area
 **Rule.** When a person sits on a cell that holds mass - a pixel, or an analysis cell - the distance to gather part of it is found as if that mass were spread evenly over the cell, the own-cell rule of R-03 applied to mass. The cell is the real one: the pixel's or the analysis cell's own size, a non-square pixel by its area, never a default.
-**Why.** The external review, 23 November 2026: one 10 m pixel, k = 0.01 ha, gave 56.42 m - the disc of a hidden 100 m cell - where the pixel's own disc is 5.64 m. Of the three ways to read a little green in a coarse cell (spread evenly, packed in a disc at the centre, or zero), John chose spread evenly, which is how EquiPop already treats people in their own cell.
+**Why.** The external review, 23 November 2026: one 10 m pixel, k = 0.01 ha, gave 56.42 m - the disc of a hidden 100 m cell - where the pixel's own disc is 5.64 m. Of the three ways to read a little green in a coarse cell (spread evenly, packed in a disc at the centre, or zero), John chose spread evenly, which is how EquiPop already treats people in their own cell. Built the same day, it showed the hidden size reached further than the review found: everyone's first ring starts at the edge of their own cell's disc, so a 100 m cell moved every distance gathered in the nearest pixel (215.85 m against 212.17 m with the real 10 m pixel).
 **Source.** BACKLOG 512.
-**Pinned by.** none yet - the tests come with BACKLOG 512.
-**Status.** In force, not yet built.
+**Pinned by.** `tests/test_pixels_door.py::test_a_person_on_a_pixel_gathers_it_within_the_pixel_s_own_disc`, `tests/test_pixels_door.py::test_a_partly_green_analysis_cell_spreads_its_green_over_the_cell`, `tests/test_pixels_door.py::test_a_non_square_pixel_counts_by_its_area`, `tests/test_pixels_door.py::test_the_first_ring_starts_at_the_edge_of_the_real_cell`
+**Status.** In force.

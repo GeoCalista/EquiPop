@@ -73,6 +73,26 @@ def _area_ha(cell_w, cell_h, y_max, rows, geographic):
     return area / 10_000.0
 
 
+def check_system(crs, label):
+    """A raster file's coordinate system must be known, and in metres or
+    degrees (BACKLOG 512 c): a raster in feet was read as metres - 1 ha
+    for a 100 x 100 foot pixel of 0.093 ha. `crs` is rasterio's."""
+    if crs is None:
+        raise ValueError(
+            f"{label} has no coordinate system, so its pixel size could "
+            "be in metres, feet or degrees. Give it one first (QGIS: "
+            "Raster > Projections > Assign Projection; Pro: Define "
+            "Projection).")
+    if crs.is_geographic:
+        return
+    unit, factor = crs.linear_units_factor
+    if abs(float(factor) - 1.0) > 1e-9:
+        raise ValueError(
+            f"{label} is in {unit}, not metres. Project it to a system "
+            "in metres first (QGIS: Raster > Projections > Warp; Pro: "
+            "Project Raster).")
+
+
 def pixels_from_array(a, x_min, y_max, cell_w, cell_h, *, nodata=None,
                       geographic: bool = False, classes=None,
                       between=None, name: str = "ha") -> pd.DataFrame:
@@ -112,9 +132,19 @@ def pixels_from_array(a, x_min, y_max, cell_w, cell_h, *, nodata=None,
     rows, cols = np.nonzero(keep)
     x = float(x_min) + (cols + 0.5) * cell_w
     y = float(y_max) - (rows + 0.5) * cell_h
-    return pd.DataFrame({"x": x, "y": y,
-                         name: _area_ha(cell_w, cell_h, float(y_max),
-                                        rows, geographic)})
+    out = pd.DataFrame({"x": x, "y": y,
+                        name: _area_ha(cell_w, cell_h, float(y_max),
+                                       rows, geographic)})
+    if not geographic:
+        out.attrs["cell_m"] = _side(cell_w, cell_h)
+    return out
+
+
+def _side(cell_w, cell_h) -> float:
+    """The side of the square cell reach() spreads mass over (R-55): a
+    pixel's own side, or for a non-square pixel the side of a square of
+    the same area."""
+    return math.sqrt(abs(float(cell_w)) * abs(float(cell_h)))
 
 
 def pixels_to_mass(path, *, classes=None, between=None, band: int = 1,
@@ -139,10 +169,14 @@ def pixels_to_mass(path, *, classes=None, between=None, band: int = 1,
         if not 1 <= int(band) <= src.count:
             raise ValueError(f"{path} has {src.count} band(s); band "
                              f"{band} does not exist")
-        a = src.read(int(band))
+        check_system(src.crs, str(path))
+        # the file's own validity mask, not only its nodata value
+        # (BACKLOG 512 c): a masked pixel never counts
+        a = src.read(int(band)).astype(np.float64)
+        a[src.read_masks(int(band)) == 0] = np.nan
         T = src.transform
         nodata = src.nodata
-        geographic = bool(src.crs and src.crs.is_geographic)
+        geographic = bool(src.crs.is_geographic)
     if T.b or T.d:
         raise ValueError(f"{path} is a rotated raster; warp it to a "
                          "north-up grid first")
@@ -212,6 +246,8 @@ def mass_from_values(value, x_min, y_max, cell_w, cell_h, *,
         out["t_ha"] = np.where(t, ha, 0.0)
     df = pd.DataFrame(out)
     if cell is None or cell == "" or len(df) == 0:
+        if not geographic:
+            df.attrs["cell_m"] = _side(cell_w, cell_h)
         return df
     cell = float(cell)
     if geographic:
@@ -228,13 +264,14 @@ def mass_from_values(value, x_min, y_max, cell_w, cell_h, *,
     agg = g[[c for c in ("ha", "t_ha") if c in df]].sum().reset_index()
     agg.insert(0, "y", (agg.pop("iy") + 0.5) * cell)
     agg.insert(0, "x", (agg.pop("ix") + 0.5) * cell)
+    agg.attrs["cell_m"] = cell
     return agg
 
 
 def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),
           *, r_values=(), x: str = "x", y: str = "y",
           mass_col: str = "ha", treat_col: str | None = None,
-          unit_size: float = 100.0) -> pd.DataFrame:
+          unit_size: float | None = None) -> pd.DataFrame:
     """From each person (row of `people`), the k-nearest hectares of
     `mass` - EquiPop's own engine with pixels in place of people.
 
@@ -252,11 +289,15 @@ def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),
         R_r<r>    with treat_col: T_r<r> / B_r<r>
     A decimal k or r is written with '_' for '.': Dist_2_5 is 2.5 ha.
 
-    unit_size is passed to the engine but changes nothing here: a person
-    carries no mass, so there is no own cell to spread (checked, BACKLOG
-    510). The smallest Dist_k a person can have is the radius of a disc
-    of k hectares - 56 m for 1 ha - reached when everything around is
-    mass.
+    unit_size is the side, in metres, of the cells the mass lies in - a
+    pixel, or an analysis cell (R-55): mass inside a cell is spread
+    evenly over it, so a person standing in a cell with mass gathers it
+    within that cell's own disc, and the first ring around anyone starts
+    at the edge of it. Left out, it is the side mass_from_values() or
+    pixels_from_array() recorded, or, when every point holds the same
+    hectares, the side of a square of that area; otherwise it must be
+    given. (Before BACKLOG 512 it was 100 m whatever the pixel: one 10 m
+    pixel, k = 0.01 ha, gave 56.42 m, where the pixel's disc is 5.64 m.)
     """
     from .cells import CellData
     from .fastcounts import run_knn_counts
@@ -271,6 +312,7 @@ def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),
         raise ValueError("k_values are hectares and must be above 0")
     if r_values and r_values[0] <= 0:
         raise ValueError("a radius must be above 0")
+    unit_size = _unit_of(mass, mass_col, unit_size)
     m = mass[mass[mass_col] > 0]
     n_p = len(people)
     E = np.concatenate([people[x].to_numpy(float), m[x].to_numpy(float)])
@@ -303,6 +345,26 @@ def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),
             out[f"T_r{tag}"] = res[f"T_t_r{tag}"].to_numpy(float)
             out[f"R_r{tag}"] = res[f"R_t_r{tag}"].to_numpy(float)
     return out
+
+
+def _unit_of(mass, mass_col, unit_size) -> float:
+    """reach()'s cell side: given, recorded, or read off equal pixels."""
+    if unit_size is None:
+        unit_size = mass.attrs.get("cell_m")
+    if unit_size is None:
+        ha = np.unique(np.round(mass[mass_col].to_numpy(float), 12))
+        ha = ha[ha > 0]
+        if len(ha) != 1:
+            raise ValueError(
+                "give unit_size: the side, in metres, of the cells the "
+                "mass lies in (the pixel, or the analysis cell). The "
+                "points hold different hectares, so it cannot be read "
+                "off them.")
+        unit_size = math.sqrt(float(ha[0]) * 10_000.0)
+    unit_size = float(unit_size)
+    if not (np.isfinite(unit_size) and unit_size > 0):
+        raise ValueError("unit_size is a side in metres, above 0")
+    return unit_size
 
 
 def share_within(people: pd.DataFrame, mass: pd.DataFrame, radius,

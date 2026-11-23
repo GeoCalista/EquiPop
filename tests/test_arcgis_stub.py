@@ -141,6 +141,8 @@ def _install_fake_arcpy(table: pd.DataFrame):
             d.dataType = "RasterDataset"
             d.extent = types.SimpleNamespace(XMin=m["xmin"],
                                              YMax=m["ymax"])
+            arr = np.asarray(m["array"])
+            d.bandCount = arr.shape[0] if arr.ndim == 3 else 1
             # a MULTIBAND raster's Describe has no pixel size and no
             # nodata - real arcpy raises AttributeError for them, as
             # a SimpleNamespace without them does (v1.65.0)
@@ -555,6 +557,19 @@ def _install_fake_arcpy(table: pd.DataFrame):
                 self.df.loc[self.df.index[self.i], f] = v
 
     def RasterToNumPyArray(value):
+        # what was read, so a test can see a stack was not read whole
+        # to get one band (BACKLOG 512 e)
+        state.setdefault("raster_reads", []).append(str(value))
+        import re as _re
+        band = _re.match(r"^(.*)[\\/]Band_(\d+)$", str(value))
+        if band:
+            a = np.asarray(state["rasters"][_unalias(band.group(1))]
+                           ["array"])
+            n = int(band.group(2))
+            if a.ndim != 3 or not 1 <= n <= a.shape[0]:
+                raise RuntimeError(f"ERROR 000732: {value} does not "
+                                   "exist")
+            return a[n - 1]
         return state["rasters"][_unalias(value)]["array"]
 
     def ListFieldsAny(obj):

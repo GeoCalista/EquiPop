@@ -27,7 +27,8 @@ order to mix up, and no limit. A layer can be renamed to something short
                        from 0 to 1 (Sentinel-2 L2A digital numbers are
                        reflectance x 10000: divide them first)
 
-The arithmetic: + - * /, powers as ** or ^, brackets; abs, sqrt, exp,
+The arithmetic: + - * /, powers as ** or ^ (a power, as in QGIS - in
+Pro's Raster Calculator ^ is XOR), brackets; abs, sqrt, exp,
 ln (natural), log10, floor, ceil, min(a, b, ...), max(a, b, ...);
 comparisons < <= > >= == != giving 1 or 0, joined with and, or, not;
 and where(condition, a, b). 'log' alone is refused - natural or base
@@ -72,7 +73,7 @@ FUNCTIONS = {"abs": (1, 1), "sqrt": (1, 1), "exp": (1, 1), "ln": (1, 1),
 _ONE = {"abs": np.abs, "sqrt": np.sqrt, "exp": np.exp, "ln": np.log,
         "log10": np.log10, "floor": np.floor, "ceil": np.ceil}
 _OPS = {ast.Add: np.add, ast.Sub: np.subtract, ast.Mult: np.multiply,
-        ast.Div: np.divide, ast.Pow: np.power, ast.BitXor: np.power}
+        ast.Div: np.divide, ast.Pow: np.power}
 _CMP = {ast.Lt: np.less, ast.LtE: np.less_equal, ast.Gt: np.greater,
         ast.GtE: np.greater_equal, ast.Eq: np.equal,
         ast.NotEq: np.not_equal}
@@ -123,7 +124,7 @@ def parse(text) -> Formula:
         raise FormulaError(f"A formula is at most {MAX_LENGTH} "
                            "characters.")
     try:
-        tree = ast.parse(t, mode="eval")
+        tree = ast.parse(_powers(t), mode="eval")
     except SyntaxError:
         raise FormulaError(
             f"'{t}' is not a formula EquiPop can read. Name each raster "
@@ -137,6 +138,24 @@ def parse(text) -> Formula:
         raise FormulaError("A formula needs at least one raster, such as "
                            "\"nir\".")
     return Formula(t, tree, tuple(sorted(refs, key=_key)))
+
+
+def _powers(t):
+    """^ written as ** BEFORE the formula is parsed, outside quoted
+    names, so a power binds as in ordinary maths: -"x" ^ 2 is -4 and
+    2 ^ 3 ^ 2 is 512 (BACKLOG 512 b). Parsed first, ^ is Python's xor
+    and keeps xor's low precedence: "x" ^ 2 + 1 read as "x" ^ 3."""
+    out, quote = [], None
+    for ch in t:
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "^":
+            out.append("**")
+            continue
+        out.append(ch)
+    return "".join(out)
 
 
 def _ref(node, text):
@@ -307,6 +326,19 @@ def _truth(v):
 
 
 def _ev(node, bands):
+    """One node's value, with anything not finite made no value AT ONCE
+    (BACKLOG 512 b): an infinity left to the end could first pass
+    through a comparison or min() and come out as a number - 1 / 0 > 0
+    read 1, min(1 / 0, 5) read 5."""
+    v = np.asarray(_ev_raw(node, bands), np.float32)
+    if v.ndim:
+        v = np.where(np.isfinite(v), v, np.float32(np.nan))
+    elif not np.isfinite(v):
+        v = np.float32(np.nan)
+    return v
+
+
+def _ev_raw(node, bands):
     if isinstance(node, ast.Constant) and not isinstance(node.value, str):
         return np.float32(node.value)
     r = _ref(node, "")

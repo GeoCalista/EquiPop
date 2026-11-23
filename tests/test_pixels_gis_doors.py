@@ -305,6 +305,24 @@ def test_pro_reads_a_multiband_raster_whose_dataset_has_no_pixel_size():
         assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
 
 
+def test_pro_reads_only_the_bands_a_formula_needs():
+    """BACKLOG 512 e: band 2 of a 3-band stack is read as
+    <dataset>/Band_2, never the whole stack - a 13-band Sentinel-2 tile
+    would otherwise cost thirteen bands' memory for one. BROKEN WITH:
+    the whole raster read and the band picked from it."""
+    stack = np.stack([np.zeros((40, 40)), _cover(), np.zeros((40, 40))])
+    pyt, state, msg = _pro(array=stack)
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, value="2"), msg)
+    reads = state["raster_reads"]
+    assert reads and all(r.replace("\\", "/").endswith("/Band_2")
+                         for r in reads), reads
+    got = state["copies"]["memory/out"]
+    assert np.allclose(got["Dist_1"].astype(float), _want()["Dist_1"])
+    with pytest.raises(Exception, match="has 3 bands; band 4"):
+        tool.execute(_pro_params(tool, value="4"), msg)
+
+
 def test_pro_reads_rasters_named_in_quotes_whatever_their_order():
     """Pro's box gives 'B08.tif;B04.tif;'S2 stack'' - files named with
     their ending, one with a space in single quotes. The formula
