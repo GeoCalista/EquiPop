@@ -86,6 +86,9 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-50 | Dead code is deleted, not commented out | In force |
 | R-51 | The sample data stays as it is until a publication leans on it | In force |
 | R-52 | A trip's start and end squares count as ordinary ground | In force |
+| R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
+| R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
+| R-55 | Mass inside a cell is spread evenly over the cell's real area | In force |
 
 ---
 
@@ -497,4 +500,36 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John, 17 November 2026: "I think it makes sense to free from friction in the start and end square", and for facilitators too, "same everywhere (for logic)". A 100 m cell cannot tell a home beside the railway from one on it. Before this, the trip home paid the whole wall, so 537 of Gridby's 19,036 residents had almost no job access on foot, and a home beside the motorway was reached at motorway speed.
 **Source.** BACKLOG 502 (found), 505 (built).
 **Pinned by.** `tests/test_start_and_end_are_ordinary_ground.py::test_the_way_home_to_a_wall_square_costs_ordinary_ground`
+**Status.** In force.
+
+## B, continued. Who counts, and how much
+
+### R-53 · Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell
+**Rule.** Tool 3b turns pixels into mass in one order, the same in every door:
+1. **Value:** the raster as it is, one of its bands, or a formula over any number of rasters, each named by its LAYER NAME in quotes ("B08", "S2 stack"[8]) - never by its place in a list. Arithmetic, powers (^ or **), sqrt, exp, ln, log10, abs, floor, ceil, min, max, comparisons, and/or/not, where, and ndvi, ndwi, ndbi, savi. The rasters must share one pixel size and one grid; only their overlap is used. A formula is parsed and checked, never run. A pixel with nodata in any raster it uses, or a division by zero, has no value, and stays without one through a comparison.
+2. **Base:** class codes or a range; the k hectares are gathered from these. Empty means every pixel with a value.
+3. **Treatment:** class codes or a range, looked for AMONG the base only; a treatment pixel outside the base does not count.
+4. **Hectares:** each pixel's own area.
+5. **Analysis cell:** base and treatment are decided pixel by pixel at the image's own resolution, and only then are the hectares summed into cells of the chosen size, on a grid anchored at 0, 0. A mean value is never thresholded afterwards.
+6. **k-nearest:** Dist_k is the distance at which k hectares of base are gathered; T_k is the treatment's hectares among them and R_k = T_k / k. Where the whole raster holds less than k hectares of base, Dist_k is left empty rather than given the distance to the last pixel.
+
+**Why.** John, 21 November 2026, asking for the share of "the very green out of all green" and for a band calculator: "I like it and it is exactly as I hoped." Deciding before summing keeps hectares: a 50 m cell with 7 of its 25 pixels at NDVI 0.7 holds 0.07 ha of green, while its mean NDVI (0.34) would make it all green or none depending on the threshold. The names follow Counts and Shares, so Dist_, T_ and R_ read the same everywhere. John, 22 November 2026, on naming rasters by their place in a list: in Pro "the rasters are either shown by folder, by layer (top of each other), etc." - so a user can mix up which is the first; and "make sure we do not limit to a few rasters ... and please allow for ... sqrt and power, ln, exp". He chose layer names in quotes, as Raster Calculator writes them.
+**Source.** BACKLOG 510; the board paper's target A, 21 November 2026.
+**Pinned by.** `tests/test_pixels_door.py::test_treatment_among_the_base_gives_t_and_r_by_hand`, `tests/test_pixels_door.py::test_a_treatment_outside_the_base_counts_nothing`, `tests/test_pixels_door.py::test_the_analysis_cell_sums_hectares_decided_pixel_by_pixel`, `tests/test_pixels.py::test_a_reach_that_never_happens_has_no_distance`, `tests/test_bandmath.py::test_anything_else_is_refused_with_a_sentence`, `tests/test_bandmath.py::test_no_value_stays_no_value_through_comparisons_and_where`, `tests/test_pixels_door.py::test_two_single_band_files_equal_one_two_band_file`, `tests/test_pixels_gis_doors.py::test_qgis_finds_each_raster_by_its_layer_name`
+**Status.** In force.
+
+## A, continued. The neighbourhood
+
+### R-54 · A place with nobody in it does not move anyone's distance
+**Rule.** When k is reached partway through a ring (R-02), the distance is interpolated from the last neighbour that holds people or mass. A neighbour with nobody in it - a row outside the reference (R-11), a kept zero, a person in tool 3b - is not a ring. Every place's results are the same whether it is run alone, with others, in subsets or in batches, and whether empty rows are kept or not.
+**Why.** R-11 says such a row is "nobody's neighbour", and the interpolation broke it: in Counts, 100 people each at 0, 1000 and 2000 m with k = 150 give the person at 0 708 m, and one kept row with no people at 500 m made it 791 m. The external review found the same in tool 3b, 23 November 2026. John: "empty rows should be ignored".
+**Source.** BACKLOG 511.
+**Pinned by.** none yet - the tests come with BACKLOG 511.
+**Status.** In force, not yet built.
+
+### R-55 · Mass inside a cell is spread evenly over the cell's real area
+**Rule.** When a person sits on a cell that holds mass - a pixel, or an analysis cell - the distance to gather part of it is found as if that mass were spread evenly over the cell, the own-cell rule of R-03 applied to mass. The cell is the real one: the pixel's or the analysis cell's own size, a non-square pixel by its area, never a default.
+**Why.** The external review, 23 November 2026: one 10 m pixel, k = 0.01 ha, gave 56.42 m - the disc of a hidden 100 m cell - where the pixel's own disc is 5.64 m. Of the three ways to read a little green in a coarse cell (spread evenly, packed in a disc at the centre, or zero), John chose spread evenly, which is how EquiPop already treats people in their own cell. Built the same day, it showed the hidden size reached further than the review found: everyone's first ring starts at the edge of their own cell's disc, so a 100 m cell moved every distance gathered in the nearest pixel (215.85 m against 212.17 m with the real 10 m pixel).
+**Source.** BACKLOG 512.
+**Pinned by.** `tests/test_pixels_door.py::test_a_person_on_a_pixel_gathers_it_within_the_pixel_s_own_disc`, `tests/test_pixels_door.py::test_a_partly_green_analysis_cell_spreads_its_green_over_the_cell`, `tests/test_pixels_door.py::test_a_non_square_pixel_counts_by_its_area`, `tests/test_pixels_door.py::test_the_first_ring_starts_at_the_edge_of_the_real_cell`
 **Status.** In force.

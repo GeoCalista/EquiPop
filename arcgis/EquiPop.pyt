@@ -4037,8 +4037,8 @@ class PixelReach:
 
     Thin. Every number is made in equipop.doors.pixelsdoor and
     equipop.pixels, which QGIS calls with the same boxes. What is Pro's
-    own: reading the people from a layer, reading ONE BAND of the
-    raster with arcpy - never rasterio, which would bring a second GDAL
+    own: reading the people from a layer, reading the bands a formula
+    needs of each raster with arcpy - never rasterio, which would bring a second GDAL
     into Pro's Python (the elevation raster's lesson, BACKLOG 313) -
     and comparing the two spatial references.
 
@@ -4053,23 +4053,37 @@ class PixelReach:
         self.description = SUMMARY["PixelReach"]
 
     def getParameterInfo(self):
-        band = _p("band", "Band of the raster (1 = the first)", "GPLong",
-                  required=False)
-        band.value = 1
+        # v1.66.0, BACKLOG 510: the chain. ANY NUMBER of rasters, which a
+        # formula names by their layer names in quotes - no list order
+        # to read two ways (John, 22 November 2026). Base and treatment
+        # replace 1.65.0's "which pixels count". Same names as QGIS's.
+        value = _p("value", 'Pixel value: empty = the raster as it is; '
+                            'or a formula naming rasters in quotes, such '
+                            'as ndvi("nir", "red")', "GPString",
+                   required=False)
         hectares = _p("hectares", "Hectares to gather, with spaces "
-                                  "between (1 5 20)", "GPString")
+                                  "between (1 5 20)", "GPString",
+                      required=False)
         hectares.value = "1 5 20"
         return [_p("layer", "The people - a point layer in metres",
                    "GPFeatureLayer"),
-                _p("raster", "The image or land-cover map (same "
-                             "coordinate system as the people)",
-                   ["DERasterDataset", "GPRasterLayer"]),
-                band,
-                _p("pixels", "Which pixels count - class codes (10 20) "
-                             "or a range (0,4 to 1)", "GPString"),
+                _p("rasters", "Rasters: the image, or several for a "
+                              "formula (same coordinate system as the "
+                              "people)",
+                   ["GPRasterLayer", "DERasterDataset"], multiValue=True),
+                value,
+                _p("base", "Base: which pixels count (10 20, or 0,01 to "
+                           "1; empty = all)", "GPString", required=False),
+                _p("treatment", "Treatment: which of them to look for "
+                                "(0,7 to 1; optional)", "GPString",
+                   required=False),
                 hectares,
-                _p("radius", "Radius in metres for the share within it "
-                             "(optional)", "GPString", required=False),
+                _p("radius", "Radius in metres, with spaces between "
+                             "(100 200; optional)", "GPString",
+                   required=False),
+                _p("cell", "Analysis cell in metres (optional; empty = "
+                           "the image's pixel)", "GPString",
+                   required=False),
                 _p("outfc", "New feature class (name/path)",
                    "DEFeatureClass", direction="Output")]
 
@@ -4084,14 +4098,29 @@ class PixelReach:
         if _doors(strict=False) is None:
             return
         from equipop.doors.numbers import BadNumber
-        from equipop.doors.pixelsdoor import (parse_hectares,
-                                              parse_pixels, parse_radius)
+        from equipop.doors.pixelsdoor import (bands_needed, parse_cell,
+                                              parse_hectares,
+                                              parse_radius, parse_range,
+                                              parse_value)
         pm = _byname(parameters)
-        for name, parse in (("pixels", parse_pixels),
+        rp, vp = pm.get("rasters"), pm.get("value")
+        if rp is not None and vp is not None and rp.valueAsText:
+            try:                # every name the formula uses is there
+                bands_needed(vp.valueAsText or "",
+                             [_raster_name(e)
+                              for e in _many(rp.valueAsText)])
+            except BadNumber as bad:
+                vp.setErrorMessage(str(bad))
+                return
+        for name, parse in (("value", parse_value),
+                            ("base", lambda t: parse_range(t, "base")),
+                            ("treatment",
+                             lambda t: parse_range(t, "treatment")),
                             ("hectares", parse_hectares),
-                            ("radius", parse_radius)):
+                            ("radius", parse_radius),
+                            ("cell", parse_cell)):
             p = pm.get(name)
-            if p is None or (name != "radius" and not p.valueAsText):
+            if p is None:
                 continue
             try:
                 parse(p.valueAsText or "")
@@ -4104,22 +4133,27 @@ class PixelReach:
         import pandas as pd
 
         from equipop.doors.numbers import BadNumber
-        from equipop.doors.pixelsdoor import result_names, run
+        from equipop.doors.pixelsdoor import (bands_needed, result_names,
+                                              run, unused)
 
         pm = _byname(parameters)
         ch = _channel(messages)
-        layer, raster = _txt(pm, "layer"), _txt(pm, "raster")
-        out = _txt(pm, "outfc")
+        layer, out = _txt(pm, "layer"), _txt(pm, "outfc")
+        by_name = [(_raster_name(e), e) for e in _many(_txt(pm,
+                                                            "rasters"))]
         for value, box in ((layer, "the people layer"),
-                           (raster, "the raster"),
+                           (by_name, "a raster"),
                            (out, "the new feature class")):
             if not value:
                 raise arcpy.ExecuteError(f"Choose {box}.")
-        band = int(_num(pm, "band", 1) or 1)
-        pixels, hectares = _txt(pm, "pixels"), _txt(pm, "hectares")
-        radius = _txt(pm, "radius")
+        boxes = {name: _txt(pm, name) for name in
+                 ("value", "base", "treatment", "hectares", "radius",
+                  "cell")}
         try:
-            names = result_names(hectares, radius)
+            names = result_names(boxes["hectares"], boxes["radius"],
+                                 boxes["treatment"])
+            wanted = bands_needed(boxes["value"],
+                                  [n for n, _ in by_name])
         except BadNumber as bad:
             raise arcpy.ExecuteError(str(bad))
         txt = _refuse_shp_overflow(out, names)
@@ -4128,8 +4162,10 @@ class PixelReach:
 
         # Both systems checked BEFORE anything is copied or read
         sr = _require_crs(arcpy.Describe(layer), "The people layer")
-        rdesc = arcpy.Describe(_ref(raster))
-        rsr = _require_crs(rdesc, "The raster")
+        used = [(n, e) for n, e in by_name if n in wanted]
+        descs = {n: arcpy.Describe(_ref(e)) for n, e in used}
+        rsrs = {n: _require_crs(d, f'Raster "{n}"')
+                for n, d in descs.items()}
         # metres, or a unit the system does not state; a projection
         # in FEET is refused - a pixel's hectares are its width times
         # its height in the system's units (BACKLOG 160)
@@ -4137,16 +4173,18 @@ class PixelReach:
                   and _crs_unit_name(getattr(sr, "linearUnitName",
                                              None))
                   in ("metres", "map units"))
-        same = _same_crs(sr, rsr)
+        other = [n for n, r in rsrs.items() if not _same_crs(sr, r)]
+        same = not other
         if not (metric and same):
             if metric:
                 messages.addWarningMessage(
                     f"The people are in {getattr(sr, 'name', '?')}, "
-                    f"the raster in {getattr(rsr, 'name', '?')}.")
+                    f'raster "{other[0]}" in '
+                    f"{getattr(rsrs[other[0]], 'name', '?')}.")
             try:
-                run(pd.DataFrame({"x": [], "y": []}), None, pixels,
-                    hectares, radius, layer_is_metric=metric,
-                    same_crs=same, say=ch.info)
+                run(pd.DataFrame({"x": [], "y": []}), None,
+                    layer_is_metric=metric, same_crs=same, say=ch.info,
+                    **boxes)
             except BadNumber as bad:
                 raise arcpy.ExecuteError(str(bad))
 
@@ -4155,13 +4193,20 @@ class PixelReach:
             kind, data, oid = _read_input(out, _COORD_GEOM, None, None,
                                           [], messages,
                                           context="people layer")
-        with _stage(messages, "reading the raster"):
-            payload = _pixel_payload(raster, rdesc, band, messages)
+        idle = unused(boxes["value"], [n for n, _ in by_name])
+        if idle:
+            messages.addMessage("Not in the pixel value, so not read: "
+                                + ", ".join(f'"{n}"' for n in idle)
+                                + ".")
+        with _stage(messages, "reading the rasters"):
+            payloads = [(n, _pixel_payload(e, descs[n], wanted[n],
+                                           messages, name=n))
+                        for n, e in used]
         people = pd.DataFrame({"x": data["x"], "y": data["y"]})
         try:
             with _stage(messages, "calculating"):
-                res = run(people, payload, pixels, hectares, radius,
-                          say=ch.info)
+                res = run(people, rasters=payloads, say=ch.info,
+                          **boxes)
         except BadNumber as bad:
             raise arcpy.ExecuteError(str(bad))
         order = [c for c in res.columns if c not in ("x", "y")]
@@ -4177,6 +4222,43 @@ class PixelReach:
                             + ", ".join(order))
 
 
+def _read_bands(desc, src, bands, name=None):
+    """{band: array} for the bands asked, plus "count". A multiband
+    raster is read ONE BAND AT A TIME through <dataset>\\Band_<n>, so
+    one band of a 13-band Sentinel-2 tile costs one band's memory, not
+    thirteen (BACKLOG 512 e). Where a band cannot be read that way, or
+    the band count is unknown, the whole raster is read and the bands
+    picked from it, as before."""
+    label = f'"{name}"' if name else "The raster"
+
+    def refuse(count):
+        missing = [b for b in bands if b > count]
+        if missing:
+            raise arcpy.ExecuteError(
+                f"{label} has {count} band{'s' if count != 1 else ''}; "
+                f"band {missing[0]} does not exist.")
+
+    count = getattr(desc, "bandCount", None)
+    if isinstance(count, int) and count > 1:
+        refuse(count)
+        base = getattr(desc, "catalogPath", None) or src
+        got = {}
+        try:
+            for b in bands:
+                got[b] = np.asarray(arcpy.RasterToNumPyArray(
+                    os.path.join(str(base), f"Band_{b}")))
+            got["count"] = count
+            return got
+        except Exception:
+            pass                        # the whole raster, below
+    arr = np.asarray(arcpy.RasterToNumPyArray(src))
+    count = arr.shape[0] if arr.ndim == 3 else 1
+    refuse(count)
+    got = {b: (arr[b - 1] if arr.ndim == 3 else arr) for b in bands}
+    got["count"] = count
+    return got
+
+
 def _band_describe(desc, src, band):
     """Describe of one band of a raster: <dataset>\\Band_<n>, the dataset
     found from a layer through catalogPath. None when there is none."""
@@ -4190,23 +4272,48 @@ def _band_describe(desc, src, band):
     return None
 
 
-def _pixel_payload(raster, desc, band, messages):
-    """One band of a raster, read by arcpy, as the payload
-    equipop.doors.pixelsdoor.run takes (BACKLOG 509) - the same keys
-    as the elevation raster's (_raster_payload), plus `geographic`.
-    A multiband raster comes back from RasterToNumPyArray as a stack;
-    the band is picked from it, counted from 1."""
+def _many(text):
+    """A multivalue box's text -> its entries. Pro joins them with ';'
+    and puts one holding a space in single quotes:
+    "red;'S2 stack';C:\\data\\B08.tif" -> red, S2 stack, C:\\data\\B08.tif.
+    """
+    s, out, i = str(text or ""), [], 0
+    while i < len(s):
+        if s[i] == "'":
+            j = s.find("';", i + 1)
+            if j < 0:
+                j = len(s) - 1 if s.endswith("'") and len(s) > i + 1 \
+                    else len(s)
+            out.append(s[i + 1:j])
+            i = j + 2
+        else:
+            j = s.find(";", i)
+            j = len(s) if j < 0 else j
+            out.append(s[i:j])
+            i = j + 1
+    return [e.strip() for e in out if e.strip()]
+
+
+def _raster_name(entry):
+    """What a formula calls a raster in Pro: its layer name as Contents
+    shows it, or, for a dataset browsed to, its file name - the name
+    Pro gives the layer when that file is added to a map (BACKLOG
+    510). A layer inside a group arrives as Group\\Layer; Contents
+    shows Layer."""
+    e = str(entry).strip().rstrip("\\/")
+    return e.replace("/", "\\").split("\\")[-1] or e
+
+
+def _pixel_payload(raster, desc, bands, messages, name=None):
+    """The bands a value box needs, read by arcpy, as the payload
+    equipop.doors.pixelsdoor.run takes (BACKLOG 509, 510): {"bands":
+    {n: array}}, the elevation raster's keys (_raster_payload) for where
+    the grid lies, each band's nodata, and `geographic`. A multiband
+    raster comes back from RasterToNumPyArray as a stack; the bands are
+    picked from it, counted from 1."""
     src = _ref(raster)
-    arr = np.asarray(arcpy.RasterToNumPyArray(src))
-    if arr.ndim == 3:
-        if not 1 <= band <= arr.shape[0]:
-            raise arcpy.ExecuteError(
-                f"The raster has {arr.shape[0]} bands; band {band} "
-                "does not exist.")
-        arr = arr[band - 1]
-    elif band != 1:
-        raise arcpy.ExecuteError(f"The raster has one band; band {band} "
-                                 "does not exist.")
+    got = _read_bands(desc, src, bands, name)
+    count = got.pop("count")
     # A MULTIBAND raster (a Sentinel-2 download, an orthophoto) keeps
     # its pixel size and nodata on each BAND, not on the dataset: its
     # Describe has no meanCellWidth at all (John, 21 November 2026,
@@ -4214,15 +4321,18 @@ def _pixel_payload(raster, desc, band, messages):
     # is described when the dataset does not say.
     cell_w = getattr(desc, "meanCellWidth", None)
     cell_h = getattr(desc, "meanCellHeight", None)
-    nodata = getattr(desc, "noDataValue", None)
-    if cell_w is None or cell_h is None or nodata is None:
-        bd = _band_describe(desc, src, band)
-        if cell_w is None:
-            cell_w = getattr(bd, "meanCellWidth", None)
-        if cell_h is None:
-            cell_h = getattr(bd, "meanCellHeight", None)
-        if nodata is None:
-            nodata = getattr(bd, "noDataValue", None)
+    nd_all = getattr(desc, "noDataValue", None)
+    nodata = {}
+    for b in bands:
+        nodata[b] = nd_all
+        if cell_w is None or cell_h is None or nd_all is None:
+            bd = _band_describe(desc, src, b)
+            if cell_w is None:
+                cell_w = getattr(bd, "meanCellWidth", None)
+            if cell_h is None:
+                cell_h = getattr(bd, "meanCellHeight", None)
+            if nd_all is None:
+                nodata[b] = getattr(bd, "noDataValue", None)
     if cell_w is None or cell_h is None:
         try:                        # the Raster object knows it too
             r = arcpy.Raster(getattr(desc, "catalogPath", None) or src)
@@ -4232,19 +4342,24 @@ def _pixel_payload(raster, desc, band, messages):
     if cell_w is None or cell_h is None:
         raise arcpy.ExecuteError(
             "ArcGIS does not say this raster's pixel size. Export the "
-            "band you want as a single-band GeoTIFF (Export Raster) "
-            "and run again on that.")
+            "bands you want as a GeoTIFF (Export Raster) and run again "
+            "on that.")
     ext = desc.extent
     sr = getattr(desc, "spatialReference", None)
-    pay = {"array": arr, "x_min": float(ext.XMin),
+    pay = {"bands": got, "x_min": float(ext.XMin),
            "y_max": float(ext.YMax),
            "cell_w": float(cell_w), "cell_h": float(cell_h),
-           "nodata": nodata,
+           "nodata": nodata, "count": count,
+           "source": os.path.basename(str(getattr(desc, "catalogPath",
+                                                  None) or src)),
            "geographic": str(getattr(sr, "type", "")) == "Geographic"}
+    shape = next(iter(got.values())).shape[-2:]
+    label = f'"{name}"' if name else "The raster"
     messages.addMessage(
-        f"Raster read by ArcGIS: band {band}, {arr.shape[0]:,} x "
-        f"{arr.shape[1]:,} pixels of {pay['cell_w']:g} x "
-        f"{pay['cell_h']:g}.")
+        f"Raster {label} read by ArcGIS: band(s) "
+        f"{', '.join(map(str, bands))} "
+        f"of {count}, {shape[0]:,} x {shape[1]:,} pixels of "
+        f"{pay['cell_w']:g} x {pay['cell_h']:g}.")
     return pay
 
 

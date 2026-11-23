@@ -172,7 +172,7 @@ def radius_suffixes(values, what: str = "radius") -> list:
         tag = numeric_tag(v)
         if tag in seen and float(seen[tag]) != float(v):
             raise LabelCollision(
-                f"{what} {float(v):g} and {float(seen[tag]):g} both "
+                f"{what} {float(v):.12g} and {float(seen[tag]):.12g} both "
                 f"become '{tag}' in a column name and could not be "
                 f"told apart in the output - one result would silently "
                 f"overwrite the other. They differ by less than "

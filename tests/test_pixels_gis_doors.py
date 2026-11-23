@@ -1,4 +1,4 @@
-"""Tool 3b at both GIS doors (BACKLOG 509): QGIS's alg_pixels and Pro's
+"""Tool 3b at both GIS doors (BACKLOG 509, the chain of 510): QGIS's alg_pixels and Pro's
 PixelReach, driven the way a person drives them, with the raster read
 by the host GIS and never by the package.
 
@@ -50,9 +50,14 @@ def _payload(a):
             "cell_h": CELL, "nodata": 255, "geographic": False}
 
 
-def _want(pixels="10 20", hectares="0,5 1 2", radius="100", a=None):
-    return run(_people(), _payload(_cover() if a is None else a), pixels,
-               hectares, radius, say=lambda *x: None)
+BOXES = {"value": "1", "base": "10 20", "treatment": "10",
+         "hectares": "0,5 1 2", "radius": "100", "cell": ""}
+
+
+def _want(a=None, **boxes):
+    b = dict(BOXES, **boxes)
+    return run(_people(), _payload(_cover() if a is None else a),
+               say=lambda *x: None, **b)
 
 
 # ---------------------------------------------------------------- QGIS
@@ -64,8 +69,7 @@ def _qgis(raster_crs="EPSG:3006", people_crs="EPSG:3006", **boxes):
                                       cw=CELL, ch=CELL, nodata=255,
                                       crs=raster_crs)
     p = {"layer": qgis_stub.source_from(_people(), crs=people_crs),
-         "raster": layer, "band": 1, "pixels": "10 20",
-         "hectares": "0,5 1 2", "radius": "100", "outfc": "memory:out"}
+         "rasters": [layer], "outfc": "memory:out", **BOXES}
     p.update(boxes)
     fb = QgsProcessingFeedback()
     alg.processAlgorithm(p, None, fb)
@@ -79,10 +83,10 @@ def test_qgis_writes_the_numbers_of_the_shared_run():
     got = sink.to_frame()
     want = _want()
     cols = [c for c in want.columns if c not in ("x", "y")]
-    assert cols == ["Dist_0_5", "Got_0_5", "Dist_1", "Got_1", "Dist_2",
-                    "Got_2", "Mass_r100", "Share_r100"]
+    assert cols == ["Dist_0_5", "T_0_5", "R_0_5", "Dist_1", "T_1", "R_1",
+                    "Dist_2", "T_2", "R_2", "B_r100", "T_r100", "R_r100"]
     for c in cols:
-        assert np.allclose(got[c].astype(float), want[c]), c
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
     assert np.allclose(got["x"], _people().x)       # same rows, in order
     aliases = {f.name(): f.alias() for f in sink._fields}
     assert "metres to gather 1 ha" in aliases["Dist_1"]
@@ -110,11 +114,107 @@ def test_qgis_refuses_a_typed_box_while_the_dialog_is_open():
     alg = PixelReach()
     alg.initAlgorithm()
     ok, why = alg.checkParameterValues(
-        {"pixels": "0,4 0,8", "hectares": "1", "radius": ""}, None)
+        {"value": "1", "base": "0,4 0,8", "treatment": "",
+         "hectares": "1", "radius": "", "cell": ""}, None)
     assert not ok and "to" in why
     ok, why = alg.checkParameterValues(
-        {"pixels": "10", "hectares": "0", "radius": ""}, None)
+        {"value": "1", "base": "10", "treatment": "", "hectares": "0",
+         "radius": "", "cell": ""}, None)
     assert not ok and "above 0" in why
+
+
+def _red_nir():
+    """A red and a near-infrared band: NDVI 0.8 on the trees' hectare,
+    0.1 elsewhere, and the cover map's nodata edge."""
+    red = np.full((40, 40), 1000.0)
+    nir = np.full((40, 40), 1222.0)
+    nir[10:20, 10:20] = 9000.0
+    red[:, 39] = nir[:, 39] = 255
+    return np.stack([red, nir])
+
+
+NDVI = {"value": "ndvi(2, 1)", "base": "0,05 to 1",
+        "treatment": "0,5 to 1"}
+
+
+def test_qgis_computes_a_formula_over_the_bands_it_reads():
+    """The value box's bands are read through QGIS, one by one. BROKEN
+    WITH: read_bands reading band 1 for every band asked - NDVI is then
+    0 everywhere and no pixel is in the treatment."""
+    from qgis.core import QgsProcessingException
+    from equipop_qgis.alg_pixels import PixelReach
+    stack = _red_nir()
+    alg = PixelReach()
+    alg.initAlgorithm()
+    layer = qgis_stub.FakeRasterLayer(stack, xmin=WEST, ymax=NORTH,
+                                      cw=CELL, ch=CELL, nodata=255)
+    p = {"layer": qgis_stub.source_from(_people(), crs="EPSG:3006"),
+         "rasters": [layer], "outfc": "memory:out",
+         **dict(BOXES, **NDVI)}
+    alg.processAlgorithm(p, None, QgsProcessingFeedback())
+    got = p["_sinks"]["outfc"].to_frame()
+    want = _want(a=stack, **NDVI)
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+    # the 1 ha disc reaches past the 100 m square of NDVI 0.8: R_1 ~ 0.9
+    assert got["R_1"].astype(float).iloc[0] == pytest.approx(0.9, abs=0.02)
+    p2 = dict(p, value="ndvi(3, 1)", outfc="memory:out2")
+    with pytest.raises(QgsProcessingException, match="band 3"):
+        alg.processAlgorithm(p2, None, QgsProcessingFeedback())
+
+
+def _qgis_named(value, named, **boxes):
+    """Layers [(name, array)] as a person adds them to QGIS."""
+    from equipop_qgis.alg_pixels import PixelReach
+    layers = [qgis_stub.FakeRasterLayer(a, xmin=WEST, ymax=NORTH, cw=CELL,
+                                        ch=CELL, nodata=255, name=n)
+              for n, a in named]
+    alg = PixelReach()
+    alg.initAlgorithm()
+    p = {"layer": qgis_stub.source_from(_people(), crs="EPSG:3006"),
+         "rasters": layers, "outfc": "memory:out",
+         **dict(BOXES, **dict(NDVI, value=value)), **boxes}
+    fb = QgsProcessingFeedback()
+    alg.processAlgorithm(p, None, fb)
+    return p["_sinks"]["outfc"].to_frame(), fb
+
+
+def test_qgis_finds_each_raster_by_its_layer_name():
+    """ndvi("nir", "red") over two layers, listed in either order, plus
+    a third the formula leaves out - which is named and not read. Both
+    orders write the numbers of ndvi(2, 1) over the stack [red, nir].
+    BROKEN WITH: the formula's rasters taken in the order the layers
+    are listed - one of the two orders then swaps red and NIR, NDVI is
+    negative and no pixel is in the base."""
+    red, nir = _red_nir()
+    want = _want(a=np.stack([red, nir]), **NDVI)
+    for named in ([("nir", nir), ("red", red), ("spare", red)],
+                  [("spare", nir), ("red", red), ("nir", nir)]):
+        got, fb = _qgis_named('ndvi("nir", "red")', named)
+        for c in want.columns.drop(["x", "y"]):
+            assert np.allclose(got[c].astype(float), want[c],
+                               equal_nan=True), c
+        assert any('not read: "spare"' in m for m in fb.info)
+        assert any('Raster "nir" read through QGIS' in m for m in fb.info)
+        assert not any('Raster "spare"' in m for m in fb.info)
+
+
+def test_qgis_refuses_a_name_no_layer_has_while_the_dialog_is_open():
+    from equipop_qgis.alg_pixels import PixelReach
+    alg = PixelReach()
+    alg.initAlgorithm()
+    layers = [qgis_stub.FakeRasterLayer(np.zeros((4, 4)), name=n)
+              for n in ("B04", "B08")]
+    ok, why = alg.checkParameterValues(
+        {"rasters": layers, "value": 'ndvi("B8", "B04")', "base": "",
+         "treatment": "", "hectares": "1", "radius": "", "cell": ""},
+        None)
+    assert not ok and '"B8"' in why and '"B08"' in why
+    ok, why = alg.checkParameterValues(
+        {"rasters": layers, "value": 'ndvi("b08.tif", "B04")',
+         "base": "", "treatment": "", "hectares": "1", "radius": "",
+         "cell": ""}, None)
+    assert ok, why
 
 
 # ----------------------------------------------------------------- Pro
@@ -140,9 +240,8 @@ def _pro(raster_code=0, people_code=0, array=None, out="memory/out"):
 def _pro_params(tool, **vals):
     ps = tool.getParameterInfo()
     by = {p.name: p for p in ps}
-    base = {"layer": "people", "raster": "cover", "band": 1,
-            "pixels": "10 20", "hectares": "0,5 1 2", "radius": "100",
-            "outfc": "memory/out"}
+    base = {"layer": "people", "rasters": "cover", "outfc": "memory/out",
+            **BOXES}
     base.update(vals)
     for k, v in base.items():
         by[k].value = v
@@ -159,8 +258,8 @@ def test_pro_writes_the_numbers_of_the_shared_run_on_the_copy():
     assert list(got["OBJECTID"]) == [11, 12, 13, 14]
     want = _want()
     for c in [c for c in want.columns if c not in ("x", "y")]:
-        assert np.allclose(got[c].astype(float), want[c]), c
-    assert "Mass_r100" not in state["table"]        # the input untouched
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+    assert "B_r100" not in state["table"]           # the input untouched
     assert any("read by ArcGIS" in m for m in msg.log)
 
 
@@ -170,9 +269,23 @@ def test_pro_picks_the_band_from_a_stack():
     stack = np.stack([np.zeros((40, 40)), _cover(), np.zeros((40, 40))])
     pyt, state, msg = _pro(array=stack)
     tool = pyt.PixelReach()
-    tool.execute(_pro_params(tool, band=2), msg)
+    tool.execute(_pro_params(tool, value="2"), msg)
     got = state["copies"]["memory/out"]
     assert np.allclose(got["Dist_1"].astype(float), _want()["Dist_1"])
+
+
+def test_pro_computes_a_formula_over_a_stack():
+    """BROKEN WITH: the bands picked as arr[b] instead of arr[b - 1] -
+    ndvi(2, 1) then asks for a third band that is not there."""
+    stack = _red_nir()
+    pyt, state, msg = _pro(array=stack)
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, **NDVI), msg)
+    got = state["copies"]["memory/out"]
+    want = _want(a=stack, **NDVI)
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+    assert any("ndvi(2, 1)" in m for m in msg.log)
 
 
 def test_pro_reads_a_multiband_raster_whose_dataset_has_no_pixel_size():
@@ -185,11 +298,88 @@ def test_pro_reads_a_multiband_raster_whose_dataset_has_no_pixel_size():
     pyt, state, msg = _pro(array=stack)
     state["rasters"]["cover"]["multiband"] = True
     tool = pyt.PixelReach()
-    tool.execute(_pro_params(tool, band=1), msg)
+    tool.execute(_pro_params(tool, value="1"), msg)
     got = state["copies"]["memory/out"]
     want = _want()
-    for c in ("Dist_1", "Got_1", "Mass_r100"):
-        assert np.allclose(got[c].astype(float), want[c]), c
+    for c in ("Dist_1", "T_1", "R_1", "B_r100"):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+
+
+def test_pro_reads_only_the_bands_a_formula_needs():
+    """BACKLOG 512 e: band 2 of a 3-band stack is read as
+    <dataset>/Band_2, never the whole stack - a 13-band Sentinel-2 tile
+    would otherwise cost thirteen bands' memory for one. BROKEN WITH:
+    the whole raster read and the band picked from it."""
+    stack = np.stack([np.zeros((40, 40)), _cover(), np.zeros((40, 40))])
+    pyt, state, msg = _pro(array=stack)
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, value="2"), msg)
+    reads = state["raster_reads"]
+    assert reads and all(r.replace("\\", "/").endswith("/Band_2")
+                         for r in reads), reads
+    got = state["copies"]["memory/out"]
+    assert np.allclose(got["Dist_1"].astype(float), _want()["Dist_1"])
+    with pytest.raises(Exception, match="has 3 bands; band 4"):
+        tool.execute(_pro_params(tool, value="4"), msg)
+
+
+def test_pro_reads_rasters_named_in_quotes_whatever_their_order():
+    """Pro's box gives 'B08.tif;B04.tif;'S2 stack'' - files named with
+    their ending, one with a space in single quotes. The formula
+    leaves the endings out. BROKEN WITH: _many splitting on every ';'
+    and keeping the quotes - "S2 stack" is then not found."""
+    pyt, state, msg = _pro()
+    red, nir = _red_nir()
+    for key, a in (("B04.tif", red), ("B08.tif", nir),
+                   ("S2 stack", np.stack([red, nir]))):
+        state["shape_types"][key] = "Raster"
+        state["rasters"][key] = {"array": a, "xmin": WEST, "ymax": NORTH,
+                                 "cw": CELL, "ch": CELL, "nodata": 255}
+        state["crs_codes"][key] = 0
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, rasters="B08.tif;B04.tif;'S2 stack'",
+                             **dict(NDVI, value='ndvi("B08", "b04")')),
+                 msg)
+    got = state["copies"]["memory/out"]
+    want = _want(a=_red_nir(), **NDVI)
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+    assert any('Not in the pixel value, so not read: "S2 stack"' in m
+               for m in msg.log)
+    assert any('Raster "B08.tif" read by ArcGIS' in m for m in msg.log)
+    # the stack, by its name with a space
+    pyt, state2, msg = _pro()
+    state2["shape_types"]["S2 stack"] = "Raster"
+    state2["rasters"]["S2 stack"] = state["rasters"]["S2 stack"]
+    state2["crs_codes"]["S2 stack"] = 0
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool, rasters="cover;'S2 stack'",
+                             **dict(NDVI, value='ndvi("S2 stack"[2], '
+                                                '"S2 stack"[1])')), msg)
+    got = state2["copies"]["memory/out"]
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+
+
+def test_pro_box_entries_and_names():
+    pyt, _, _ = _pro()
+    assert pyt._many("red;'S2 stack';C:\\d\\B08.tif") == [
+        "red", "S2 stack", "C:\\d\\B08.tif"]
+    assert pyt._many("'C:\\my data\\b 4.tif'") == ["C:\\my data\\b 4.tif"]
+    assert pyt._many("") == [] and pyt._many(None) == []
+    assert pyt._raster_name("C:\\d\\B08.tif") == "B08.tif"
+    assert pyt._raster_name("Sentinel\\B04") == "B04"
+    assert pyt._raster_name("red") == "red"
+
+
+def test_pro_refuses_a_name_no_raster_has_while_the_dialog_is_open():
+    pyt, _, _ = _pro()
+    tool = pyt.PixelReach()
+    ps = _pro_params(tool, rasters="B04.tif;B08.tif",
+                     value='ndvi("nir", "red")')
+    tool.updateMessages(ps)
+    v = {p.name: p for p in ps}["value"]
+    assert v.messages and "no raster is called" in v.messages[0][1]
 
 
 def test_pro_refuses_a_raster_in_another_system_and_copies_nothing():
@@ -203,20 +393,20 @@ def test_pro_refuses_a_raster_in_another_system_and_copies_nothing():
 
 
 def test_pro_refuses_a_shapefile_that_cannot_hold_the_names():
-    """Share_r1500 is eleven characters. BROKEN WITH: the name check
+    """B_r1500_125 is eleven characters. BROKEN WITH: the name check
     removed - the run would finish and the shapefile cut the name."""
     pyt, state, msg = _pro(out="C:/x/out.shp")
     tool = pyt.PixelReach()
     import arcpy
     with pytest.raises(arcpy.ExecuteError, match="SHAPEFILE"):
-        tool.execute(_pro_params(tool, radius="1500",
+        tool.execute(_pro_params(tool, radius="1500,125",
                                  outfc="C:/x/out.shp"), msg)
 
 
 # ------------------------------------------------------- both doors
 def test_both_doors_offer_the_same_boxes_with_shared_help():
     """BROKEN WITH: Pro's box named 'classes' where QGIS says
-    'pixels'."""
+    'base'."""
     from equipop_qgis.alg_pixels import PixelReach as Q
     pyt, _, _ = _pro()
     q = Q()

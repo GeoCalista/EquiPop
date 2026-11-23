@@ -78,7 +78,14 @@ def _read(path):
 
 
 def _num(col):
-    return np.array([np.nan if v is None else float(v) for v in col])
+    """Numbers as read back; an empty value is NaN. QGIS 4 reads an
+    empty field as None, QGIS 3 as a NULL QVariant (seen in 1.66.0's
+    tool 3b, whose Dist_ and R_ can be empty)."""
+    def one(v):
+        if v is None or (hasattr(v, "isNull") and v.isNull()):
+            return np.nan
+        return float(v)
+    return np.array([one(v) for v in col])
 
 
 # Settings named explicitly on both sides, so a changed default fails
@@ -225,10 +232,10 @@ def test_value_statistics_match_the_engine(tmp_path):
 
 # ---------------------------------------------- tool 3b, pixels as mass
 def test_pixel_reach_matches_the_shared_run(tmp_path):
-    """BACKLOG 509 in a real QGIS: the raster read by QGIS's own GDAL
-    (never rasterio), the band box as real Processing gives it, the
-    tool hidden from the toolbox yet run by processing.run, and the
-    numbers those of pixelsdoor.run for the same band."""
+    """BACKLOG 509 and 510 in a real QGIS: the raster read by QGIS's own
+    GDAL (never rasterio), the chain's boxes as real Processing gives
+    them, the tool hidden from the toolbox yet run by processing.run,
+    and the numbers those of pixelsdoor.run for the same band."""
     from osgeo import gdal, osr
 
     from equipop.doors.pixelsdoor import run
@@ -251,17 +258,113 @@ def test_pixel_reach_matches_the_shared_run(tmp_path):
     lyr, d = _points()
     out = tmp_path / "pixels.gpkg"
     processing.run("equipop:pixelreach", dict(
-        layer=lyr, raster=str(tif), band=1, pixels="10 20",
-        hectares="1 20", radius="300", outfc=str(out)))
+        layer=lyr, rasters=[str(tif)], value="", base="10 20",
+        treatment="10", hectares="1 20", radius="300", cell="",
+        outfc=str(out)))
     got = _read(out)
     payload = {"array": a, "x_min": 674000.0, "y_max": 6583000.0,
                "cell_w": 10.0, "cell_h": 10.0, "nodata": 255,
                "geographic": False}
     import pandas as pd
     want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}), payload,
-               "10 20", "1 20", "300", say=lambda *x: None)
-    for col in ("Dist_1", "Got_1", "Dist_20", "Got_20", "Mass_r300",
-                "Share_r300"):
+               value="1", base="10 20", treatment="10", hectares="1 20",
+               radius="300", say=lambda *x: None)
+    for col in ("Dist_1", "T_1", "R_1", "Dist_20", "T_20", "R_20",
+                "B_r300", "T_r300", "R_r300"):
         assert col in got, f"{col} missing; wrote {sorted(got)}"
+        np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
+                                   rtol=1e-9, atol=1e-9, err_msg=col)
+
+
+def _tif3006(path, a, nodata=0):
+    from osgeo import gdal, osr
+    ds = gdal.GetDriverByName("GTiff").Create(str(path), a.shape[1],
+                                              a.shape[0], 1,
+                                              gdal.GDT_UInt16)
+    ds.SetGeoTransform((674000.0, 10.0, 0.0, 6583000.0, 0.0, -10.0))
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(3006)
+    ds.SetProjection(srs.ExportToWkt())
+    band = ds.GetRasterBand(1)
+    band.WriteArray(a)
+    band.SetNoDataValue(nodata)
+    ds.FlushCache()
+
+
+def test_pixel_reach_names_two_files_by_their_layer_names(tmp_path):
+    """BACKLOG 510 (John, 22 November 2026): two single-band files in
+    the rasters box, listed NIR first, named in the formula by the
+    layer names QGIS gives them - the files' names - with the ending
+    left out. The numbers are pixelsdoor.run's for the same bands."""
+    from equipop.doors.pixelsdoor import run
+    red = np.full((300, 300), 1000, np.uint16)
+    nir = np.full((300, 300), 1222, np.uint16)
+    nir[100:150, 100:150] = 9000                   # 25 ha of NDVI 0.8
+    _tif3006(tmp_path / "T33_B04_10m.tif", red)
+    _tif3006(tmp_path / "T33_B08_10m.tif", nir)
+    lyr, d = _points()
+    out = tmp_path / "ndvi.gpkg"
+    boxes = dict(value='ndvi("T33_B08_10m", "T33_B04_10m.tif")',
+                 base="0,05 to 1", treatment="0,5 to 1",
+                 hectares="1 20", radius="300", cell="")
+    processing.run("equipop:pixelreach", dict(
+        layer=lyr, rasters=[str(tmp_path / "T33_B08_10m.tif"),
+                            str(tmp_path / "T33_B04_10m.tif")],
+        outfc=str(out), **boxes))
+    got = _read(out)
+    pay = lambda a, name: {"bands": {1: a}, "x_min": 674000.0,
+                           "y_max": 6583000.0, "cell_w": 10.0,
+                           "cell_h": 10.0, "nodata": 0,
+                           "geographic": False, "source": name}
+    import pandas as pd
+    want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}),
+               rasters=[("T33_B04_10m", pay(red, "T33_B04_10m.tif")),
+                        ("T33_B08_10m", pay(nir, "T33_B08_10m.tif"))],
+               say=lambda *x: None, **boxes)
+    for col in ("Dist_1", "T_1", "R_1", "Dist_20", "B_r300", "R_r300"):
+        assert col in got, f"{col} missing; wrote {sorted(got)}"
+        np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
+                                   rtol=1e-9, atol=1e-9, err_msg=col)
+
+
+def test_pixel_reach_honours_a_gdal_mask(tmp_path):
+    """BACKLOG 512 c: a GeoTIFF whose west half is masked by the file's
+    own mask, with NO nodata value. QGIS reads it through GDAL, and the
+    masked pixels must have no value - the numbers are pixelsdoor.run's
+    for the same band with the west half empty. BROKEN WITH: the mask
+    band left unread - every pixel then counts."""
+    from osgeo import gdal, osr
+    from equipop.doors.pixelsdoor import run
+    import pandas as pd
+    a = np.ones((300, 300), np.uint8)
+    path = str(tmp_path / "masked.tif")
+    ds = gdal.GetDriverByName("GTiff").Create(path, 300, 300, 1,
+                                              gdal.GDT_Byte)
+    ds.SetGeoTransform((674000.0, 10.0, 0.0, 6583000.0, 0.0, -10.0))
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(3006)
+    ds.SetProjection(srs.ExportToWkt())
+    ds.GetRasterBand(1).WriteArray(a)
+    ds.CreateMaskBand(gdal.GMF_PER_DATASET)
+    m = np.full((300, 300), 255, np.uint8)
+    m[:, :150] = 0
+    ds.GetRasterBand(1).GetMaskBand().WriteArray(m)
+    ds.FlushCache()
+    ds = None
+    lyr, d = _points()
+    out = tmp_path / "masked.gpkg"
+    boxes = dict(value="", base="", treatment="", hectares="1 20",
+                 radius="300", cell="")
+    processing.run("equipop:pixelreach", dict(
+        layer=lyr, rasters=[path], outfc=str(out), **boxes))
+    got = _read(out)
+    west = a.astype(np.float32)
+    west[:, :150] = np.nan
+    want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}),
+               {"bands": {1: west}, "x_min": 674000.0,
+                "y_max": 6583000.0, "cell_w": 10.0, "cell_h": 10.0,
+                "nodata": None, "geographic": False},
+               say=lambda *x: None, **boxes)
+    for col in ("Dist_1", "Dist_20", "B_r300"):
         np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
                                    rtol=1e-9, atol=1e-9, err_msg=col)

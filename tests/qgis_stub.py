@@ -654,6 +654,11 @@ class QgsProcessingParameterFeatureSink(_Param):
     pass
 
 
+class QgsProcessingParameterMultipleLayers(_Param):
+    """v1.66.0, BACKLOG 510: tool 3b's rasters box."""
+    pass
+
+
 class QgsProcessingParameterBand(_Param):
     """v1.65.0, BACKLOG 509: tool 3b's band box."""
     pass
@@ -756,6 +761,9 @@ class _Provider:
         self.arr, self._nd = arr, nodata
 
     def block(self, band, extent, w, h):
+        # v1.66.0, BACKLOG 510: a stack holds several bands, from 1
+        if self.arr.ndim == 3:
+            return _Block(self.arr[band - 1])
         return _Block(self.arr)
 
     def sourceNoDataValue(self, band):
@@ -766,20 +774,25 @@ class FakeRasterLayer:
     """Enough of QgsRasterLayer for the friction and slope paths."""
 
     def __init__(self, arr, xmin=0.0, ymax=1000.0, cw=100.0,
-                 ch=100.0, nodata=None, crs="EPSG:3006", source=""):
+                 ch=100.0, nodata=None, crs="EPSG:3006", source="",
+                 name="raster"):
         import numpy as _np
         self.arr = _np.asarray(arr, float)
         self._p = _Provider(self.arr, nodata)
-        h, w = self.arr.shape
+        h, w = self.arr.shape[-2:]
         self._ext = _Extent(xmin, ymax - h * ch, xmin + w * cw, ymax)
         # v1.65.0, BACKLOG 509: tool 3b compares the raster's system
         # with the people's and asks for its file. "" = not a file,
         # so the door reads it through the provider, as here.
         self._crs = QgsCoordinateReferenceSystem(crs)
         self._source = source
+        self._name = name          # v1.66.0: a formula names it
 
     def crs(self):
         return self._crs
+
+    def name(self):
+        return self._name
 
     def source(self):
         return self._source
@@ -791,10 +804,14 @@ class FakeRasterLayer:
         return self._ext
 
     def width(self):
-        return self.arr.shape[1]
+        return self.arr.shape[-1]
 
     def height(self):
-        return self.arr.shape[0]
+        return self.arr.shape[-2]
+
+    def bandCount(self):
+        """v1.66.0: a 2-D array is one band, a stack its first axis."""
+        return self.arr.shape[0] if self.arr.ndim == 3 else 1
 
 
 class QgsProcessing:
@@ -964,6 +981,14 @@ class QgsProcessingAlgorithm:
     def parameterAsRasterLayer(self, parameters, name, context):
         return parameters.get(name)
 
+    def parameterAsLayerList(self, parameters, name, context):
+        """v1.66.0, BACKLOG 510: tool 3b's rasters box - a list of
+        layers, as real PyQGIS returns it."""
+        v = parameters.get(name)
+        if v is None:
+            return []
+        return list(v) if isinstance(v, (list, tuple)) else [v]
+
     def parameterAsEnum(self, parameters, name, context):
         """The SINGULAR form. Real PyQGIS has both - parameterAsEnum
         for a single choice and parameterAsEnums for allowMultiple -
@@ -1041,6 +1066,7 @@ _NAMES = [
     "QgsProcessingParameterFeatureSink",
     "QgsProcessingParameterDefinition",
     "QgsProcessingParameterRasterLayer", "QgsProcessingParameterBand",
+    "QgsProcessingParameterMultipleLayers",
     "QgsWkbTypes",
     "QgsProcessingParameterFile", "QgsProcessingParameterCrs",
     "QgsProcessingParameterFolderDestination",

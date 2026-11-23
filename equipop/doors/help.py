@@ -891,35 +891,80 @@ HELP = {
               "overwritten. equipop_fetch.json (the manifest) and "
               "equipop_recipe.csv (the rows) are written beside the "
               "files.",
-    # v1.65.0, BACKLOG 509: tool 3b, pixels as mass
-    "raster": "THE IMAGE OR MAP whose pixels are the mass - a land-cover "
-              "map (ESA WorldCover, CORINE, Urban Atlas) or an index "
-              "computed from imagery (NDVI from Sentinel-2 or an "
-              "orthophoto). It must be in the SAME coordinate system as "
-              "the people layer, and that system must be in metres. "
-              "EquiPop will not reproject it for you: that means "
-              "resampling, which moves and blends pixels.",
-    "band": "WHICH BAND of the raster to read, counted from 1. A "
-            "land-cover map or an NDVI layer has one band; an image "
-            "has several (red, green, blue, near-infrared...) and you "
-            "choose the one that carries what you mean.",
-    "pixels": "WHICH PIXELS COUNT as mass. Class codes with spaces "
-              "between - 10 20 takes WorldCover's trees and shrubs - "
-              "or a range of values with 'to' - 0,4 to 1 takes NDVI "
-              "from 0.4 up. Both ends of a range count. Nodata pixels "
-              "never count.",
+    # v1.65.0, BACKLOG 509: tool 3b, pixels as mass. v1.66.0, BACKLOG
+    # 510: the chain - value, base, treatment, hectares, radius, cell.
+    "rasters": "THE IMAGE OR MAP whose pixels are the mass - a "
+               "land-cover map (ESA WorldCover, CORINE, Urban Atlas), an "
+               "index layer (NDVI) - or SEVERAL rasters, as many as a "
+               "formula needs: a Sentinel-2 download's B04 and B08, two "
+               "years of one map. The pixel value names each by its "
+               "layer name, so the order they are listed in does not "
+               "matter. They must share one pixel size and one grid; "
+               "where their extents differ, only the overlap is used. "
+               "All must be in the SAME coordinate system as the people "
+               "layer, and that system must be in metres. EquiPop will "
+               "not reproject or resample them for you: that moves and "
+               "blends pixels. A raster the formula does not name is "
+               "not read.",
+    "value": "THE VALUE OF EACH PIXEL. Empty: the raster as it is (one "
+             "raster, band 1). A number: that band of the one raster - "
+             "3 is its band 3. A FORMULA names "
+             "rasters by their layer names IN QUOTES, as Raster "
+             "Calculator does: (\"B08\" - \"B04\") / (\"B08\" + "
+             "\"B04\"), or a named index: ndvi(nir, red), ndwi(green, "
+             "nir), ndbi(swir, nir), savi(nir, red) - ndvi(\"B08\", "
+             "\"B04\"). A band of a multiband raster: \"S2 stack\"[8]. "
+             "A name is found whatever its case, and with or without "
+             "its file ending (\"B04\" finds B04.tif). Arithmetic: + - "
+             "* /, powers as ^ or ** (^ is a power here, as in QGIS; in "
+             "Pro's Raster Calculator it means XOR), brackets, sqrt() "
+             "exp() ln() "
+             "log10() abs() floor() ceil(), min(a, b, ...) and max(a, "
+             "b, ...). Comparisons > >= < <= == != give 1 or 0, with and, "
+             "or, not; where(test, then, else) picks one of two values. "
+             "Decimals take a point: 0.5. A pixel with nodata in any "
+             "raster it uses, a division by zero or the root of a "
+             "negative has no value and never counts - also through a "
+             "comparison. The run's messages say which raster played "
+             "which part, and warn when a Sentinel-2 band code in a "
+             "name does not fit its part (B04 given as nir).",
+    "base": "OPTIONAL. WHICH PIXELS COUNT as mass - the k hectares are "
+            "gathered from these. Class codes with spaces between - 10 "
+            "20 takes WorldCover's trees and shrubs - or a range with "
+            "'to' - 0,01 to 1 takes all vegetation in an NDVI. Both "
+            "ends of a range count. Empty: every pixel with a value "
+            "counts, so k hectares are simply a disc of ground (and sea "
+            "pixels count where the image covers sea).",
+    "treatment": "OPTIONAL. WHICH OF THE BASE PIXELS TO LOOK FOR among "
+                 "them - codes or a range, as for the base: 0,7 to 1 "
+                 "with a base of 0,01 to 1 is the very green among all "
+                 "green. Adds T_ (its hectares among the k) and R_ (T_ "
+                 "divided by k, a share from 0 to 1). A treatment pixel "
+                 "outside the base does not count.",
     "hectares": "HOW MUCH TO GATHER, in hectares, with spaces between - "
                 "1 5 20. Each gives a Dist_ column: the metres from the "
-                "point to where that many hectares of counted pixels "
-                "have been gathered. Hectares, not pixels, so the answer "
-                "does not change with the image's resolution. Got_ "
-                "shows what was gathered: below the target only where "
-                "the raster holds less in all.",
-    "radius": "OPTIONAL. A radius in metres - 300 - adds the hectares "
-              "of counted pixels within it (Mass_r) and their share of "
-              "the circle (Share_r, 0 to 1). A circle reaching past the "
-              "raster's edge still counts whole, so near an edge the "
-              "share is low.",
+                "point to where that many hectares of base have been "
+                "gathered. Hectares, not pixels, so the answer does not "
+                "change with the image's resolution. The least a Dist_ "
+                "can be is the radius of a disc of k hectares: 56 m for "
+                "1 ha, 126 m for 5 ha. Where the whole raster holds "
+                "less than k hectares of base, Dist_ is left empty.",
+    "radius": "OPTIONAL. One or more radii in metres, with spaces "
+              "between - 100 200. Each adds B_r, the hectares of base "
+              "within it, and with a treatment T_r and R_r, the "
+              "treatment's hectares and their share of the base within "
+              "the circle. A radius as wide as the whole raster makes "
+              "every point count every pixel: slow, and no different "
+              "from the raster's own totals.",
+    "cell": "OPTIONAL. THE ANALYSIS CELL in metres - 50. Base and "
+            "treatment are decided at the image's own resolution first, "
+            "pixel by pixel, and only THEN are the hectares summed into "
+            "cells of this size (on a grid from 0, 0), so no hectare is "
+            "lost or invented: a 50 m cell with 7 of its 25 pixels "
+            "green holds 0.07 ha of green, whatever their mean value. "
+            "Distances are then exact to half a cell, and a 10 m image "
+            "runs 25 times faster at 50 m. Empty: the image's own "
+            "pixel.",
 }
 
 # THE TOOL NAMES, in one place. BACKLOG 237: the two doors had drifted
@@ -958,13 +1003,15 @@ SUMMARY = {
     "PixelReach":
         "Treats the pixels of an image or a land-cover map as MASS and "
         "measures, from every point, how far one must go to gather k "
-        "hectares of them - green, water, built-up land, whatever the "
-        "pixels you choose stand for. It is EquiPop's k-nearest engine "
-        "with pixels in place of people, so Dist_ means what it means "
-        "everywhere else: the radius at which k is reached. k is in "
-        "HECTARES, so a 10 m and a 30 m map give the same answer for "
-        "the same ground. A radius adds the hectares within it and "
-        "their share of the circle.",
+        "hectares of them - and, given a treatment, how much of those k "
+        "hectares is of a particular kind. The value of a pixel is a "
+        "raster as it is, or a formula over any number of rasters named by "
+        "their layer names (NDVI from a Sentinel-2 download's B04 and "
+        "B08); the base says which pixels count, the treatment "
+        "which of them to look for. It is EquiPop's k-nearest engine "
+        "with pixels in place of people, so Dist_, T_ and R_ mean what "
+        "they mean in Counts and Shares. k is in HECTARES, so a 10 m "
+        "and a 30 m map give the same answer for the same ground.",
     "ShowTools":
         "Shows or hides tools 3 to 6 in the toolbox. Tools 1 and 2 are "
         "EquiPop's standard set and are always there; 3 to 6 - raster "
@@ -1076,14 +1123,16 @@ SUMMARY = {
 
 USAGE = {
     "PixelReach":
-        "Give the people layer and the raster, in the same metric "
-        "coordinate system. Say which pixels count - class codes (10 "
-        "20) for a land-cover map, a range (0,4 to 1) for an index - "
-        "and how many hectares to gather (1 5 20). Start with one k and "
-        "no radius. The run says how many pixels counted and how many "
-        "hectares that is: check it against what you expect before "
-        "reading any distance. A 10 m image of a whole city is tens of "
-        "millions of pixels; clip it to the area you study first.",
+        "Give the people layer and the raster - or several rasters - in "
+        "the same metric coordinate system. Pixel value: empty for the "
+        "raster as it is, or a formula naming the rasters in quotes, "
+        "such as ndvi(\"B08\", \"B04\"). Base: which pixels count (empty = all). Treatment: which of "
+        "them to look for (0,7 to 1 for the very green). Start with one "
+        "k and no radius. The run reports the value it computed and the "
+        "hectares of base and treatment: check them against what you "
+        "expect before reading any distance. A 10 m image of a city is "
+        "tens of millions of pixels: clip it to the study area, or give "
+        "an analysis cell of 50 m.",
     "ShowTools":
         "Choose 'All tools, 1 to 6' and run; {afterswitch} Run it again "
         "with 'Only tools 1 and 2' to hide them. The choice is saved "
