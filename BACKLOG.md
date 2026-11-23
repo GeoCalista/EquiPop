@@ -50,7 +50,7 @@ A. **Tool 3b's own fixes (512), inside pull request #21** - BUILT 23
    November - before it merges: the within-cell rule (R-55), the formula box, the raster
    checks on the Python route, clashing column names, Pro's band read.
 B. **An empty row moves other people's distances (511, R-54)** - in
-   EVERY tool, not only 3b. Its own pull request, with numbers that
+   EVERY tool, not only 3b. BUILT 23 November. Its own pull request, with numbers that
    change.
 C. **One set of files for PyPI and the release page, and try builds
    that say what they are (513).** A good first pull request for
@@ -3836,9 +3836,20 @@ because machine 3 stores tiles that way and says so in its manifest.
   (e) PRO READS THE WHOLE STACK for one band. Read the dataset's Band_n
   directly, and measure a full Sentinel-2 tile before recommending it.
 
-- 511 | OPEN 23 NOVEMBER 2026 (the external review, finding 1; ruling
-  R-54, John: "empty rows should be ignored") | AN EMPTY ROW MOVES OTHER
-  PEOPLE'S Dist_k - IN EVERY TOOL.
+- 511 | BUILT 23 NOVEMBER 2026, pull request, not released (the
+  external review, finding 1; ruling R-54, John: "empty rows should be
+  ignored") | AN EMPTY ROW MOVES OTHER PEOPLE'S Dist_k - IN EVERY TOOL.
+  BUILT: the crossing ring is interpolated from the last neighbour that
+  COUNTED, in the fast engine (both paths), the stats engine and the
+  effort engine; the grid engine had always skipped an empty ring
+  ("if ring_all == 0: continue") and now does in its sequential mode
+  too. An unreached k ends at the last place that held people.
+  MEASURED, before -> after: Gridby, all people against every fourth,
+  as the review did - Dist_1 10, Dist_5 46, Dist_20 26 of 590 places
+  differed (up to 7.4 m) -> none. Denmark at 100 m, without and with
+  its 409 empty rows - Dist_50 12, Dist_200 4, Dist_1000 2 of 44,529
+  places differed (up to 13.4 m) -> none. A run WITHOUT empty rows is
+  bit-identical before and after (Denmark, and 3,000 random cells).
   The review found it in tool 3b: three 1 ha pixels at 100, 200 and
   300 m, a person at 0, k = 1.5 ha -> 158.11 m; add a second person at
   150 m -> 176.78 m for the FIRST person. People enter the pixel tool's

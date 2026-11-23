@@ -325,7 +325,8 @@ def run_knn(
                     sum_grp += cell[1]
                     d_all += cell[0] * w
                     d_grp += cell[1] * w
-                    dist_m = ring_dist_m
+                    if cell[0] > 0:       # R-54: nobody moves nothing
+                        dist_m = ring_dist_m
                     while pending and sum_all >= pending[0]:
                         record(pending.pop(0))
             else:  # "ring" - atomic per equidistant ring
@@ -857,7 +858,12 @@ def run_knn_stats(
                         val_chunks[v].append(pair)
             if acc is not None:                               # 409
                 acc += S_mat[ring].sum(axis=0)
-            dist_m = float(d)
+            # R-54 (BACKLOG 511): a ring with nobody in it is not where
+            # anything counted so far lies - the next crossing ring is
+            # interpolated from the last ring that held people, as the
+            # grid engine has always done ("if ring_all == 0: continue")
+            if ring_n > 0:
+                dist_m = float(d)
             while pending and sum_n >= pending[0]:
                 record(pending.pop(0))
 
