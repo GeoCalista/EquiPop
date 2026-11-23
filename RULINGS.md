@@ -87,6 +87,8 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-51 | The sample data stays as it is until a publication leans on it | In force |
 | R-52 | A trip's start and end squares count as ordinary ground | In force |
 | R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
+| R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
+| R-55 | Mass inside a cell is spread evenly over the cell's real area | In force, not yet built |
 
 ---
 
@@ -515,3 +517,19 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Source.** BACKLOG 510; the board paper's target A, 21 November 2026.
 **Pinned by.** `tests/test_pixels_door.py::test_treatment_among_the_base_gives_t_and_r_by_hand`, `tests/test_pixels_door.py::test_a_treatment_outside_the_base_counts_nothing`, `tests/test_pixels_door.py::test_the_analysis_cell_sums_hectares_decided_pixel_by_pixel`, `tests/test_pixels.py::test_a_reach_that_never_happens_has_no_distance`, `tests/test_bandmath.py::test_anything_else_is_refused_with_a_sentence`, `tests/test_bandmath.py::test_no_value_stays_no_value_through_comparisons_and_where`, `tests/test_pixels_door.py::test_two_single_band_files_equal_one_two_band_file`, `tests/test_pixels_gis_doors.py::test_qgis_finds_each_raster_by_its_layer_name`
 **Status.** In force.
+
+## A, continued. The neighbourhood
+
+### R-54 · A place with nobody in it does not move anyone's distance
+**Rule.** When k is reached partway through a ring (R-02), the distance is interpolated from the last neighbour that holds people or mass. A neighbour with nobody in it - a row outside the reference (R-11), a kept zero, a person in tool 3b - is not a ring. Every place's results are the same whether it is run alone, with others, in subsets or in batches, and whether empty rows are kept or not.
+**Why.** R-11 says such a row is "nobody's neighbour", and the interpolation broke it: in Counts, 100 people each at 0, 1000 and 2000 m with k = 150 give the person at 0 708 m, and one kept row with no people at 500 m made it 791 m. The external review found the same in tool 3b, 23 November 2026. John: "empty rows should be ignored".
+**Source.** BACKLOG 511.
+**Pinned by.** none yet - the tests come with BACKLOG 511.
+**Status.** In force, not yet built.
+
+### R-55 · Mass inside a cell is spread evenly over the cell's real area
+**Rule.** When a person sits on a cell that holds mass - a pixel, or an analysis cell - the distance to gather part of it is found as if that mass were spread evenly over the cell, the own-cell rule of R-03 applied to mass. The cell is the real one: the pixel's or the analysis cell's own size, a non-square pixel by its area, never a default.
+**Why.** The external review, 23 November 2026: one 10 m pixel, k = 0.01 ha, gave 56.42 m - the disc of a hidden 100 m cell - where the pixel's own disc is 5.64 m. Of the three ways to read a little green in a coarse cell (spread evenly, packed in a disc at the centre, or zero), John chose spread evenly, which is how EquiPop already treats people in their own cell.
+**Source.** BACKLOG 512.
+**Pinned by.** none yet - the tests come with BACKLOG 512.
+**Status.** In force, not yet built.

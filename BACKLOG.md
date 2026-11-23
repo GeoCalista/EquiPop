@@ -38,6 +38,29 @@ still being asked for, which the external review pointed at), and at
 three of its claims against the code before trusting any of them** -
 that is how the last three staleness findings were made.*
 
+### After the external review of the 1.66.0 candidate — a work order
+*Written 23 November 2026, agreed with John the same day. The review
+("EquiPop code review: 1.65.0 development bundle", of the try build
+26fc501c) found six things; Claude checked each against the code and
+all six are real - two reach further than the review says. Nothing is
+coded yet; John: "wait with coding until we have chatted to a
+conclusion". The detail is in 511-514.*
+
+A. **Tool 3b's own fixes (512), inside pull request #21**, before it
+   merges: the within-cell rule (R-55), the formula box, the raster
+   checks on the Python route, clashing column names, Pro's band read.
+B. **An empty row moves other people's distances (511, R-54)** - in
+   EVERY tool, not only 3b. Its own pull request, with numbers that
+   change.
+C. **One set of files for PyPI and the release page, and try builds
+   that say what they are (513).** A good first pull request for
+   Marina or Umut.
+D. **Gridby never deletes a file it did not write (514).** Also a good
+   first pull request.
+E. **Rasters in degrees (decision d, 510).** Its own pull request.
+F. **Release 1.66.0.** Then machine 7 step 1 (PROPOSALS.md section 3),
+   only when John says go.
+
 ### After the code review of 1.63.7 — a work order, for John to change
 *Written at 1.63.8, 11 November 2026; item B done at 1.64.0; the
 independent review of 1.64.0 answered in 1.64.1 (488-492); item D's
@@ -3718,6 +3741,108 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 514 | OPEN 23 NOVEMBER 2026 (the external review, finding 6) | GRIDBY
+  NEVER DELETES A FILE IT DID NOT WRITE.
+  write_gridby(path) removes whatever is at `path` before writing its
+  ten layers (gridby.py, the os.remove before the loop). A teacher who
+  added a layer to the GeoPackage loses it, and if a write fails the
+  old file is already gone. There is no overwrite option.
+  TO DO: refuse an existing file by default, with a sentence naming
+  it. With overwrite=True, write a temporary file beside it, check the
+  ten layers, and only then replace the old one. Test that a write
+  failing halfway leaves the old file untouched.
+  A good first pull request for a new contributor: small, a clear
+  success condition, and no number changes.
+
+- 513 | OPEN 23 NOVEMBER 2026 (the external review, finding 5 and
+  "release identity") | ONE SET OF FILES FOR PyPI AND THE RELEASE PAGE,
+  AND TRY BUILDS THAT SAY WHAT THEY ARE.
+  (a) release.yml builds the wheel and source archive for PyPI without
+  the Pro help sidecars; the attach job then runs make_bundle.sh, which
+  writes the sidecars, DELETES dist/ and builds both again, and those
+  rebuilt files go to the release page. MEASURED ON 1.65.0, 23
+  November: PyPI's wheel and the release page's have IDENTICAL
+  contents, file by file (77 files), so nobody runs different code -
+  but different bytes, so SHA256SUMS.txt does not describe what PyPI
+  serves; and PyPI's source archive carries 0 of the 10 Pro help files
+  (the release page's carries all 10).
+  TO DO: write the help first, build once, give the SAME files to
+  PyPI and to the release page, and have the workflow compare their
+  SHA-256 and check the exact set of help files in the source archive.
+  For 1.65.0: a line on its release page saying so. PyPI does not let
+  a file be replaced, and nothing needs to be.
+  (b) A try build calls itself 1.65.0, like the release before it.
+  John, 22 November: "the files seems to be from earlier today - am I
+  missing something? In which folder is the new thing added?" - the new
+  code was inside files with the old names. TO DO: a try build gets a
+  version of its own (1.66.0.dev0+g98eedfb, say), shown by Pro, QGIS
+  and equipop doctor, and carries a BUILD.txt with the commit and the
+  release it leads to. The check that refuses a plugin newer than its
+  engine must accept it.
+  (a) is a good first pull request for Marina or Umut.
+
+- 512 | OPEN 23 NOVEMBER 2026 (the external review, findings 2-4 and
+  two smaller ones; ruling R-55) | TOOL 3b: THE REVIEW'S FIXES, INSIDE
+  PULL REQUEST #21 BEFORE IT MERGES. All reproduced by Claude.
+  (a) THE WITHIN-CELL RULE (R-55, John: "a"). pixels.reach() hands the
+  engine unit_size = 100 m whatever the pixel, and the engine's
+  own-cell rule uses it whenever a person sits exactly on a pixel or
+  analysis-cell centre: one 10 m pixel, k = 0.01 ha -> 56.42 m (the
+  disc of a 100 m cell), not 5.64 m. TO DO: pass the real cell - the
+  pixel, or the analysis cell - and treat a non-square pixel by its
+  area. Tests: a native pixel, a partly green analysis cell, a
+  non-square pixel.
+  (b) THE FORMULA BOX. "x" ^ 2 + 1 gave 8 where "x" ** 2 + 1 gave 5,
+  and -"x" ^ 2 gave 4: ^ was parsed as Python's xor and only then
+  mapped to a power, so it kept xor's low precedence. And at x = 0,
+  1 / "x" > 0 gave 1 and min(1 / "x", 5) gave 5: the infinity was
+  turned into a number before the last cleanup. TO DO: turn ^ into **
+  before parsing, outside quoted names, so it follows ordinary maths
+  (-"x" ^ 2 = -4, 2 ^ 3 ^ 2 = 512); make every step's infinity "no
+  value" at once. Tests: mixed, unary and chained powers; 1 / 0 through
+  a comparison, min, max, where - and through the base box, so such a
+  pixel adds no hectares. The help says ^ is a power, as in QGIS; in
+  Pro's Raster Calculator ^ is XOR, and the help should say that too.
+  (c) THE PYTHON ROUTE'S RASTER CHECKS. It compares only "degrees or
+  not": two 10 m grids in UTM 32N and 33N were combined. It assumes
+  metres: a raster in US survey feet gave 1 ha per 100 x 100 pixel
+  instead of 0.093. It ignores GDAL masks: a pixel masked without a
+  nodata value counted. QGIS's GDAL reader ignores masks too; QGIS and
+  Pro do check the coordinate systems themselves. TO DO: carry each
+  raster's coordinate system and unit with its bands; refuse two
+  systems, refuse feet, refuse a missing system unless the caller says
+  what it is; honour the mask in every reader, with a masked test file
+  for each.
+  (d) CLASHING NAMES. "0.1000001 0.1000002" gives Dist_0_1 twice. Use
+  labels.py's clash check before computing.
+  (e) PRO READS THE WHOLE STACK for one band. Read the dataset's Band_n
+  directly, and measure a full Sentinel-2 tile before recommending it.
+
+- 511 | OPEN 23 NOVEMBER 2026 (the external review, finding 1; ruling
+  R-54, John: "empty rows should be ignored") | AN EMPTY ROW MOVES OTHER
+  PEOPLE'S Dist_k - IN EVERY TOOL.
+  The review found it in tool 3b: three 1 ha pixels at 100, 200 and
+  300 m, a person at 0, k = 1.5 ha -> 158.11 m; add a second person at
+  150 m -> 176.78 m for the FIRST person. People enter the pixel tool's
+  tree with no mass, and still count as rings.
+  CLAUDE FOUND IT IN THE MAIN ENGINE TOO, 23 November: Counts, 100
+  people each at 0, 1000 and 2000 m, k = 150: the person at 0 gets
+  708.23 m; keep one row with no people at 500 m and they get
+  790.57 m, and the person at 1000 m goes from 502.38 to 661.44 m. That
+  breaks R-11 ("nobody's neighbour") for every Dist_k that is crossed
+  partway. The tests of R-11 use radius counts, which this does not
+  touch, so it passed unseen.
+  CAUSE: fastcounts.py interpolates inside the crossing ring (R-02)
+  from the distance of the PREVIOUS NEIGHBOUR, whatever it holds
+  (d_prev = dd[rr, lo_r - 1]).
+  TO DO: interpolate from the previous neighbour that holds people or
+  mass. Tests: the same origins alone, together, in subsets and in
+  batches, with and without empty rows, with k crossed partway - not
+  only whole rings or totals. Measure before and after on Gridby and on
+  the Denmark fixture (1,201 rows with no people) for "Numbers that
+  change": every run with kept empty rows, keep_zero, or tool 3b.
+  Its own pull request.
+
 - 510 | BUILT 21 NOVEMBER 2026, pull request, not released | TOOL 3b
   BECOMES ONE CHAIN (ruling R-53), as agreed with John the same day:
   bands -> value -> base and treatment -> hectares -> analysis cell ->
@@ -3747,6 +3872,12 @@ because machine 3 stores tiles that way and says so in its manifest.
   56 m minimum John saw on Malta is the radius of a 1 ha disc. Claude
   had called it the home cell's floor on 21 November; that was wrong,
   and the board paper says so.
+  CORRECTED 23 November (the external review, finding 2): "changes
+  nothing" holds for a person BETWEEN pixels, not for one sitting
+  exactly on a pixel or analysis-cell centre. There the engine's
+  own-cell rule takes over with a hidden 100 m cell: one 10 m pixel,
+  k = 0.01 ha, gave 56.42 m where the pixel's own disc is 5.64 m.
+  Still no box - the engine must be given the real cell (512 a, R-55).
   FOUND IN JOHN'S TRY, 22 November: '100 200' in the radius box was
   read as ONE radius of 100,200 m (a space as a thousands separator),
   a 100 km circle round each of 9,185 points on Malta - hours. The
