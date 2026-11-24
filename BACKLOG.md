@@ -3765,10 +3765,20 @@ because machine 3 stores tiles that way and says so in its manifest.
   Runs repeat the queue (20 by default) with a seed; the order and the
   choices are drawn from two separate streams of it. Straight-line
   metres, and minutes at one speed - friction, slope and modes are step
-  3. Three layers come back: the people (People, Sim_Placed, Sim_Unmet,
-  Sim_Metres, Sim_Mins, Sim_Spread), the destinations (Capacity,
-  Sim_Load, Sim_LoadSd, Sim_Ratio, Sim_Full, Sim_Metres) and the trips
-  of the first run as lines (Origin, Dest, People, Metres, Minutes).
+  3. Three layers come back: the people (Sim_Placed, Sim_Unmet,
+  Sim_Metres, Sim_Mins, Sim_Spread), the destinations (Sim_Load,
+  Sim_LoadSd, Sim_Ratio, Sim_Full, Sim_Metres) and the trips of the
+  first run as lines (Origin, Dest, People, Metres, Minutes). Both
+  layers are COPIES, so the population and capacity fields come along
+  under their own names.
+  FOUND IN JOHN'S FIRST PRO RUN, 24 November: "TypeError: field
+  'Capacity' exist" - the tool wrote People and Capacity columns onto
+  the copies, and John's capacity field was called Capacity. They are
+  no longer written (the copies carry the person's own fields), and a
+  result name a layer already has is kept beside it under another name,
+  in Pro as in QGIS. The arcpy stand-in had overwritten an existing
+  field quietly where arcpy refuses; it now refuses too, which no other
+  test minded.
   Every drawn number is named Sim_ and the run log says it is
   simulated; the run ends with one line per column.
   FILES: equipop/assign.py (the engine), equipop/doors/assigndoor.py

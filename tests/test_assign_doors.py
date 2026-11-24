@@ -245,3 +245,68 @@ def test_both_doors_offer_the_same_choices_and_boxes():
     assert q == pro
     assert not [n for n in q if n not in HELP]
     assert Assignment.EQP_LABEL == LABELS["Assignment"]
+
+
+def test_pro_runs_on_layers_whose_own_fields_have_the_result_names():
+    """John, Pro, 24 November 2026: his capacity field was called
+    Capacity, and tool 7 wrote a column Capacity onto the copy - "field
+    'Capacity' exist". The copies already carry the people and capacity
+    fields, so they are not written again; and a result name the layer
+    already has (a second run on a first run's output) is kept beside
+    it under another name, and the run says so. BROKEN WITH: People and
+    Capacity written, or no keep-both."""
+    o, d = _town()
+    pyt, state, msg = _pro(o, d)
+    state["table"] = state["table"].rename(columns={"pop": "People"})
+    state["table"]["Sim_Placed"] = -1.0          # an earlier run's
+    state["layers"]["schools"] = state["layers"]["schools"].rename(
+        columns={"places": "capacity"})
+    tool = pyt.Assignment()
+    ps = tool.getParameterInfo()
+    vals = {"origins": "people", "peoplefield": "People",
+            "dests": "schools", "capfield": "capacity",
+            "choose": METHOD_LABELS[0], "runs": "3",
+            "out_origins": "memory/o", "out_dests": "memory/d",
+            "out_trips": "memory/t"}
+    for p in ps:
+        if p.name in vals:
+            p.value = vals[p.name]
+    tool.execute(ps, msg)
+    got_o, got_d = state["copies"]["memory/o"], state["copies"]["memory/d"]
+    want = assign(o, d, people="pop", capacity="places", runs=3)
+    # its own fields are there; ours are not written again, not even
+    # under another name
+    assert [c for c in got_d.columns
+            if c.lower().startswith("capacity")] == ["capacity"]
+    assert [c for c in got_o.columns
+            if c.lower().startswith("people")] == ["People"]
+    assert got_d.capacity.tolist() == d.places.tolist()
+    assert (got_o.Sim_Placed == -1.0).all()         # untouched
+    new = [c for c in got_o.columns if c.lower().startswith("sim_placed")
+           and c != "Sim_Placed"]
+    assert len(new) == 1
+    np.testing.assert_allclose(got_o[new[0]].astype(float),
+                               want.origins.Sim_Placed)
+    assert any("kept" in m.lower() or "renamed" in m.lower()
+               or new[0] in m for m in msg.log)
+
+
+def test_qgis_runs_on_layers_whose_own_fields_have_the_result_names():
+    from equipop_qgis.alg_assign import Assignment
+    o, d = _town()
+    o = o.rename(columns={"pop": "People"}).assign(Sim_Placed=-1.0)
+    d = d.rename(columns={"places": "Capacity"})
+    alg = Assignment()
+    alg.initAlgorithm()
+    p = {"origins": qgis_stub.source_from(o), "peoplefield": "People",
+         "dests": qgis_stub.source_from(d), "capfield": "Capacity",
+         "choose": 0, "runs": "3", "out_origins": "memory:o",
+         "out_dests": "memory:d", "out_trips": "memory:t"}
+    alg.processAlgorithm(p, None, QgsProcessingFeedback())
+    got_o = p["_sinks"]["out_origins"].to_frame()
+    got_d = p["_sinks"]["out_dests"].to_frame()
+    assert [c for c in got_d.columns
+            if c.lower().startswith("capacity")] == ["Capacity"]
+    assert [c for c in got_o.columns
+            if c.lower().startswith("people")] == ["People"]
+    assert (got_o.Sim_Placed == -1.0).all()

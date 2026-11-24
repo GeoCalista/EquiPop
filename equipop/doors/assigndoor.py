@@ -217,8 +217,12 @@ def describe(method, runs=20, has_capacity=True, speed_kmh=5.0) -> dict:
     avg = (f"averaged over {runs} run{'s' if runs != 1 else ''} "
            "(simulated)" if sim else "")
     tag = f", {avg}" if avg else ""
+    # No People and no Capacity column: the layers are COPIED, so the
+    # population and capacity fields are already there under the
+    # person's own names - and writing them again under ours broke Pro
+    # where those names were the same (John, 24 November 2026: "field
+    # 'Capacity' exist").
     origins = [
-        ("People", "people living at this point"),
         ("Sim_Placed", f"people who found a place{tag}"),
         ("Sim_Unmet", "people who found no place within reach - every "
                       f"destination there was full{tag}"
@@ -233,12 +237,13 @@ def describe(method, runs=20, has_capacity=True, speed_kmh=5.0) -> dict:
     load = ("the expected number of people coming here - the pressure"
             if method == "flows" else f"people placed here{tag}")
     dests = [
-        ("Capacity", "the places it has (empty = no limit)"),
         ("Sim_Load", load),
         ("Sim_LoadSd", "how much Sim_Load differs from run to run"),
-        ("Sim_Ratio", "Sim_Load / Capacity: above 1 is more people than "
-                      "places" if method == "flows" else
-                      "Sim_Load / Capacity, 0 to 1"),
+        ("Sim_Ratio", "Sim_Load over the places in the capacity field: "
+                      "above 1 is more people than places"
+                      if method == "flows" else
+                      "Sim_Load over the places in the capacity field, "
+                      "0 to 1"),
         ("Sim_Full", "the share of runs in which it filled (0 to 1)"),
         ("Sim_Metres", f"the average trip of the people placed here, in "
                        f"metres{tag}"),

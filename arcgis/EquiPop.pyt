@@ -4806,6 +4806,20 @@ class Assignment:
         texts = describe(a.method, a.runs, bool(cf), kw["speed_kmh"])
 
         def extend(out, oid, ids, frame):
+            # a result name the copy already has - a second run on a
+            # first run's output - is written beside it under another
+            # name, and the run says so (BACKLOG 316, as Counts does);
+            # ExtendTable refuses an existing field outright
+            names, _ = _keep_both_names(
+                {c: c for c in frame.columns},
+                {f.name for f in _target_fields(out).values()},
+                messages)
+            frame = frame.rename(columns=names)
+            # a renamed name can pass a shapefile's ten characters: say
+            # so plainly rather than let the format refuse it
+            txt = _refuse_shp_overflow(str(out), list(names.values()))
+            if txt:
+                raise arcpy.ExecuteError(txt)
             order = list(frame.columns)
             sub = np.empty(len(frame), dtype=[(str(oid), "<i8")]
                            + [(c, "<f8") for c in order])

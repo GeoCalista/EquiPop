@@ -268,6 +268,16 @@ def _install_fake_arcpy(table: pd.DataFrame):
                 "implementation.")
         t = _tab().set_index(key)
         add = pd.DataFrame(array).set_index(akey)
+        # AS ARCPY DOES (John, Pro, 24 November 2026): ExtendTable
+        # refuses a field that is already there, whatever its case -
+        # "TypeError: field 'Capacity' exist". The stand-in used to
+        # overwrite it quietly, so tool 7 writing Capacity onto a layer
+        # whose own capacity field was called Capacity passed here and
+        # failed in Pro (BACKLOG 515).
+        have = {str(c).lower() for c in t.columns}
+        for c in add.columns:
+            if str(c).lower() in have:
+                raise TypeError(f"field '{c}' exist")
         for c in add.columns:
             t[c] = add[c]
         _settab(t.reset_index())
