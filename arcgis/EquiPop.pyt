@@ -142,6 +142,12 @@ _COORD_CHOICES = [_COORD_AUTO, _COORD_GEOM, _COORD_ATTR]
 # up)" replaces the old "(sum)": these are EFFORT costs. Pro adds
 # "percentiles" as a toggle for its own percentile box.
 _AGG_CHOICES = ["additive (costs add up)", "max", "min", "mean"]
+#: R-57 (BACKLOG 516): what a barrier source does - the same words, in
+#: the same order, as QGIS's ROLE_MODES (tests hold them equal).
+_ROLE_CHOICES = ["as the overlap rule says",
+                 "ground - what you move on (forest, marsh, field)",
+                 "obstacle - what you cross; adds to the ground",
+                 "way - what carries you; the best way wins"]
 _MEASURES = ["mean", "median", "gini", "sd", "variance", "se", "min",
              "max", "count", "sum", "range",
              "mld", "theil",                          # BACKLOG 405
@@ -988,10 +994,20 @@ def _report_values(vals, field, messages):
 
 
 def _barrier_frame(value, friction_field, agg, unit, main_sr,
-                   bxf, byf, messages, class_field=None):
+                   bxf, byf, messages, class_field=None, role=None):
     """Geometry-aware barrier ingredient (v1.16): route by WHAT the
     input is - never through an X/Y-column resolver for spatial
-    data. Returns DataFrame(x, y, friction) ready for the engine."""
+    data. Returns DataFrame(x, y, friction, role) ready for the
+    engine; inside a WAY features never add up (R-57)."""
+    from equipop.friction import agg_for
+    return _barrier_cells(value, friction_field, agg_for(role, agg)
+                          if role == "way" else agg, unit, main_sr, bxf,
+                          byf, messages, class_field).assign(role=role)
+
+
+def _barrier_cells(value, friction_field, agg, unit, main_sr,
+                   bxf, byf, messages, class_field=None):
+    """_barrier_frame before roles (1.65.0 and earlier)."""
     import pandas as pd
     from equipop.friction import (points_to_friction, paths_to_friction,
                                   raster_to_friction)
@@ -1471,23 +1487,27 @@ def _collect_barriers(rows, agg, unit, main_sr, messages):
     source is read by its own route (lines, polygons, points, table,
     raster); the overlap rule then combines whatever lands in the
     same cell - which is what finally makes additive stacking
-    reachable: a river, a railway AND a lake in one run."""
-    from equipop.friction import _agg_cells
+    reachable: a river, a railway AND a lake in one run.
+
+    v1.66.0 (BACKLOG 516): each row may carry a ROLE (R-57) - ground,
+    obstacle or way - and the engine's combine_sources() puts them
+    together, with the floor of R-58."""
+    from equipop.friction import combine_sources, role_of
     parts = []
     for row in rows:
         src = row[0]
         fld = row[1] if len(row) > 1 else None
         cls = row[2] if len(row) > 2 else None       # BACKLOG 306
+        try:
+            role = role_of(row[3] if len(row) > 3 else None)
+        except ValueError as exc:
+            raise arcpy.ExecuteError(f"Barrier table, {src}: {exc}")
         parts.append(_barrier_frame(src, fld or None, agg, unit,
                                     main_sr, None, None, messages,
                                     class_field=(str(cls) or None)
-                                    if cls else None))
-    acc: dict = {}
-    for p in parts:
-        for xx, yy, ff in zip(p["x"], p["y"], p["friction"]):
-            acc.setdefault((float(xx), float(yy))
-                           , []).append(float(ff))
-    out = _agg_cells(acc, _agg_key(agg))
+                                    if cls else None, role=role))
+    out = combine_sources(parts, _agg_key(agg),
+                          say=messages.addMessage)
     messages.addMessage(
         f"{len(parts)} barrier sources -> {len(out)} friction cells "
         f"(overlap rule: {_agg_key(agg)}).")
@@ -2230,11 +2250,14 @@ def _run_tool(engine, layer, messages, treat_fields=(), value_fields=(),
                 fr_df = _collect_barriers(barrier_rows, barrier_agg,
                                           unit, main_sr, messages)
         elif barrier is not None:
+            from equipop.friction import combine_sources
             with _stage(messages, "building barriers", stages), \
                     _speaking(messages):
-                fr_df = _barrier_frame(barrier, barrier_field,
-                                       barrier_agg, unit, main_sr,
-                                       barrier_x, barrier_y, messages)
+                fr_df = combine_sources(
+                    [_barrier_frame(barrier, barrier_field,
+                                    barrier_agg, unit, main_sr,
+                                    barrier_x, barrier_y, messages)],
+                    _agg_key(barrier_agg), say=messages.addMessage)
         if fr_df is not None or extra_dem:
             engine = "slope" if extra_dem else "friction"
             messages.addMessage(
@@ -5934,6 +5957,8 @@ class CountsShares:
                   required=False, multiValue=True),
                _p("barrieragg", "Barrier overlap rule (features "
                   "sharing a cell)", "GPString", required=False),
+               _p("rasterrole", "The barrier rasters' role (R-57)",
+                  "GPString", required=False),
 
                _p("dem", "Distance ingredient: elevation raster (DEM)",
                   ["DERasterDataset", "GPRasterLayer"],
@@ -6023,7 +6048,20 @@ class CountsShares:
             # charged once, which is John's ruling from 298 and what
             # machine 3's join has done since 1.47.4.
             ["Field", "Class field (optional) - charge each class "
-                      "once, not each feature"]]
+                      "once, not each feature"],
+            # v1.66.0, R-57 (BACKLOG 516): THE ROW'S ROLE - ground
+            # (what you move on), obstacle (what you cross; adds to the
+            # ground) or way (what carries you; the best way wins).
+            # Empty: the overlap rule, as before.
+            ["GPString", "Role (optional): ground, obstacle or way"]]
+        try:                      # a dropdown where Pro offers one
+            pm["barriertable"].filters[3].type = "ValueList"
+            pm["barriertable"].filters[3].list = _ROLE_CHOICES
+        except Exception:         # pragma: no cover - typed is fine
+            pass
+        pm["rasterrole"].filter.type = "ValueList"
+        pm["rasterrole"].filter.list = _ROLE_CHOICES
+        pm["rasterrole"].value = _ROLE_CHOICES[0]
         pm["hlfield"].parameterDependencies = ["layer"]
         pm["hlbins"].value = 10
         # v1.17: collapsible sections instead of 29 boxes at once
@@ -6062,6 +6100,7 @@ class CountsShares:
             "barriertable": "Barriers and terrain",
             "barrierrasters": "Barriers and terrain",
             "barrieragg": "Barriers and terrain",
+            "rasterrole": "Barriers and terrain",
             "dem": "Barriers and terrain", "tau": "Barriers and terrain",
             "roundtrip": "Barriers and terrain",
             "existing": "Output", "outmode": "Output",
@@ -6234,7 +6273,9 @@ class CountsShares:
                   # BACKLOG 462: the type boxes the rungs read, only
                   **_live_boxes(pm, "counts"),
                   barrier_rows=(_vt_rows(pm["barriertable"])
-                                + [[r, None] for r in
+                                + [[r, None, None,
+                                    _txt(pm, "rasterrole")]
+                                   for r in
                                    (_txt(pm, "barrierrasters")
                                     .split(";")) if r.strip()]),
                   barrier_agg=_txt(pm, "barrieragg"),

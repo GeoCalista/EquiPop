@@ -109,6 +109,7 @@ def load_friction_table(
         print(f"[friction] {dups} duplicated cells combined with "
               f"'{combine}' (overlapping layers).")
         fr = fr.groupby(["x", "y"], as_index=False)["friction"].agg(combine)
+        fr = apply_floor(fr)                              # R-58
 
     print(f"[friction] {len(fr)} friction cells, values: "
           f"{sorted(fr['friction'].unique())}")
@@ -256,6 +257,10 @@ class FrictionGrid:
         # went unnoticed.
         self.friction = np.full(n, float(default_friction), float)
         if fr is not None:
+            # R-58: the last line of defence for a table made by hand -
+            # the doors' combine_sources() has floored theirs already
+            if len(fr) and float(fr["friction"].min()) < FLOOR:
+                fr = apply_floor(fr)
             self.friction[idx(fr["x"], fr["y"])] = \
                 fr["friction"].astype(float)
 
@@ -911,6 +916,142 @@ def features_to_friction(features, value_field: str = "friction",
 # ---------------------------------------------- v1.16: GIS input rework
 _AGG_FUNCS = {"sum": sum, "max": max, "min": min,
               "mean": lambda v: sum(v) / len(v)}
+
+
+#: The fastest a cell can be after its sources are combined: a
+#: hundredth of a round (R-58, BACKLOG 516). One value at or below -1 is
+#: refused when it is read (_check_cost_range); this is for what
+#: COMBINING makes - two roads at -0.6 added up to -1.2, a negative
+#: cost the route search cannot order (John, 25 November 2026: "cap
+#: such cells to just above -1").
+FLOOR = -0.99
+
+#: What a friction source does (R-57, BACKLOG 516; John, 24-25
+#: November 2026). GROUND is what you move ON (forest 5, marsh 8, field
+#: 0.5); an OBSTACLE is what you must cross (a river 3, a railway 2, a
+#: motorway for walkers) and ADDS to the ground; a WAY is what carries
+#: you (a path 0, a road -0.5, a bridge) and, where there is one,
+#: REPLACES everything else in the cell - the best way wins and ways
+#: never add up. Per cell:
+#:
+#:     friction = the lower of (ground + obstacles) and the best way
+#:
+#: so a path through a forest is simply 0, never a correction of -4.8.
+ROLES = ("ground", "obstacle", "way")
+
+
+def role_of(text):
+    """A role as typed - 'ground', 'Obstacle', 'way ' - or None for
+    none (the overlap rule decides, as before 1.66.0)."""
+    if text is None:
+        return None
+    t = str(text).strip().lower()
+    if t in ("", "none", "nan", "-") or t.startswith("as the overlap") \
+            or t.startswith("by the overlap"):
+        return None
+    # the dialogs' own words read by their first: "way - what carries
+    # you; the best way wins" is a way
+    first = t.replace(";", " ").replace(",", " ").split()[0]
+    for r in ROLES:
+        if first in (r, r + "s"):
+            return r
+    raise ValueError(
+        f"[friction] '{text}' is not a role: give ground (what you "
+        "move on - forest, marsh, field), obstacle (what you cross - "
+        "a river, a railway) or way (what carries you - a path, a "
+        "road), or leave it empty for the overlap rule.")
+
+
+def agg_for(role, agg):
+    """The overlap rule INSIDE one source: features of a way never add
+    up - the best of them wins - whatever the overlap rule says."""
+    return "min" if role == "way" else agg
+
+
+def combine_sources(parts, agg: str = "sum", say=print) -> pd.DataFrame:
+    """Several friction sources -> ONE value per cell (R-57, R-58).
+
+    `parts` are DataFrames of x, y, friction, each with an optional
+    "role" column (ground, obstacle, way, or None). With no role
+    anywhere, every value in a cell is combined by the overlap rule
+    `agg` ('sum' = additive, 'max', 'min', 'mean'), as before. With
+    roles, a source given none counts as an obstacle; ground values
+    combine by the overlap rule, obstacle values too, ways by the best
+    (lowest); and the cell takes the lower of ground + obstacles and
+    its best way. Either way no cell ends below FLOOR."""
+    if agg not in _AGG_FUNCS:
+        raise ValueError(f"[friction] unknown overlap rule '{agg}' - "
+                         f"use one of {list(_AGG_FUNCS)}")
+    frames = []
+    for p in parts:
+        if p is None or len(p) == 0:
+            continue
+        f = p[["x", "y", "friction"]].copy()
+        f["role"] = (p["role"].map(role_of) if "role" in p.columns
+                     else None)
+        frames.append(f)
+    if not frames:
+        return pd.DataFrame({"x": [], "y": [], "friction": []})
+    df = pd.concat(frames, ignore_index=True)
+    df["friction"] = df["friction"].astype(float)
+    how = {"sum": "sum", "max": "max", "min": "min", "mean": "mean"}[agg]
+    cells = ["x", "y"]
+    if df["role"].isna().all():
+        n_multi = int(df.duplicated(cells).sum())
+        out = df.groupby(cells, sort=True)["friction"].agg(how)
+        if n_multi:
+            say(f"[friction] {n_multi:,} charges share a cell with "
+                f"another; overlap rule '{agg}' applied")
+    else:
+        none = df["role"].isna()
+        if none.any():
+            say(f"[friction] {int(none.sum()):,} charges from sources "
+                "given no role count as obstacles (they add to the "
+                "ground)")
+            df.loc[none, "role"] = "obstacle"
+        g = df.groupby(cells + ["role"], sort=True)["friction"]
+        per = pd.concat([g.agg(how).rename("v").reset_index()
+                         .query("role != 'way'"),
+                         g.min().rename("v").reset_index()
+                         .query("role == 'way'")])
+        wide = per.pivot_table(index=cells, columns="role", values="v",
+                               aggfunc="first")
+        ground = wide["ground"] if "ground" in wide else 0.0
+        obst = wide["obstacle"] if "obstacle" in wide else 0.0
+        base = (pd.Series(0.0, index=wide.index)
+                + (ground.fillna(0.0) if not np.isscalar(ground)
+                   else ground)
+                + (obst.fillna(0.0) if not np.isscalar(obst) else obst))
+        if "way" in wide:
+            way = wide["way"]
+            out = base.where(way.isna() | (base <= way), way)
+        else:
+            out = base
+        out = out.rename("friction")
+        n = {r: int((df["role"] == r).sum()) for r in ROLES}
+        say(f"[friction] roles: {n['ground']:,} ground, "
+            f"{n['obstacle']:,} obstacle and {n['way']:,} way charges; "
+            "each cell takes the lower of ground + obstacles and its "
+            "best way")
+    out = out.reset_index()
+    return apply_floor(out, say)
+
+
+def apply_floor(fr: pd.DataFrame, say=print) -> pd.DataFrame:
+    """No cell below FLOOR (R-58): where facilitators added up to -1
+    or less - two roads at -0.6 make -1.2 - the cell becomes -0.99, a
+    hundredth of a round, and the run says how many."""
+    v = fr["friction"].to_numpy(float)
+    low = v < FLOOR
+    if low.any():
+        fr = fr.copy()
+        fr.loc[low, "friction"] = FLOOR
+        say(f"[friction] {int(low.sum()):,} cell(s) came below "
+            f"{FLOOR:g} - where facilitators added up - and were set "
+            f"to {FLOOR:g}, a hundredth of a round, the fastest a cell "
+            "can be (R-58). To avoid it, give roads the role 'way': "
+            "the best way wins and ways never add up.")
+    return fr
 
 
 def _agg_cells(acc: dict, agg: str) -> pd.DataFrame:

@@ -86,6 +86,13 @@ TREAT_MODES = ["not measuring one - distances and counts only",
 OUTSIDE_MODES = ["give them results, counting as zero",
                  "leave their results Null"]
 AGG_MODES = ["additive (costs add up)", "max", "min", "mean"]
+#: R-57 (BACKLOG 516): what a barrier source does. The same words, in
+#: this order, as the Role column of Pro's barrier table.
+ROLE_MODES = ["as the overlap rule says",
+              "ground - what you move on (forest, marsh, field)",
+              "obstacle - what you cross; adds to the ground",
+              "way - what carries you; the best way wins"]
+ROLE_KEYS = [None, "ground", "obstacle", "way"]
 SELFPOT_MODES = [
     "0 - no distance at all; Dist_k can come out as zero",
     "0.71 - the median: half of what your cell holds is nearer than this",
@@ -271,6 +278,20 @@ class CountsAndShares(EquipopAlgorithm):
         self.add(QgsProcessingParameterEnum(
             "barrieragg", "5f \u25b8 where barriers overlap",
             options=AGG_MODES, defaultValue=0), advanced=True)
+        # v1.66.0, R-57 (BACKLOG 516): ROLES. Ground is what you move
+        # on, an obstacle adds to it, a way replaces both - so a path
+        # through a forest is 0, not a correction of the forest.
+        self.add(QgsProcessingParameterEnum(
+            "barrierrole", "5g \u25b8 the barrier layer's role",
+            options=ROLE_MODES, defaultValue=0), advanced=True)
+        self.add(QgsProcessingParameterField(
+            "barrierrolefield", "5h \u25b8 ...or a field giving each "
+            "feature its role (ground, obstacle or way)",
+            parentLayerParameterName="barrier", optional=True),
+            advanced=True)
+        self.add(QgsProcessingParameterEnum(
+            "rasterrole", "5i \u25b8 the friction raster's role",
+            options=ROLE_MODES, defaultValue=0), advanced=True)
 
         # Rarely touched: into QGIS's Advanced area, so the everyday
         # list stays short (v1.25, John - QGIS has no sections, and
@@ -785,9 +806,14 @@ class CountsAndShares(EquipopAlgorithm):
                                             context) or [None])[0]
             bclass = (self.parameterAsStrings(
                 parameters, "barrierclass", context) or [None])[0]
-            table = barrier_to_friction(vec, field, unit, agg, ch,
-                                        working_crs,
-                                        class_field=bclass or None)
+            rfield = (self.parameterAsStrings(
+                parameters, "barrierrolefield", context) or [None])[0]
+            table = barrier_to_friction(
+                vec, field, unit, agg, ch, working_crs,
+                class_field=bclass or None,
+                role=ROLE_KEYS[self._enum(parameters, "barrierrole",
+                                          context)],
+                role_field=rfield or None)
             if points_xy is not None:
                 check_plausible(table, vec.featureCount(), points_xy,
                                 float(unit), "Barrier layer", ch)
@@ -795,7 +821,9 @@ class CountsAndShares(EquipopAlgorithm):
         rast = self.parameterAsRasterLayer(parameters, "barrierraster",
                                            context)
         if rast is not None:
-            tables.append(raster_to_friction_layer(rast, unit, ch))
+            tables.append(raster_to_friction_layer(rast, unit, ch)
+                          .assign(role=ROLE_KEYS[self._enum(
+                              parameters, "rasterrole", context)]))
         fr = merge_friction(tables, agg, ch)
 
         dem_layer = self.parameterAsRasterLayer(parameters, "dem",
@@ -804,6 +832,14 @@ class CountsAndShares(EquipopAlgorithm):
         if dem_layer is not None:
             dem = self._dem_payload(dem_layer, ch)
         return fr, dem
+
+    def _enum(self, parameters, name, context):
+        """An enum box's choice, 0 when it is absent (a script written
+        before the box existed)."""
+        if name not in parameters:
+            return 0
+        return int((self.parameterAsEnums(parameters, name, context)
+                    or [0])[0] or 0)
 
     @staticmethod
     def _dem_payload(layer, ch):
