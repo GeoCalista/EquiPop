@@ -3741,6 +3741,55 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 516 | BUILT 25 NOVEMBER 2026, pull request, not released (rulings R-57
+  and R-58) | FRICTION SOURCES HAVE ROLES, AND NO CELL GOES BELOW -0.99.
+  John, 24 November: "forest slows down, but a path in the forest
+  mitigates - should that mitigation be 0 or negative ... could we
+  conclude that the lowest is the king? - how do we do this in machine
+  1?" No single overlap rule answers it: additive is right for
+  obstacles and wrong for paths (a path could correct a forest of 5 by
+  at most -0.99), min the reverse (a river in a forest came out cheaper
+  than the forest).
+  ROLES (R-57, John 25 November: "adopt for machine 1, and when we can,
+  machine 7"): GROUND is what you move on (forest 5, marsh 8, field
+  0.5), an OBSTACLE what you cross (a river 3, a railway 2) and ADDS
+  to the ground, a WAY what carries you (a path 0, a road -0.5, a
+  bridge) and, where there is one, REPLACES everything else: the best
+  way wins and ways never add up. Per cell: the lower of ground +
+  obstacles and the best way - so a path through a forest is 0, a
+  river in it 8, a bridge over that river -0.5. QGIS: a role for the
+  barrier layer, a field giving each feature its own (QGIS takes one
+  layer, and a path and a river may share it) and a role for the
+  friction raster. Pro: a fourth column, Role, in the barrier table,
+  and a role for the barrier rasters. No role anywhere: the overlap
+  rule decides, exactly as before. Some roles: a source without one is
+  an obstacle. The overlap rule still combines a cell's ground values,
+  and its obstacle values.
+  THE FLOOR (R-58, John: "cap such cells to just above -1 - or
+  alternatively the minimum value (... your call)"): FOUND 24 November -
+  the -1 check was made on each layer's values BEFORE they were
+  combined, never after, so two roads at -0.6 added up to -1.2, a
+  negative cost, and scipy's route search warned that its results were
+  inaccurate. Now no cell ends below -0.99, a hundredth of a round, and
+  the run says how many were set there. Claude's call: -0.99 rather
+  than the cell's lowest single value, because a fixed floor never
+  makes MORE facilitation slower (with the lowest value, two roads at
+  -0.5 would come out slower than two at -0.45). With roles, ways never
+  add up, so it rarely bites.
+  ALSO FOUND: QGIS stopped with "string index out of range" whenever a
+  barrier layer AND a friction raster were given together -
+  merge_friction handed a table to a function that takes a dict of
+  cells. No test gave both. Both doors now combine through the
+  engine's combine_sources().
+  FILES: equipop/friction.py (ROLES, role_of, agg_for,
+  combine_sources, apply_floor, FLOOR), qgis/equipop_qgis/barriers.py
+  and alg_counts.py, arcgis/EquiPop.pyt, equipop/doors/help.py.
+  NUMBERS THAT CHANGE: only cells where facilitators added up past
+  -0.99 (now -0.99), and QGIS runs with a layer and a raster (which
+  used to stop). Without roles, everything else is as before.
+  NOT YET: machine 7 uses straight lines; roles reach it with its
+  step 3 (modes and friction).
+
 - 515 | BUILT 23 NOVEMBER 2026, pull request, not released (ruling R-56;
   PROPOSALS.md section 3, "AGREED 22-23 NOVEMBER 2026") | MACHINE 7,
   STEP 1: WHO GOES WHERE WHEN DESTINATIONS FILL UP - tool 7 in QGIS and

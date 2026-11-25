@@ -57,14 +57,22 @@ def _value(feature, names, field, label):
 
 def barrier_to_friction(source, friction_field, unit, agg, channel,
                         working_crs=None, label="Barrier layer",
-                        class_field=None):
+                        class_field=None, role=None, role_field=None):
     """One barrier layer -> a friction table the engine understands.
 
     Routes by WHAT the layer is, exactly as the ArcGIS door does:
     points get charged to the cell they sit in, lines and polygons to
     every cell their length or area actually touches.
+
+    v1.66.0, R-57 (BACKLOG 516): the table carries each charge's ROLE -
+    ground, obstacle, way, or None for the overlap rule. `role` is the
+    layer's; `role_field` names a field giving each feature its own
+    (empty values take the layer's), since QGIS takes one barrier
+    layer and a path and a river may share it. Inside a way, features
+    never add up: the best of them wins.
     """
-    from equipop.friction import points_to_friction, paths_to_friction
+    import pandas as pd
+    from equipop.friction import agg_for, role_of
 
     if not friction_field:
         raise QgsProcessingException(
@@ -84,6 +92,40 @@ def barrier_to_friction(source, friction_field, unit, agg, channel,
             f"{label}: reprojected from "
             f"{source.sourceCrs().authid()} to the working CRS for "
             "this run.")
+    try:
+        role = role_of(role)
+    except ValueError as exc:
+        raise QgsProcessingException(f"{label}: {exc}")
+    groups = {role: feats}
+    if role_field:
+        if role_field not in names:
+            raise QgsProcessingException(
+                f"{label}: no field named '{role_field}' for the roles.")
+        groups = {}
+        for f in feats:
+            try:
+                r = role_of(f[role_field]) or role
+            except ValueError as exc:
+                raise QgsProcessingException(f"{label}: {exc}")
+            groups.setdefault(r, []).append(f)
+        channel.info(f"{label}: roles from '{role_field}': " + ", ".join(
+            f"{len(v):,} {k or 'by the overlap rule'}"
+            for k, v in groups.items()))
+    out = []
+    for r, fs in groups.items():
+        fr = _friction_of(source, fs, names, tr, friction_field, unit,
+                          agg_for(r, agg), channel,
+                          label if len(groups) == 1 else f"{label} "
+                          f"({r or 'no role'})", class_field)
+        out.append(fr.assign(role=r))
+    return pd.concat(out, ignore_index=True)
+
+
+def _friction_of(source, feats, names, tr, friction_field, unit, agg,
+                 channel, label, class_field):
+    """The features of one role -> cells, as barrier_to_friction did
+    for a whole layer before roles (1.65.0 and earlier)."""
+    from equipop.friction import points_to_friction, paths_to_friction
 
     if _is_kind(source, Qgis.GeometryType.Point):           # points
         xs, ys, vs = [], [], []
@@ -385,17 +427,20 @@ def merge_friction(tables, agg, channel):
 
     Multi-source barriers were the point of the 1.17 value tables: a
     river AND a railway AND a lake, given together. The overlap rule
-    decides what happens where two of them cross the same cell.
+    decides what happens where two of them cross the same cell - and
+    since 1.66.0 the sources' ROLES (R-57) and the floor (R-58),
+    through the engine's combine_sources().
+
+    BACKLOG 516: this handed a DataFrame to _agg_cells, which takes a
+    dict of cells, so a barrier layer AND a friction raster together
+    stopped QGIS with "string index out of range" - no test gave both.
     """
     tables = [t for t in tables if t is not None and len(t)]
     if not tables:
         return None
-    if len(tables) == 1:
-        return tables[0]
-    from equipop.friction import _agg_cells
-    import pandas as pd
-    merged = _agg_cells(pd.concat(tables, ignore_index=True), agg)
-    channel.info(f"{len(tables)} barrier sources merged into "
+    from equipop.friction import combine_sources
+    merged = combine_sources(tables, agg, say=channel.info)
+    channel.info(f"{len(tables)} barrier source(s) -> "
                  f"{len(merged)} friction cells (overlap rule: "
                  f"{agg}).")
     return merged

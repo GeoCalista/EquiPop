@@ -1394,7 +1394,10 @@ def test_pyt_barrier_polygon_raster_and_overlap_rules(tmp_path):
          {"type": "polygon",
           "parts": [[[p for p in holed[:4]], [p for p in holed[5:]]]]}],
         [6.0, 4.0, 2.0], unit_size=100)
-    a = fr.sort_values(["x", "y"]).reset_index(drop=True)
+    # v1.66.0 (R-57): the frame also carries each charge's role
+    assert fr["role"].isna().all()
+    a = (fr[["x", "y", "friction"]].sort_values(["x", "y"])
+         .reset_index(drop=True))
     b = ref.sort_values(["x", "y"]).reset_index(drop=True)
     pd.testing.assert_frame_equal(a, b)          # glue == package
 
@@ -1436,7 +1439,7 @@ def test_pyt_dialogs_construct_like_pro():
     # BACKLOG 306: a THIRD column, the optional class field. Without
     # it a cell is charged once per FEATURE, and OSM cuts one street
     # into a new record wherever a tag changes.
-    assert len(m1["barriertable"].columns) == 3   # source, value, class
+    assert len(m1["barriertable"].columns) == 4   # source, value, class, role
     assert "lass" in str(m1["barriertable"].columns[2]), (
         "the third barrier column is not the class field")
     # every value-table column must be a type Pro can marshal

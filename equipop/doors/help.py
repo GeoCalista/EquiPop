@@ -405,10 +405,40 @@ HELP = {
     "barrierfield": "The numeric field holding each feature's "
                     "crossing cost in rounds. For rasters the cell "
                     "value is the cost and this box is unused.",
+    # v1.66.0, R-57 and R-58 (BACKLOG 516)
+    "barrierrole":
+        "WHAT THE BARRIER LAYER DOES. Ground is what you move ON - "
+        "forest 5, marsh 8, a field 0.5. An obstacle is what you must "
+        "CROSS - a river 3, a railway 2 - and adds to the ground: a "
+        "river in a forest costs both. A way is what CARRIES you - a "
+        "path 0, a road -0.5, a bridge - and where there is one it "
+        "replaces everything else in the cell; the best way wins and "
+        "ways never add up. Each cell takes the lower of ground + "
+        "obstacles and its best way, so a path through a forest is "
+        "simply 0, not a correction of the forest's 5. 'As the overlap "
+        "rule says' keeps the behaviour before 1.66.0. When some "
+        "sources have a role, one without counts as an obstacle.",
+    "barrierrolefield":
+        "A FIELD GIVING EACH FEATURE ITS OWN ROLE - ground, obstacle or "
+        "way - for a barrier layer holding several kinds (paths and "
+        "rivers merged into one layer). An empty value takes the "
+        "layer's role from the box above.",
+    "rasterrole":
+        "WHAT THE FRICTION RASTER DOES - usually GROUND: a land-cover "
+        "raster of forest, marsh and fields that the paths and roads of "
+        "the barrier layer then cut through as ways. Same choices as "
+        "the barrier layer's role.",
     "barrieragg": "How several barrier features sharing one cell "
                   "combine. Additive (the default) stacks costs - a "
                   "river crossed at a railway costs both. Max/min/"
-                  "mean are available when stacking is wrong.",
+                  "mean are available when stacking is wrong. With "
+                  "roles, it combines the ground values of a cell, "
+                  "and its obstacle values; ways always take the "
+                  "best. However they combine, no cell ends below "
+                  "-0.99 - a hundredth of a round: where facilitators "
+                  "add up past that (two roads at -0.6 are -1.2) the "
+                  "cell is set to -0.99 and the run says how many "
+                  "(R-58).",
     "barrierx": "Easting column of a TABULAR barrier input.",
     "barriery": "Northing column of a tabular barrier input.",
     "dem": "Elevation raster: slopes become extra effort, so uphill "

@@ -90,6 +90,8 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
 | R-55 | Mass inside a cell is spread evenly over the cell's real area | In force |
 | R-56 | Who goes where: one queue of equal groups in a random order, full is full | In force |
+| R-57 | A friction source is ground, obstacle or way | In force |
+| R-58 | No cell is faster than a hundredth of a round | In force |
 
 ---
 
@@ -542,4 +544,20 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John and Claude, 21-23 November 2026 (PROPOSALS.md section 3): capacity makes one person's outcome depend on everyone else's, so the order must be stated; a random order of equal groups keeps a big point from taking all its luck at once ("what if we pick the locations at random and run all individuals there at the same time"), and "closest first" is the deterministic alternative for places with priority by distance.
 **Source.** BACKLOG 515.
 **Pinned by.** `tests/test_assign.py::test_everyone_arrives_or_is_unmet_and_no_destination_overflows`, `tests/test_assign.py::test_unlimited_capacity_gives_everyone_their_nearest_whatever_the_seed`, `tests/test_assign.py::test_the_same_seed_gives_the_same_numbers_and_another_seed_differs`, `tests/test_assign.py::test_closest_first_is_the_stable_matching`
+**Status.** In force.
+
+## D, continued. Barriers and effort
+
+### R-57 · A friction source is ground, obstacle or way
+**Rule.** A barrier source may be given a role. GROUND is what you move on (forest, marsh, field); an OBSTACLE is what you cross (a river, a railway) and adds to the ground; a WAY is what carries you (a path, a road, a bridge). In each cell the friction is the lower of ground + obstacles and the best way: ways replace, and never add up, inside a source or between sources. The overlap rule (R-26 and the overlap box) still combines a cell's ground values and its obstacle values. With no role anywhere, the overlap rule decides everything, as before; once some source has a role, one without counts as an obstacle.
+**Why.** John, 24 November 2026: "forest slows down, but a path in the forest mitigates ... could we conclude that the lowest is the king?" Additive is right for obstacles and wrong for paths, min the reverse; the roles let a path through a forest be 0 rather than a correction of the forest. 25 November: "adopt for machine 1, and when we can, machine 7".
+**Source.** BACKLOG 516.
+**Pinned by.** `tests/test_friction_roles.py::test_the_roles_answer_john_s_forest_and_path`, `tests/test_friction_roles.py::test_without_roles_nothing_changes`, `tests/test_friction_roles.py::test_a_path_makes_the_forest_passable_end_to_end`
+**Status.** In force.
+
+### R-58 · No cell is faster than a hundredth of a round
+**Rule.** After its sources are combined, no cell's friction is below -0.99: one that comes lower - where facilitators added up - is set to -0.99, and the run says how many. A single value at or below -1 is still refused where it is read.
+**Why.** Two roads at -0.6 added up to -1.2, a negative cost the route search cannot order (BACKLOG 516). John, 25 November 2026: "cap such cells to just above -1 - or alternatively the minimum value (... your call)". A fixed floor was chosen because it never makes more facilitation slower; the cell's lowest single value would.
+**Source.** BACKLOG 516.
+**Pinned by.** `tests/test_friction_roles.py::test_facilitators_that_add_up_past_minus_one_stop_at_the_floor`, `tests/test_friction_roles.py::test_the_route_search_never_sees_a_negative_cost`
 **Status.** In force.
