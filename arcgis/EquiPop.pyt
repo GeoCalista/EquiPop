@@ -3997,6 +3997,7 @@ class FolderInventory:
 
     def __init__(self):
         self.label = "6. What is in this folder? (reads, changes nothing)"
+        self.category = "Finding and fetching data"  # BACKLOG 517
         from equipop.doors.help import SUMMARY
         self.description = SUMMARY["FolderInventory"]
 
@@ -4072,6 +4073,7 @@ class PixelReach:
 
     def __init__(self):
         self.label = "3b. Pixels as mass: green reach and share"
+        self.category = "Rasters and pixels"  # BACKLOG 517
         from equipop.doors.help import SUMMARY
         self.description = SUMMARY["PixelReach"]
 
@@ -4668,6 +4670,7 @@ class Assignment:
 
     def __init__(self):
         self.label = "7. Who goes where: destinations that fill up"
+        self.category = "Simulation"  # BACKLOG 517
         from equipop.doors.help import SUMMARY
         self.description = SUMMARY["Assignment"]
 
@@ -4910,6 +4913,7 @@ class ContinentalRasters:
 
     def __init__(self):
         self.label = "3. Raster Data Curation"
+        self.category = "Rasters and pixels"  # BACKLOG 517
         from equipop.doors.help import SUMMARY
         self.description = SUMMARY["ContinentalRasters"]
 
@@ -5147,6 +5151,7 @@ class SpatialDemography:
 
     def __init__(self):
         self.label = "4. Spatial Demographic Analysis"
+        self.category = "Demography"  # BACKLOG 517
         from equipop.doors.help import SUMMARY
         self.description = SUMMARY["SpatialDemography"]
 
@@ -5528,6 +5533,7 @@ class WorldPopCatalogue:
 
     def __init__(self):
         self.label = "5a. WorldPop - what is there? (lists, downloads nothing)"
+        self.category = "Finding and fetching data"  # BACKLOG 517
         try:
             from equipop.doors.help import summary_for
             self.description = summary_for("WorldPopCatalogue")
@@ -5603,6 +5609,7 @@ class OsmCatalogue:
 
     def __init__(self):
         self.label = "5b. OpenStreetMap (Geofabrik) - what is there? (lists, downloads nothing)"
+        self.category = "Finding and fetching data"  # BACKLOG 517
         try:
             from equipop.doors.help import summary_for
             self.description = summary_for("OsmCatalogue")
@@ -5669,6 +5676,7 @@ class FetchSelected:
 
     def __init__(self):
         self.label = "5c. Fetch the rows you selected (downloads into a folder)"
+        self.category = "Finding and fetching data"  # BACKLOG 517
         try:
             from equipop.doors.help import summary_for
             self.description = summary_for("FetchSelected")
@@ -5854,6 +5862,9 @@ class Toolbox:
         # its '?' page and its tests. What Pro LISTS is `tools`: tool
         # 0 and tools 1 and 2, and 3 to 6 once tool 0 shows them.
         # v1.66.0, BACKLOG 515: machine 7, step 1 - Assignment, tool 7
+        # v1.66.0, BACKLOG 517: each tool names its toolset in its own
+        # self.category (equipop.doors.toolset.GROUPS is the table, a
+        # test pins it). Tool 0 has none, so it stays at the top.
         self.all_tools = [ShowTools, CountsShares, ValueStatistics,
                           ContinentalRasters, PixelReach,
                           SpatialDemography,
@@ -5867,6 +5878,7 @@ class Toolbox:
 class CountsShares:
     def __init__(self):
         self.label = "1. Counts and Shares (k / radius / decay)"
+        self.category = "Neighbourhoods"  # BACKLOG 517
         self.description = (
             "Egocentric neighbourhoods around every point. OUTPUT "
             "FIELDS: N_k = persons among the k nearest (whole squares "
@@ -6307,6 +6319,7 @@ class CountsShares:
 class ValueStatistics:
     def __init__(self):
         self.label = "2. Value Statistics (numeric fields among the k nearest)"
+        self.category = "Statistics"  # BACKLOG 517
         self.description = (
             "Selectable statistics of TREATMENT fields (income, "
             "rent, age...) among the k nearest members of the "

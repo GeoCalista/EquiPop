@@ -49,6 +49,41 @@ KEY = "show_all_tools"
 #: John's ruling: hidden unless chosen.
 DEFAULT = False
 
+#: WHERE EACH TOOL SITS in the toolbox. BACKLOG 517, John, 25 November
+#: 2026: groups by what a tool is for, the same in both GIS. Pro calls
+#: a group a toolset (`self.category`), QGIS a group (`group()`). QGIS
+#: has one level of groups only, so neither door nests them.
+#:
+#: Tool 0 sits at the top, in no group (""). A group whose tools are
+#: all hidden by tool 0 is not shown at all. Scripts, models and
+#: processing.run() find a tool by its name, not its group, so moving
+#: a tool between groups breaks nothing that calls it.
+#:
+#: The doors WRITE THESE WORDS DOWN (QGIS asks for a group while it
+#: builds the toolbox, when importing the engine is not safe; BACKLOG
+#: 218). tests/test_tool_groups.py pins both doors to this table.
+GROUPS = {
+    "ShowTools": "",
+    "CountsShares": "Neighbourhoods",
+    "ValueStatistics": "Statistics",
+    "ContinentalRasters": "Rasters and pixels",
+    "PixelReach": "Rasters and pixels",
+    "SpatialDemography": "Demography",
+    "WorldPopCatalogue": "Finding and fetching data",
+    "OsmCatalogue": "Finding and fetching data",
+    "FetchSelected": "Finding and fetching data",
+    "SpatialDataFetch": "Finding and fetching data",
+    "FolderInventory": "Finding and fetching data",
+    "Assignment": "Simulation",
+}
+
+
+def group_id(group: str) -> str:
+    """QGIS's id for a group: its words, lower case, letters only.
+    "Rasters and pixels" -> "rastersandpixels"; "" -> ""."""
+    return "".join(ch for ch in group.lower() if ch.isalnum())
+
+
 #: The two answers tool 0 offers, in this order in both doors.
 CHOICES = ("Only tools 1 and 2 (the standard set)",
            "All tools, 1 to 7")

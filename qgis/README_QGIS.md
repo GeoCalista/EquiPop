@@ -66,22 +66,29 @@ Copy the folder `equipop_qgis` into your QGIS plugins directory:
 Then restart QGIS and enable **EquiPop** under Plugins ▸ Manage and
 Install Plugins ▸ Installed.
 
-The tools appear in the Processing Toolbox under **EquiPop**:
+The tools appear in the Processing Toolbox under **EquiPop**, each in
+a group by what it is for (since 1.66.0):
 
-- 0. Show or hide tools 3-7
-- 1. Counts and Shares (k / radius / decay)
-- 2. Value Statistics (numeric fields among the k nearest)
+- 0. Show or hide tools 3-7 (at the top, in no group)
+- **Neighbourhoods:** 1. Counts and Shares (k / radius / decay)
+- **Statistics:** 2. Value Statistics (numeric fields among the k nearest)
 
 **Tools 3 to 7 are hidden until you show them** (since 1.62.0): raster
 curation, spatial demography, the downloads from WorldPop and
-OpenStreetMap (5a to 5d) and the folder inventory. Run **0. Show or
-hide tools 3-6**, choose *All tools, 1 to 7*, and they appear at once
+OpenStreetMap (5a to 5d), the folder inventory and tool 7. Run **0. Show or
+hide tools 3-7**, choose *All tools, 1 to 7*, and they appear at once
 (if not, restart QGIS). Run it again with *Only tools 1 and 2* to hide
 them. Hiding changes only the list: every tool stays installed, and a
 saved model or script that uses a hidden tool still runs. The choice
 is kept for your user and shared with the ArcGIS Pro toolbox; the
 environment variable `EQUIPOP_SHOW_ALL_TOOLS=1` (or `0`) overrides it,
 for a classroom image.
+
+Shown, they sit in four more groups: **Rasters and pixels** (3, 3b),
+**Demography** (4), **Finding and fetching data** (5a to 5d, 6) and
+**Simulation** (7). A group whose tools are hidden is not listed. Models
+and scripts find a tool by its id (`equipop:countsandshares`), not by
+its group, so the groups change nothing in them.
 
 ---
 

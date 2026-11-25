@@ -39,6 +39,7 @@ class PixelReach(EquipopAlgorithm):
     """Green reach (Dist_k in hectares) and green share around points."""
 
     EQP_TOOL = "PixelReach"
+    EQP_GROUP = "Rasters and pixels"
     OUT = "outfc"
 
     def name(self):
