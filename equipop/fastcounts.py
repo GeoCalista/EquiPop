@@ -129,7 +129,8 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                    report_label: str = "",
                    overshoot_mode: str | None = None,
                    self_rule: str | None = None,
-                   seed: int | None = None) -> pd.DataFrame:
+                   seed: int | None = None,
+                   first_ring_from_edge: bool = False) -> pd.DataFrame:
     """
     k-NN counts/ratios for every cell in cd, vectorised.
 
@@ -157,6 +158,14 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
         re-run against all cells (exact, slower) - the parameter
         affects speed only, never results.
 
+    first_ring_from_edge : R-60 (BACKLOG 519), tool 3b only. When an
+        origin has counted NOTHING before the ring that crosses k -
+        it stands on no mass - that ring's mass is spread over its
+        cells' own discs (R-55), so the interpolation starts at their
+        near edge, the ring's distance less one cell's equal-area
+        radius, and not at the origin. Off by default: tool 1's
+        numbers are unchanged.
+
     Output columns: CellId, EastWest, NorthSouth, N_local,
     <var>_local, and per k: N_k, T_<var>_k, R_<var>_k, Dist_k,
     plus SumN and MaxDistance.
@@ -164,6 +173,10 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
     k_values = sorted(k_values or [])
     r_values = sorted(r_values or [])
     sp = selfpot.check(self_potential)
+    # R-60: one cell's equal-area radius, the depth of a ring's disc
+    rho1 = (selfpot.radius_for_k(cd.unit_size, 1.0, 1.0, 1.0,
+                                 shape=cd.cell_shape)
+            if first_ring_from_edge else 0.0)
     # BACKLOG 99: what happens to the ring that crosses k.
     osm = overshoot.resolve(overshoot_mode)
     # BACKLOG 290: is the origin its own neighbour? Resolved BEFORE
@@ -446,7 +459,12 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                     # nobody's neighbour and moves no one's distance
                     d_prev = (float(dd[_last_counted(cp, lo - 1)])
                               if lo > 0 else 0.0)
-                    if lo > 0 and d_prev <= 0.0 and sp > 0.0:
+                    if first_ring_from_edge and lo > 0 and before <= 0.0:
+                        # R-60 (BACKLOG 519): nothing counted yet, so
+                        # the crossing ring's mass begins at the near
+                        # edge of its cells' discs, not at the origin
+                        d_prev = max(float(dd[hi]) - rho1, 0.0)
+                    elif lo > 0 and d_prev <= 0.0 and sp > 0.0:
                         # BACKLOG 191. Everything counted so far is the
                         # origin's OWN cell, and its people are not
                         # standing at distance zero - they are spread
@@ -784,6 +802,13 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                                               np.maximum(lo_r - 1, 0))],
                     0.0)
                 fix = (lo_r > 0) & (d_prev <= 0.0) & (sp > 0.0)
+                if first_ring_from_edge:
+                    # R-60 (BACKLOG 519), as in the scalar path
+                    nothing = (lo_r > 0) & (before <= 0.0)
+                    fix = fix & ~nothing
+                    d_prev = np.where(
+                        nothing, np.maximum(dd[rr, hi_r] - rho1, 0.0),
+                        d_prev)
                 d_prev = np.where(fix, np.minimum(rk1, dd[rr, hi_r]),
                                   d_prev)
                 d_k[rr] = overshoot.radius(d_prev, dd[rr, hi_r], f)

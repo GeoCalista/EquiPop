@@ -55,8 +55,8 @@ their story is in the detail below.*
       that say what they are (513)** - BUILT 26 November, pull request.
    c. **Rasters in degrees (decision d, 510; 518, R-59)** - BUILT 26
       November, pull request. John: "(b)".
-   c2. **A k smaller than the first pixel reached (519)** - found
-      while building 518; John's ruling first.
+   c2. **A k smaller than the first pixel reached (519, R-60)** -
+      BUILT 26 November, pull request. John: "(a)".
    d. **Release 1.66.0**, with hand checks of tool 7 (515), friction
       roles (516), the tool groups (517), tool 3b (510, 512) and the
       empty-row fix (511).
@@ -3751,8 +3751,22 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 519 | OPEN 26 NOVEMBER 2026 (found while building 518) | A k SMALLER
-  THAN THE FIRST PIXEL A PERSON REACHES IS "GATHERED" TOO SOON.
+- 519 | BUILT 26 NOVEMBER 2026, pull request, not released (ruling
+  R-60; found while building 518) | A k SMALLER THAN THE FIRST PIXEL A
+  PERSON REACHES IS "GATHERED" TOO SOON.
+  BUILT, John's (a), 26 November: run_knn_counts(...,
+  first_ring_from_edge=True), which pixels.reach (tool 3b) sets and
+  nothing else does. When an origin has counted nothing before the
+  crossing ring, the interpolation starts at the ring's near edge -
+  its distance less one cell's equal-area radius - in both the
+  one-at-a-time and the many-at-once path (they agree to the last
+  digit). MEASURED: 0.01 ha from a 10 m pixel 572 m away, 569.2 m (was
+  404 m); 0.5 ha from 1 ha pixels 2,000 m away, 1,972.0 m (was
+  1,414 m); 1 ha there still 2,000 m. A person between pixels, not on
+  one, also moves at a small k, and towards the truth: 10 m2 from the
+  corner of four green 10 m pixels, 1.80 m (a circle of 10 m2 is
+  1.78 m; it was 5.68 m). Tool 1's numbers do not move (a test).
+  WHAT WAS FOUND:
   When no mass has been counted yet - the person stands on no pixel -
   and the first ring that holds mass is far away, the engine finds the
   crossing ring by interpolating from distance 0, not from where that

@@ -386,8 +386,12 @@ def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),
                                     m[treat_col].to_numpy(float)])
     cd = CellData(E=E, N=N, n=n, binary_sums=sums,
                   unit_size=float(unit_size))
+    # R-60 (BACKLOG 519): a person on no pixel reaches the first
+    # pixel's hectares from the near edge of its disc, not from where
+    # they stand
     res = run_knn_counts(cd, k_values, r_values=r_values,
-                         origins=np.arange(n_p), report=False)
+                         origins=np.arange(n_p), report=False,
+                         first_ring_from_edge=True)
     out = pd.DataFrame({x: people[x].to_numpy(), y: people[y].to_numpy()})
     for k in k_values:
         tag = numeric_tag(k)
