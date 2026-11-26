@@ -93,6 +93,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-57 | A friction source is ground, obstacle or way | In force |
 | R-58 | No cell is faster than a hundredth of a round | In force |
 | R-59 | A raster in degrees is used as it is: its pixels keep their values and true areas, and only their centres move | In force |
+| R-60 | A person on no pixel gathers the first pixel within that pixel's own disc | In force |
 
 ---
 
@@ -570,4 +571,13 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John, 26 November 2026, choosing (b) over keeping the refusal: warping a land-cover raster to metres blurs its classes unless the person knows to choose "nearest neighbour", which novices often do not; moving the points resamples nothing. The area is the ellipsoid's because a sphere of the mean radius was 0.3% too large at the equator and 0.5% too small at 59 N, and true areas were the point of the choice.
 **Source.** BACKLOG 518.
 **Pinned by.** `tests/test_pixels_door.py::test_a_raster_in_degrees_gives_true_distances`, `tests/test_pixels_door.py::test_the_block_keeps_its_true_area_and_nothing_is_resampled`, `tests/test_pixels.py::test_pixel_area_on_a_latitude_longitude_grid`, `tests/test_pixels_gis_doors.py::test_qgis_uses_a_raster_in_degrees_with_its_own_conversion`, `tests/test_pixels_gis_doors.py::test_pro_uses_a_raster_in_degrees_with_its_own_projection`
+**Status.** In force.
+
+## A, continued. The neighbourhood
+
+### R-60 · A person on no pixel gathers the first pixel within that pixel's own disc
+**Rule.** In tool 3b, when a person has counted no mass before the ring that crosses k - they stand on no pixel - that ring's hectares are spread over its pixels' own discs (R-55): the distance is interpolated by area from the discs' near edge, the ring's distance less one pixel's equal-area radius, to the ring itself. It never comes out closer than the first pixel's near edge. Once any mass has counted, nothing changes. Tool 1 is not affected: a point of nobody still starts from its own cell's equal-area radius (BACKLOG 191).
+**Why.** Found while building R-59 (BACKLOG 519): the interpolation started at the person, so a k smaller than the first pixel was "gathered" closer than that pixel - 0.01 ha from a 10 m pixel 572 m away came back at 404 m, 0.5 ha from 1 ha pixels 2,000 m away at 1,414 m. John, 26 November 2026, chose (a), the pixel's own disc, over the plain distance to the pixel, because it is R-55's rule for the pixel a person stands on.
+**Source.** BACKLOG 519.
+**Pinned by.** `tests/test_pixels_door.py::test_a_small_k_is_never_gathered_before_the_first_pixel`, `tests/test_pixels_door.py::test_a_coarse_raster_with_a_small_k`, `tests/test_pixels_door.py::test_the_first_ring_starts_at_the_edge_of_the_real_cell`, `tests/test_pixels_door.py::test_tool_1_is_unchanged_by_r_60`
 **Status.** In force.

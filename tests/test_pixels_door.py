@@ -520,15 +520,22 @@ def test_a_non_square_pixel_counts_by_its_area():
 
 
 def test_the_first_ring_starts_at_the_edge_of_the_real_cell():
-    """Not only a person on a pixel: everyone's first ring starts at the
-    edge of their own cell's disc, so the hidden 100 m moved every
-    distance gathered in the nearest pixel - 215.85 m here, against
-    212.17 m with the real 10 m pixel."""
+    """R-60 (BACKLOG 519, John, 26 November 2026: "(a)"): a person on no
+    pixel gathers the first pixel's hectares from the near edge of THAT
+    pixel's disc - 300 m less the real 10 m pixel's equal-area radius,
+    5.64 m - not from where they stand. Half the pixel is reached at
+    297.19 m, past its near edge. Until 1.66.0 it was 212.17 m, closer
+    than the pixel itself; the hidden 100 m cell of BACKLOG 512 would
+    give 273.3 m. BROKEN WITH: first_ring_from_edge left off in
+    pixels.reach."""
     from equipop.pixels import reach
     p = pd.DataFrame({"x": [0.0], "y": [0.0]})
     m = pd.DataFrame({"x": [300.0], "y": [0.0], "ha": [0.01]})
-    want = np.sqrt((10 / np.sqrt(np.pi)) ** 2 * 0.5 + 300 ** 2 * 0.5)
-    assert reach(p, m, [0.005]).Dist_0_005[0] == pytest.approx(want)
+    edge = 300 - 10 / np.sqrt(np.pi)
+    want = np.sqrt(edge ** 2 * 0.5 + 300 ** 2 * 0.5)
+    got = reach(p, m, [0.005]).Dist_0_005[0]
+    assert got == pytest.approx(want)
+    assert edge < got < 300
     with pytest.raises(ValueError, match="give unit_size"):
         reach(p, pd.DataFrame({"x": [300.0, 400.0], "y": [0.0, 0.0],
                                "ha": [0.01, 0.02]}), [0.005])
@@ -741,3 +748,59 @@ def test_hectares_or_radii_one_column_name_cannot_tell_apart_stop_the_run():
         result_names("1", "100.0000001 100.0000002")
     assert result_names("0.1 0.2", "100 100,5") == [
         "Dist_0_1", "Dist_0_2", "B_r100", "B_r100_5"]
+
+
+
+# ---------------------------------------------------------------------
+# R-60 (BACKLOG 519, John, 26 November 2026: "(a)"): a k smaller than
+# the first pixel a person reaches is gathered within that pixel's own
+# disc, never closer than its near edge.
+# ---------------------------------------------------------------------
+
+def test_a_small_k_is_never_gathered_before_the_first_pixel():
+    """A person 572 m east of a block of 10 m pixels: every k below one
+    pixel is reached between the pixel's near edge and its centre.
+    Until 1.66.0, 0.01 ha came back at 404 m."""
+    from equipop.pixels import pixels_from_array, reach
+    a = np.zeros((300, 300))
+    a[100:200, 100:200] = 1
+    m = pixels_from_array(a, 0, 3000, 10, 10, classes=[1])
+    p = pd.DataFrame({"x": [m.x.max() + 572.0], "y": [1500.0]})
+    got = reach(p, m, [0.001, 0.005, 0.01])
+    near = 572.0 - 10 / np.sqrt(np.pi)
+    d = got[["Dist_0_001", "Dist_0_005", "Dist_0_01"]].to_numpy()[0]
+    assert (d > near).all() and (d <= 572.0 + 1e-9).all()
+    assert (np.diff(d) > 0).all()
+
+
+def test_a_coarse_raster_with_a_small_k():
+    """1 ha pixels (WorldPop's 100 m) 2,000 m away: 0.5 ha is reached
+    inside the first pixel's disc (1,971.99 m), 1 ha at its centre
+    (2,000 m). Until 1.66.0, 0.5 ha came back at 1,414 m."""
+    from equipop.pixels import pixels_from_array, reach
+    b = np.zeros((60, 60))
+    b[0:10, 0:10] = 1
+    m = pixels_from_array(b, 0, 6000, 100, 100, classes=[1])
+    p = pd.DataFrame({"x": [m.x.max() + 2000.0], "y": [m.y.max()]})
+    got = reach(p, m, [0.5, 1])
+    edge = 2000.0 - 100 / np.sqrt(np.pi)
+    assert got.Dist_0_5[0] == pytest.approx(
+        np.sqrt(edge ** 2 * 0.5 + 2000.0 ** 2 * 0.5))
+    assert got.Dist_1[0] == pytest.approx(2000.0)
+
+
+def test_tool_1_is_unchanged_by_r_60():
+    """The rule is tool 3b's: the engine's default keeps every Counts
+    and Shares number as it was. A 250 m cell of nobody, 300 m from a
+    cell of 20, asks for 1: BACKLOG 191's start at its own equal-area
+    radius (141.05 m), 152.97 m - not R-60's near edge of the other
+    cell (295.4 m from 158.95 m)."""
+    from equipop.cells import CellData
+    from equipop.fastcounts import run_knn_counts
+    cd = CellData(E=np.array([0.0, 300.0]), N=np.zeros(2),
+                  n=np.array([0.0, 20.0]), binary_sums={},
+                  unit_size=250.0)
+    r = run_knn_counts(cd, [1], origins=np.array([0]), report=False)
+    own = 250 / np.sqrt(np.pi)
+    assert r["Dist_1"][0] == pytest.approx(
+        np.sqrt(own ** 2 + (300 ** 2 - own ** 2) / 20))
