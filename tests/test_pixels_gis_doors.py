@@ -417,3 +417,82 @@ def test_both_doors_offer_the_same_boxes_with_shared_help():
     assert not [n for n in CORE_PIXELS if n not in HELP]
     assert q.displayName() == LABELS["PixelReach"] \
         == pyt.PixelReach().label
+
+
+# ---------------------------------------------------------------------
+# R-59, decision d (John, 26 November 2026: "(b)"): a raster in DEGREES
+# is used as it is - each door places the counting pixels' centres in
+# the people's system with its own conversion, and writes the numbers
+# of the shared run given that same conversion. The stand-ins' "
+# projections" are crude on purpose; real QGIS is in tests_real_qgis.
+# ---------------------------------------------------------------------
+DEG_W, DEG_N, DEG = 20.9, 59.5, 0.0001
+
+
+def _deg_people(project):
+    lon = np.array([20.9015, 20.9035, 20.9005])
+    lat = np.array([59.4985, 59.4965, 59.4999])
+    x, y = project(lon, lat)
+    return pd.DataFrame({"x": x, "y": y})
+
+
+def _deg_want(project, people):
+    pay = {"array": _cover(), "x_min": DEG_W, "y_max": DEG_N,
+           "cell_w": DEG, "cell_h": DEG, "nodata": 255,
+           "geographic": True, "to_people": project}
+    return run(people, pay, say=lambda *x: None, **BOXES)
+
+
+def test_qgis_uses_a_raster_in_degrees_with_its_own_conversion():
+    """BROKEN WITH: a raster in degrees counted as "another system"
+    again - the run is refused, as before 1.66.0."""
+    from equipop_qgis.alg_pixels import PixelReach
+
+    def stub_qgis(lon, lat):           # qgis_stub's QgsCoordinateTransform
+        return np.asarray(lon) * 111320.0, np.asarray(lat) * 110540.0
+
+    people = _deg_people(stub_qgis)
+    alg = PixelReach()
+    alg.initAlgorithm()
+    layer = qgis_stub.FakeRasterLayer(_cover(), xmin=DEG_W, ymax=DEG_N,
+                                      cw=DEG, ch=DEG, nodata=255,
+                                      crs="EPSG:4326")
+    p = {"layer": qgis_stub.source_from(people, crs="EPSG:3006"),
+         "rasters": [layer], "outfc": "memory:out", **BOXES}
+    fb = QgsProcessingFeedback()
+    alg.processAlgorithm(p, None, fb)
+    got = p["_sinks"]["outfc"].to_frame()
+    want = _deg_want(stub_qgis, people)
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c], equal_nan=True), c
+    assert any("placed in the people's system by QGIS (EPSG:4326 to "
+               "EPSG:3006)" in m for m in fb.info)
+
+
+def test_pro_uses_a_raster_in_degrees_with_its_own_projection():
+    """Pro's projection engine, through FeatureClassToNumPyArray with
+    the people's spatial reference. BROKEN WITH: _pro_mover's indices
+    dropped - the points come back in another order."""
+    pyt, state, msg = _pro(raster_code=4326, people_code=32634)
+    state["crs_types"] = {"cover": "Geographic"}
+    state["rasters"]["cover"].update(xmin=DEG_W, ymax=DEG_N, cw=DEG,
+                                     ch=DEG)
+
+    def stub_pro(lon, lat):            # the stand-in's UTM 34 "projection"
+        lat = np.asarray(lat, float)
+        return ((np.asarray(lon, float) - 21.0) * 111320.0
+                * np.cos(np.radians(lat)), lat * 110540.0)
+
+    people = _deg_people(stub_pro)
+    state["table"]["SHAPE@X"] = list(people.x) + [people.x[0]]
+    state["table"]["SHAPE@Y"] = list(people.y) + [people.y[0]]
+    tool = pyt.PixelReach()
+    tool.execute(_pro_params(tool), msg)
+    got = state["copies"]["memory/out"].iloc[:3]
+    want = _deg_want(stub_pro, people)
+    for c in want.columns.drop(["x", "y"]):
+        assert np.allclose(got[c].astype(float), want[c],
+                           equal_nan=True), c
+    assert any("placed in the people's system by ArcGIS Pro" in m
+               for m in msg.log)
+    assert "memory\\eqp_pixel_centres" not in state.get("written", {})

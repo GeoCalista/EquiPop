@@ -53,10 +53,10 @@ their story is in the detail below.*
       26 November, pull request.
    b. **One set of files for PyPI and the release page; try builds
       that say what they are (513)** - BUILT 26 November, pull request.
-   c. **Rasters in degrees (decision d, 510)** - John, 26 November:
-      "(b)": EquiPop moves each counting pixel's centre into the
-      people's system with the GIS's own tools, keeps its true area,
-      and resamples nothing. Ruling R-59 with its pull request.
+   c. **Rasters in degrees (decision d, 510; 518, R-59)** - BUILT 26
+      November, pull request. John: "(b)".
+   c2. **A k smaller than the first pixel reached (519)** - found
+      while building 518; John's ruling first.
    d. **Release 1.66.0**, with hand checks of tool 7 (515), friction
       roles (516), the tool groups (517), tool 3b (510, 512) and the
       empty-row fix (511).
@@ -3750,6 +3750,59 @@ because machine 3 stores tiles that way and says so in its manifest.
   the suite would pass. That is the guard written after inventory.py
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
+
+- 519 | OPEN 26 NOVEMBER 2026 (found while building 518) | A k SMALLER
+  THAN THE FIRST PIXEL A PERSON REACHES IS "GATHERED" TOO SOON.
+  When no mass has been counted yet - the person stands on no pixel -
+  and the first ring that holds mass is far away, the engine finds the
+  crossing ring by interpolating from distance 0, not from where that
+  ring's mass begins. MEASURED, metric rasters, existing behaviour (not
+  518's): a person 572 m from the nearest 10 m pixel gets Dist_0_01 =
+  404 m and Dist_0_001 = 128 m; with 1 ha pixels 2,000 m away, k = 0.5
+  gives 1,414 m (= 2,000 x the square root of 0.5). Once k is larger
+  than the first pixel's hectares the distance is right (k = 1 there:
+  2,000 m; 1 ha from a block 572 m away: 603 m). Tool 3b's usual case
+  - 10 to 30 m pixels and k of 1 ha or more - is not affected; coarse
+  rasters (WorldPop's 100 m and 1 km cells) with a k below one cell
+  are. Tool 1 rarely meets it, because a person's own cell usually
+  holds people.
+  TO DECIDE (John): the first ring's mass gathered within its own disc
+  (R-55: spread evenly over the cell, so the ring starts at its near
+  edge, d - r, and k is reached at about d - r + 2r x k/m), or simply
+  the distance to the first pixel. Not coded.
+
+- 518 | BUILT 26 NOVEMBER 2026, pull request, not released (ruling R-59;
+  decision d of 510) | TOOL 3b TAKES A RASTER IN DEGREES AS IT IS.
+  John, 26 November: "(b)" - EquiPop handles it, rather than refusing
+  until the person warps it (which blurs a land-cover map's classes
+  unless they choose nearest neighbour).
+  BUILT: each pixel that counts keeps its value and its own area, and
+  only its centre is placed in the people's system: pixels.move_pixels
+  (engine), with the conversion each door brings - QGIS's
+  QgsCoordinateTransform with the project's transform context, Pro's
+  projection engine (a memory point class read back through
+  FeatureClassToNumPyArray with the people's spatial reference, one
+  call for all points), pyproj for Python (run(..., people_crs=
+  "EPSG:3006"), refused with a sentence without it). Both doors no
+  longer count a raster in degrees as "another system"; a raster in
+  another METRIC system is still refused. The analysis cell works,
+  laid out in metres after the move (pixels.to_cells, split out of
+  mass_from_values). R-55's cell side is a square of the pixels' mean
+  area. The base-is-everything NOTE now works in degrees too.
+  AREAS ON THE ELLIPSOID: a pixel's area in degrees was a sphere's of
+  the mean radius (6,371,008.8 m): 0.3% too large at the equator, 0.5%
+  too small at 59 N. Now the WGS84 ellipsoid's latitude band, exact:
+  a 2 x 2 km block at 59.33 N is 253.66 ha, as pyproj's geodesic area
+  (the sphere gave 252.3).
+  TESTED: Python route on a WorldCover-like WGS84 file near Stockholm
+  (1 ha gathered within the 1 ha circle from the block's middle; from
+  0.01 degree east, just past the geodesic gap of 569.2 m; the block's
+  geodesic area; one point per class-10 pixel, none resampled); both
+  doors against the shared run with their own conversion; real QGIS
+  with a real WGS84 GeoTIFF against pyproj, within half a metre.
+  Broken on purpose: degrees again counted as another system in QGIS;
+  Pro's points read back without their indices; the sphere put back.
+  FOUND WHILE BUILDING: 519.
 
 - 517 | BUILT 25 NOVEMBER 2026, pull request, not released | THE TOOLS
   SIT IN GROUPS BY WHAT THEY ARE FOR, THE SAME IN PRO AND QGIS.

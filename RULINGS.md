@@ -92,6 +92,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-56 | Who goes where: one queue of equal groups in a random order, full is full | In force |
 | R-57 | A friction source is ground, obstacle or way | In force |
 | R-58 | No cell is faster than a hundredth of a round | In force |
+| R-59 | A raster in degrees is used as it is: its pixels keep their values and true areas, and only their centres move | In force |
 
 ---
 
@@ -560,4 +561,13 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** Two roads at -0.6 added up to -1.2, a negative cost the route search cannot order (BACKLOG 516). John, 25 November 2026: "cap such cells to just above -1 - or alternatively the minimum value (... your call)". A fixed floor was chosen because it never makes more facilitation slower; the cell's lowest single value would.
 **Source.** BACKLOG 516.
 **Pinned by.** `tests/test_friction_roles.py::test_facilitators_that_add_up_past_minus_one_stop_at_the_floor`, `tests/test_friction_roles.py::test_the_route_search_never_sees_a_negative_cost`
+**Status.** In force.
+
+## E, continued. Coordinates
+
+### R-59 · A raster in degrees is used as it is: its pixels keep their values and true areas, and only their centres move
+**Rule.** A raster in latitude and longitude (ESA WorldCover, say) under people in metres is not refused and not resampled. Each pixel that counts keeps its value and its own area on the WGS84 ellipsoid; only its centre is placed in the people's system - by QGIS's own coordinate transform in QGIS, by Pro's projection engine in Pro, by pyproj in Python (where the caller names the people's system). An analysis cell is laid out in metres after the move. For the within-cell rule (R-55) the cell's side is that of a square of the pixels' mean area. A raster in another METRIC system is still refused.
+**Why.** John, 26 November 2026, choosing (b) over keeping the refusal: warping a land-cover raster to metres blurs its classes unless the person knows to choose "nearest neighbour", which novices often do not; moving the points resamples nothing. The area is the ellipsoid's because a sphere of the mean radius was 0.3% too large at the equator and 0.5% too small at 59 N, and true areas were the point of the choice.
+**Source.** BACKLOG 518.
+**Pinned by.** `tests/test_pixels_door.py::test_a_raster_in_degrees_gives_true_distances`, `tests/test_pixels_door.py::test_the_block_keeps_its_true_area_and_nothing_is_resampled`, `tests/test_pixels.py::test_pixel_area_on_a_latitude_longitude_grid`, `tests/test_pixels_gis_doors.py::test_qgis_uses_a_raster_in_degrees_with_its_own_conversion`, `tests/test_pixels_gis_doors.py::test_pro_uses_a_raster_in_degrees_with_its_own_projection`
 **Status.** In force.

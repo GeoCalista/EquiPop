@@ -39,7 +39,11 @@ import math
 import numpy as np
 import pandas as pd
 
-R_EARTH = 6371008.8
+R_EARTH = 6371008.8          # the mean radius; areas use the ellipsoid
+
+# WGS84, for a pixel's area on a latitude-longitude grid (R-59)
+_A_WGS84 = 6378137.0
+_F_WGS84 = 1 / 298.257223563
 
 
 def _need_rasterio():
@@ -54,8 +58,8 @@ def _need_rasterio():
 def pixel_area_ha(transform, rows, geographic: bool) -> np.ndarray:
     """Area of each pixel in hectares. On a metric grid every pixel is
     |a x e|. On a latitude-longitude grid a pixel shrinks with the
-    cosine of its latitude: a 30" WorldPop cell is 86 ha at the equator
-    and 43 ha at 60 degrees north."""
+    cosine of its latitude: a 30" WorldPop cell is 85 ha at the equator
+    and 43 ha at 60 degrees north, on the WGS84 ellipsoid (R-59)."""
     return _area_ha(abs(transform.a), abs(transform.e), transform.f,
                     rows, geographic)
 
@@ -66,11 +70,24 @@ def _area_ha(cell_w, cell_h, y_max, rows, geographic):
         return np.full(len(rows), cell_w * cell_h / 10_000.0)
     lat = y_max - (rows + 0.5) * cell_h
     dlon = math.radians(cell_w)
-    # the exact area of a latitude band, not cos(centre) x a rectangle
+    # the exact area of a latitude band ON THE WGS84 ELLIPSOID, not
+    # cos(centre) x a rectangle (R-59). Until 1.66.0 a sphere of the
+    # mean radius: 0.3% too large at the equator, 0.5% too small at 59 N
     top = np.radians(lat + cell_h / 2)
     bottom = np.radians(lat - cell_h / 2)
-    area = R_EARTH ** 2 * dlon * np.abs(np.sin(top) - np.sin(bottom))
+    area = dlon * np.abs(_zone(top) - _zone(bottom))
     return area / 10_000.0
+
+
+def _zone(phi):
+    """The ellipsoid's area from the equator to latitude phi (radians),
+    per radian of longitude, in m2 - the authalic formula, exact."""
+    e2 = _F_WGS84 * (2 - _F_WGS84)
+    e = math.sqrt(e2)
+    s = np.sin(phi)
+    b2 = _A_WGS84 ** 2 * (1 - e2)
+    return b2 / 2 * (s / (1 - e2 * s * s)
+                     + np.log((1 + e * s) / (1 - e * s)) / (2 * e))
 
 
 def check_system(crs, label):
@@ -252,20 +269,65 @@ def mass_from_values(value, x_min, y_max, cell_w, cell_h, *,
     cell = float(cell)
     if geographic:
         raise ValueError("An analysis cell is in metres, and this "
-                         "raster's coordinates are degrees.")
-    if cell < max(cell_w, cell_h) * (1 - 1e-9):
+                         "raster's coordinates are degrees: move the "
+                         "pixels with move_pixels() first, then "
+                         "to_cells().")
+    return to_cells(df, cell, max(cell_w, cell_h))
+
+
+def to_cells(mass: pd.DataFrame, cell, pixel_m=None) -> pd.DataFrame:
+    """The ANALYSIS CELL (R-53): the hectares of mass points summed into
+    square cells of `cell` metres on a grid anchored at 0, 0. A point
+    goes to the cell its centre is in. `pixel_m`, the pixel's side in
+    metres, refuses a cell smaller than the pixel."""
+    cell = float(cell)
+    if pixel_m is not None and cell < float(pixel_m) * (1 - 1e-9):
         raise ValueError(f"The analysis cell ({cell:g} m) is smaller "
-                         f"than the image's pixel ({max(cell_w, cell_h):g}"
+                         f"than the image's pixel ({float(pixel_m):g}"
                          " m): there is nothing to sum. Leave it empty "
                          "to use the pixel itself.")
-    ix = np.floor(df.x.to_numpy() / cell).astype(np.int64)
-    iy = np.floor(df.y.to_numpy() / cell).astype(np.int64)
-    g = df.assign(ix=ix, iy=iy).groupby(["ix", "iy"], sort=True)
-    agg = g[[c for c in ("ha", "t_ha") if c in df]].sum().reset_index()
+    ix = np.floor(mass.x.to_numpy() / cell).astype(np.int64)
+    iy = np.floor(mass.y.to_numpy() / cell).astype(np.int64)
+    g = mass.assign(ix=ix, iy=iy).groupby(["ix", "iy"], sort=True)
+    agg = g[[c for c in ("ha", "t_ha") if c in mass]].sum().reset_index()
     agg.insert(0, "y", (agg.pop("iy") + 0.5) * cell)
     agg.insert(0, "x", (agg.pop("ix") + 0.5) * cell)
     agg.attrs["cell_m"] = cell
     return agg
+
+
+def move_pixels(mass: pd.DataFrame, to_people) -> pd.DataFrame:
+    """A raster in DEGREES, placed in the people's system (R-59, John,
+    26 November 2026: "(b)").
+
+    Each pixel that counts is a point with its own true area (a latitude
+    band's, from _area_ha), and only that point is moved:
+    `to_people(lon, lat) -> (x, y)` in the people's metres, made by the
+    GIS's own conversion (QGIS's QgsCoordinateTransform, Pro's
+    projection engine, pyproj for Python). NOTHING IS RESAMPLED: no
+    pixel is split, merged or given a new value, so a land-cover class
+    is never blurred, which a warp with the wrong resampling does.
+
+    The cell side reach() uses for the within-cell rule (R-55) becomes
+    the side of a square of the pixels' mean area: on a degree grid the
+    pixels are not squares in metres, and they shrink towards the
+    poles - by about 0.3% from end to end of a town 10 km from north to
+    south at 60 degrees north, tan(60) x 0.09 degrees in radians."""
+    x, y = to_people(mass.x.to_numpy(float), mass.y.to_numpy(float))
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) != len(mass) or len(y) != len(mass):
+        raise ValueError("the conversion returned a different number of "
+                         "points than it was given")
+    bad = ~(np.isfinite(x) & np.isfinite(y))
+    if bad.any():
+        raise ValueError(f"{int(bad.sum()):,} pixel centre(s) could not "
+                         "be placed in the people's coordinate system.")
+    out = mass.copy()
+    out["x"], out["y"] = x, y
+    if len(out):
+        out.attrs["cell_m"] = math.sqrt(
+            float(out["ha"].mean()) * 10_000.0)
+    return out
 
 
 def reach(people: pd.DataFrame, mass: pd.DataFrame, k_values=(),

@@ -400,6 +400,52 @@ def test_pixel_reach_honours_a_gdal_mask(tmp_path):
                                    rtol=1e-9, atol=1e-9, err_msg=col)
 
 
+def test_pixel_reach_takes_a_raster_in_degrees(tmp_path):
+    """R-59 (decision d, John, 26 November 2026: "(b)"): a WGS84
+    GeoTIFF under people in SWEREF99 TM. QGIS places each counting
+    pixel's centre with its own QgsCoordinateTransform; the numbers are
+    those of the shared run placing them with pyproj, to well under a
+    metre. Nothing is resampled. BROKEN WITH: a raster in degrees still
+    counted as another system (the run is refused)."""
+    from osgeo import gdal, osr
+    from pyproj import Transformer
+    from equipop.doors.pixelsdoor import run
+    import pandas as pd
+    lyr, d = _points()
+    to_deg = Transformer.from_crs("EPSG:3006", "EPSG:4326", always_xy=True)
+    lon, lat = to_deg.transform([673500.0, 677500.0], [6579500.0, 6583500.0])
+    step = 0.0001
+    w = int(np.ceil((lon[1] - lon[0]) / step))
+    h = int(np.ceil((lat[1] - lat[0]) / step))
+    rng = np.random.RandomState(11)
+    a = (rng.uniform(0, 1, (h, w)) < 0.2).astype(np.uint8)   # 20% green
+    path = str(tmp_path / "green_wgs84.tif")
+    ds = gdal.GetDriverByName("GTiff").Create(path, w, h, 1, gdal.GDT_Byte)
+    ds.SetGeoTransform((lon[0], step, 0.0, lat[1], 0.0, -step))
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+    ds.SetProjection(srs.ExportToWkt())
+    ds.GetRasterBand(1).WriteArray(a)
+    ds.FlushCache()
+    ds = None
+    out = tmp_path / "deg.gpkg"
+    boxes = dict(value="", base="1", treatment="", hectares="1 5",
+                 radius="300", cell="")
+    processing.run("equipop:pixelreach", dict(
+        layer=lyr, rasters=[path], outfc=str(out), **boxes))
+    got = _read(out)
+    to_m = Transformer.from_crs("EPSG:4326", "EPSG:3006", always_xy=True)
+    want = run(pd.DataFrame({"x": d["x"], "y": d["y"]}),
+               {"bands": {1: a.astype(np.float32)}, "x_min": lon[0],
+                "y_max": lat[1], "cell_w": step, "cell_h": step,
+                "nodata": None, "geographic": True,
+                "to_people": lambda x, y: to_m.transform(x, y)},
+               say=lambda *x: None, **boxes)
+    for col in ("Dist_1", "Dist_5", "B_r300"):
+        np.testing.assert_allclose(_num(got[col]), want[col].to_numpy(),
+                                   rtol=1e-3, atol=0.5, err_msg=col)
+
+
 def _schools(n=8, seed=3):
     """Destinations in the same town, with a capacity field."""
     rng = np.random.RandomState(seed)

@@ -4209,7 +4209,11 @@ class PixelReach:
                   and _crs_unit_name(getattr(sr, "linearUnitName",
                                              None))
                   in ("metres", "map units"))
-        other = [n for n, r in rsrs.items() if not _same_crs(sr, r)]
+        # R-59: a raster in DEGREES is not "another system" - its
+        # pixels are placed in the people's by Pro's own projection
+        other = [n for n, r in rsrs.items()
+                 if str(getattr(r, "type", "")) != "Geographic"
+                 and not _same_crs(sr, r)]
         same = not other
         if not (metric and same):
             if metric:
@@ -4236,7 +4240,7 @@ class PixelReach:
                                 + ".")
         with _stage(messages, "reading the rasters"):
             payloads = [(n, _pixel_payload(e, descs[n], wanted[n],
-                                           messages, name=n))
+                                           messages, name=n, to_sr=sr))
                         for n, e in used]
         people = pd.DataFrame({"x": data["x"], "y": data["y"]})
         try:
@@ -4340,7 +4344,7 @@ def _raster_name(entry):
     return e.replace("/", "\\").split("\\")[-1] or e
 
 
-def _pixel_payload(raster, desc, bands, messages, name=None):
+def _pixel_payload(raster, desc, bands, messages, name=None, to_sr=None):
     """The bands a value box needs, read by arcpy, as the payload
     equipop.doors.pixelsdoor.run takes (BACKLOG 509, 510): {"bands":
     {n: array}}, the elevation raster's keys (_raster_payload) for where
@@ -4389,6 +4393,12 @@ def _pixel_payload(raster, desc, bands, messages, name=None):
            "source": os.path.basename(str(getattr(desc, "catalogPath",
                                                   None) or src)),
            "geographic": str(getattr(sr, "type", "")) == "Geographic"}
+    if pay["geographic"] and to_sr is not None:
+        # R-59: Pro's own projection places each counting pixel's
+        # centre in the people's system; nothing is resampled
+        pay["to_people"] = _pro_mover(sr, to_sr)
+        pay["moved_by"] = (f"ArcGIS Pro ({getattr(sr, 'name', '?')} to "
+                           f"{getattr(to_sr, 'name', '?')})")
     shape = next(iter(got.values())).shape[-2:]
     label = f'"{name}"' if name else "The raster"
     messages.addMessage(
@@ -4397,6 +4407,41 @@ def _pixel_payload(raster, desc, bands, messages, name=None):
         f"of {count}, {shape[0]:,} x {shape[1]:,} pixels of "
         f"{pay['cell_w']:g} x {pay['cell_h']:g}.")
     return pay
+
+
+def _pro_mover(raster_sr, people_sr):
+    """R-59 (decision d, John, 26 November 2026: "(b)"): pixel centres
+    in degrees, placed in the people's system by Pro's own projection
+    engine. The points go into a memory feature class in the raster's
+    system and come back through FeatureClassToNumPyArray with the
+    people's spatial reference, which projects them - all of them in
+    one call, with arcpy.env.geographicTransformations if set."""
+    def to_people(lon, lat):
+        n = len(lon)
+        arr = np.zeros(n, dtype=[("eqp_i", "<i4"), ("eqp_x", "<f8"),
+                                 ("eqp_y", "<f8")])
+        arr["eqp_i"] = np.arange(n)
+        arr["eqp_x"], arr["eqp_y"] = lon, lat
+        fc = "memory\\eqp_pixel_centres"
+        if arcpy.Exists(fc):
+            arcpy.management.Delete(fc)
+        arcpy.da.NumPyArrayToFeatureClass(arr, fc, ("eqp_x", "eqp_y"),
+                                          raster_sr)
+        try:
+            got = arcpy.da.FeatureClassToNumPyArray(
+                fc, ["eqp_i", "SHAPE@X", "SHAPE@Y"],
+                spatial_reference=people_sr)
+        finally:
+            try:
+                arcpy.management.Delete(fc)
+            except Exception:                        # pragma: no cover
+                pass
+        x, y = np.full(n, np.nan), np.full(n, np.nan)
+        i = np.asarray(got["eqp_i"], int)
+        x[i] = np.asarray(got["SHAPE@X"], float)
+        y[i] = np.asarray(got["SHAPE@Y"], float)
+        return x, y
+    return to_people
 
 
 #: The inventory table's columns, in the order a person reads them.

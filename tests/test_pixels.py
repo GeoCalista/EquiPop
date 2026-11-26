@@ -117,22 +117,30 @@ def test_a_reach_that_never_happens_has_no_distance():
 
 
 def test_pixel_area_on_a_latitude_longitude_grid():
-    """A whole 1-degree band of 30" pixels must add up to the band's
-    area on the sphere; one pixel at 60 N is half of one at the
-    equator, to within a percent."""
+    """A whole 1-degree square of 30" pixels must add up to its area on
+    the WGS84 ELLIPSOID (R-59; a sphere until 1.66.0, 0.5% short at
+    60 N), measured by pyproj's geodesic polygon area; one pixel at
+    60 N is about half of one at the equator (0.505).
+    BROKEN WITH: the sphere of the mean radius put back."""
     from affine import Affine
+    Geod = pytest.importorskip("pyproj").Geod
     s = 1 / 120.0
     T = Affine(s, 0, 0.0, 0, -s, 61.0)               # rows from 61 N down
     rows = np.arange(120)                             # 61 N to 60 N
     band = pixel_area_ha(T, rows, geographic=True).sum() * 120  # 120 columns
-    R = 6371008.8
-    want = R ** 2 * math.radians(1.0) * (
-        math.sin(math.radians(61)) - math.sin(math.radians(60))) / 1e4
-    assert band == pytest.approx(want, rel=1e-9)
+    # the edges along 60 N and 61 N follow the parallels, so they are
+    # given densely - a geodesic between two points of one latitude
+    # bows towards the pole
+    t = np.linspace(0, 1, 2001)
+    lon = np.concatenate([t, t[::-1]])
+    lat = np.concatenate([np.full_like(t, 60.0), np.full_like(t, 61.0)])
+    a, _ = Geod(ellps="WGS84").polygon_area_perimeter(lon, lat)
+    assert band == pytest.approx(abs(a) / 1e4, rel=1e-6)
     eq = pixel_area_ha(Affine(s, 0, 0, 0, -s, s), np.array([0]), True)[0]
     north = pixel_area_ha(Affine(s, 0, 0, 0, -s, 60 + s / 2), np.array([0]),
                           True)[0]
-    assert north / eq == pytest.approx(0.5, rel=0.01)
+    # cos 60 = 0.5 on a sphere; the ellipsoid's 60 N pixel is 0.505
+    assert north / eq == pytest.approx(0.505, rel=0.002)
     assert pixel_area_ha(Affine(10, 0, 0, 0, -10, 0), np.array([0, 1]),
                          False).tolist() == [0.01, 0.01]
 
