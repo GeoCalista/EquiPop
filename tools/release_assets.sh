@@ -50,8 +50,9 @@ ls "$B"/EquiPop.*.pyt.xml > /dev/null
 rm -f "$A/equipop_arcgis-$V.zip"
 ( cd "$B" && zip -q "$A/equipop_arcgis-$V.zip" EquiPop.pyt EquiPop.*.pyt.xml ARCGIS_GUIDE.md )
 
-# the teaching town, in ETRS89 / UTM 33N (BACKLOG 504); needs geopandas
-python -c "import sys; from equipop.gridby import write_gridby; write_gridby(sys.argv[1])" "$A/gridby-$V.gpkg"
+# the teaching town, in ETRS89 / UTM 33N (BACKLOG 504); needs geopandas.
+# overwrite=True: a rerun replaces our own earlier file (BACKLOG 514)
+python -c "import sys; from equipop.gridby import write_gridby; write_gridby(sys.argv[1], overwrite=True)" "$A/gridby-$V.gpkg"
 
 # every zip opens, and every member is whole
 python - "$A" <<'PY'

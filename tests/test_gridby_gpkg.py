@@ -78,3 +78,98 @@ def test_a_class_rasterizing_the_lines_gets_the_python_tables(gpkg):
         fr = fr.sort_values(["x", "y"], ignore_index=True)
         pd.testing.assert_frame_equal(fr, g[f"friction_{mode}"],
                                       check_dtype=False)
+
+
+# ---------------------------------------------------------------------
+# BACKLOG 514 (the external review, finding 6): Gridby never deletes a
+# file it did not write. Until 1.66.0 write_gridby removed whatever was
+# at the path before writing, so a teacher's own layer was lost, and a
+# write failing halfway left nothing.
+# ---------------------------------------------------------------------
+
+def _teacher_file(tmp_path):
+    """A GeoPackage with a layer of the teacher's own in it."""
+    path = tmp_path / "gridby.gpkg"
+    gpd.GeoDataFrame({"note": ["my exercise"]},
+                     geometry=gpd.points_from_xy([0.0], [0.0]),
+                     crs=CRS).to_file(path, layer="my_layer", driver="GPKG")
+    return path
+
+
+def _leftovers(folder):
+    return sorted(p.name for p in folder.iterdir() if p.name != "gridby.gpkg")
+
+
+def test_an_existing_file_is_refused_and_left_as_it_was(tmp_path):
+    """BROKEN WITH: the old os.remove() put back - the teacher's file
+    is deleted and no error is raised."""
+    path = _teacher_file(tmp_path)
+    before = path.read_bytes()
+    with pytest.raises(FileExistsError) as e:
+        write_gridby(path)
+    assert str(path) in str(e.value) and "overwrite=True" in str(e.value)
+    assert path.read_bytes() == before
+    assert _leftovers(tmp_path) == []
+
+
+def test_overwrite_replaces_it_with_the_whole_town(tmp_path):
+    import pyogrio
+    path = _teacher_file(tmp_path)
+    write_gridby(path, overwrite=True)
+    names = sorted(n for n, _ in pyogrio.list_layers(path))
+    assert names == sorted(LAYERS)          # the teacher asked for this
+    assert _leftovers(tmp_path) == []       # no temporary file left
+
+
+def test_a_write_failing_halfway_leaves_the_old_file_untouched(
+        tmp_path, monkeypatch):
+    """BROKEN WITH: writing straight into `path` after removing it -
+    the fifth layer's failure leaves a file with four layers, or none."""
+    path = _teacher_file(tmp_path)
+    before = path.read_bytes()
+    real = gpd.GeoDataFrame.to_file
+    calls = []
+
+    def fail_on_fifth(self, *a, **k):
+        calls.append(k.get("layer"))
+        if len(calls) == 5:
+            raise OSError("disk full")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_file", fail_on_fifth)
+    with pytest.raises(OSError, match="disk full"):
+        write_gridby(path, overwrite=True)
+    assert path.read_bytes() == before
+    assert _leftovers(tmp_path) == []
+
+
+def test_a_failed_first_write_leaves_no_half_file(tmp_path, monkeypatch):
+    path = tmp_path / "gridby.gpkg"
+
+    def fail(self, *a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_file", fail)
+    with pytest.raises(OSError):
+        write_gridby(path)
+    assert not path.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_layer_missing_from_the_new_file_stops_the_replace(
+        tmp_path, monkeypatch):
+    """The check before the rename: a writer that silently skipped a
+    layer must not replace a good file."""
+    path = _teacher_file(tmp_path)
+    before = path.read_bytes()
+    real = gpd.GeoDataFrame.to_file
+
+    def skip_green(self, *a, **k):
+        if k.get("layer") == "green":
+            return None
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_file", skip_green)
+    with pytest.raises(RuntimeError, match="green"):
+        write_gridby(path, overwrite=True)
+    assert path.read_bytes() == before

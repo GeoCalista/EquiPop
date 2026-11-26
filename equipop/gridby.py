@@ -351,7 +351,8 @@ LAYERS = ("people", "jobs", "workers", "workplaces", "network",
           "green")
 
 
-def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
+def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS,
+                 overwrite: bool = False):
     """Write Gridby as one GeoPackage that QGIS and ArcGIS Pro open as
     they are, and return the path.
 
@@ -371,6 +372,14 @@ def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
       friction_drive  friction
       altitude        altitude_m (the hill)
       green           ha (25 m pixels of park and forest, BACKLOG 507)
+
+    AN EXISTING FILE IS NEVER TOUCHED unless you say so (BACKLOG 514).
+    Until 1.66.0 the file at `path` was deleted first, so a layer a
+    teacher had added was lost, and a write that failed halfway left
+    nothing at all. Now an existing file is refused with a sentence;
+    with overwrite=True the town is written to a temporary file beside
+    it, every layer is checked, and only then does it replace the old
+    file. If anything fails, the old file is still there as it was.
 
     Needs geopandas (pip install equipop[geo])."""
     try:
@@ -406,8 +415,56 @@ def write_gridby(path, seed: int = SEED, origin=ORIGIN, crs: str = CRS):
               "altitude": points(alt), "green": points(g["green"])}
     path = str(path)
     import os
-    if os.path.exists(path):
-        os.remove(path)                    # a fresh file, not appended layers
-    for name in LAYERS:
-        layers[name].to_file(path, layer=name, driver="GPKG")
+    import shutil
+    import tempfile
+    if os.path.exists(path) and not overwrite:
+        raise FileExistsError(
+            f"{path} already exists, and write_gridby does not replace a "
+            "file it was not asked to. Give a new name, or add "
+            "overwrite=True to replace it; the old file then stays until "
+            "the new one is complete.")
+    # a fresh file in a folder of its own beside the target: same disk,
+    # so the last step is one rename, and never appended layers
+    work = tempfile.mkdtemp(prefix=".gridby-",
+                            dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        tmp = os.path.join(work, "gridby.gpkg")
+        for name in LAYERS:
+            layers[name].to_file(tmp, layer=name, driver="GPKG")
+        _check_written(tmp, {n: len(layers[n]) for n in LAYERS})
+        # one rename, retried while Windows holds the old file (open in
+        # QGIS or Pro, a scanner); a sentence if it never lets go
+        from .atomic import swap_in
+        swap_in(tmp, path)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     return path
+
+
+def _check_written(path, rows):
+    """Every layer is in the new file with every row, before it may
+    replace anything (BACKLOG 514). pyogrio when it is there (the geo
+    extra brings it); otherwise each layer is read whole, which for
+    Gridby's few thousand rows takes a moment."""
+    try:
+        import pyogrio
+        found = {name for name, _ in pyogrio.list_layers(path)}
+
+        def count(name):
+            return pyogrio.read_info(path, layer=name)["features"]
+    except ImportError:
+        import fiona
+        import geopandas as gpd
+        found = set(fiona.listlayers(path))
+
+        def count(name):
+            return len(gpd.read_file(path, layer=name))
+    missing = sorted(set(rows) - found)
+    if missing:
+        raise RuntimeError(f"Gridby was written without {missing}; "
+                           "nothing was replaced.")
+    for name, n in rows.items():
+        got = count(name)
+        if got != n:
+            raise RuntimeError(f"Gridby's layer {name} has {got} rows, "
+                               f"not {n}; nothing was replaced.")
