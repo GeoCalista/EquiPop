@@ -641,12 +641,14 @@ def test_the_arcgis_guide_names_the_files_it_says_it_names():
             "EquiPop.WorldPopCatalogue.pyt.xml",
             "EquiPop.OsmCatalogue.pyt.xml",
             "EquiPop.FetchSelected.pyt.xml",
-            "EquiPop.FolderInventory.pyt.xml"}
+            "EquiPop.FolderInventory.pyt.xml",
+            "EquiPop.Assignment.pyt.xml"}             # BACKLOG 515
     assert must <= listed, f"the guide does not name {sorted(must - listed)}"
     words = {"TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5, "SIX": 6,
-             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10, "ELEVEN": 11}
+             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10, "ELEVEN": 11,
+             "TWELVE": 12, "THIRTEEN": 13}
     claim = re.search(r"\*\*(TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|"
-                      r"ELEVEN) files must sit",
+                      r"ELEVEN|TWELVE|THIRTEEN) files must sit",
                       guide)
     assert claim, "the guide no longer states how many files travel together"
     assert words[claim.group(1)] == len(must), (
@@ -672,13 +674,15 @@ def test_the_guide_does_not_undercount_the_toolbox():
     shown = [t for t in registered if t in STANDARD]
     assert set(registered) <= set(STANDARD) | set(EXTENDED), registered
     words = {"TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5, "SIX": 6,
-             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10}
+             "SEVEN": 7, "EIGHT": 8, "NINE": 9, "TEN": 10, "ELEVEN": 11,
+             "TWELVE": 12}
     claim = re.search(r"pick the \.pyt\. (TWO|THREE|FOUR|FIVE|SIX|SEVEN|"
-                      r"EIGHT|NINE|TEN) tools appear", guide)
+                      r"EIGHT|NINE|TEN|ELEVEN|TWELVE) tools appear", guide)
     assert claim, "the guide no longer says how many tools appear"
     assert words[claim.group(1)] == len(shown)
     every = re.search(r"\(or restart Pro\)\. (TWO|THREE|FOUR|FIVE|SIX|"
-                      r"SEVEN|EIGHT|NINE|TEN) tools then appear", guide)
+                      r"SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE) tools then "
+                      r"appear", guide)
     assert every, "the guide no longer says how many tools tool 0 shows"
     assert words[every.group(1)] == len(registered)
 

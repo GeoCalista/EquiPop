@@ -34,8 +34,8 @@ default one is locked. The supported route is a clone:
 
 ### Files to copy (v1.62.0)
 
-**ELEVEN files must sit together in one folder** (e.g. `C:\Data\EQP`),
-and all eleven must come from THE SAME RELEASE:
+**TWELVE files must sit together in one folder** (e.g. `C:\Data\EQP`),
+and all twelve must come from THE SAME RELEASE:
 
     EquiPop.pyt                          the toolbox
     EquiPop.ShowTools.pyt.xml            help for tool 0 (new in 1.62.0)
@@ -48,6 +48,7 @@ and all eleven must come from THE SAME RELEASE:
     EquiPop.OsmCatalogue.pyt.xml         help for tool 5b
     EquiPop.FetchSelected.pyt.xml        help for tool 5c
     EquiPop.FolderInventory.pyt.xml      help for machine 6
+    EquiPop.Assignment.pyt.xml           help for tool 7 (new in 1.66.0)
 
 The three for tools 5a-5c are new in v1.59.0, when fetching reached
 Pro.
@@ -120,22 +121,22 @@ is the place to run it.)
 Copy the `arcgis/EquiPop.pyt` file anywhere convenient (it can live
 in the project folder). In Pro's **Catalog** pane: right-click
 **Toolboxes -> Add Toolbox** -> pick the .pyt. THREE tools appear
-under "EquiPop": *0. Show or hide tools 3-6*, *1. Counts and Shares*
+under "EquiPop": *0. Show or hide tools 3-7*, *1. Counts and Shares*
 and *2. Value Statistics* - EquiPop's standard set.
 
-**Showing tools 3 to 6 (since 1.62.0).** The other seven - *Raster Data
+**Showing tools 3 to 7 (since 1.62.0).** The other eight - *Raster Data
 Curation*, *3b. Pixels as mass* (since 1.65.0), *Spatial Demographic
 Analysis*, the three fetching tools
 *5a WorldPop*, *5b OpenStreetMap* and *5c Fetch the rows you
-selected*, and *What is in this folder?* - are hidden until you show
-them. Run *0. Show or hide tools 3-6*, choose *All tools, 1 to 6*,
+selected*, *What is in this folder?* and *7. Who goes where* (since
+1.66.0) - are hidden until you show them. Run *0. Show or hide tools 3-7*, choose *All tools, 1 to 7*,
 then right-click the EquiPop toolbox in the Catalog pane and choose
-**Refresh** (or restart Pro). TEN tools then appear. Run tool 0 again
+**Refresh** (or restart Pro). ELEVEN tools then appear. Run tool 0 again
 with *Only tools 1 and 2* to hide them. Hiding changes only the list:
 nothing is uninstalled and no result changes. The choice is saved for
 your Windows user and is shared with the QGIS plugin; the environment
 variable `EQUIPOP_SHOW_ALL_TOOLS=1` (or `0`) overrides it, for a
-classroom image. All nine tools have in-dialog help and a '?' page.
+classroom image. All eleven tools have in-dialog help and a '?' page.
 
 **Fetching data (5a-5c, v1.59.0).** 5a or 5b lists what a provider has
 as a table in memory - one row per file or layer, with its size, date

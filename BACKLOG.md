@@ -58,8 +58,8 @@ C. **One set of files for PyPI and the release page, and try builds
 D. **Gridby never deletes a file it did not write (514).** Also a good
    first pull request.
 E. **Rasters in degrees (decision d, 510).** Its own pull request.
-F. **Release 1.66.0.** Then machine 7 step 1 (PROPOSALS.md section 3),
-   only when John says go.
+F. **Release 1.66.0.** Machine 7 step 1 (515, PROPOSALS.md section 3)
+   started early, on 23 November, at John's go: "Please start".
 
 ### After the code review of 1.63.7 — a work order, for John to change
 *Written at 1.63.8, 11 November 2026; item B done at 1.64.0; the
@@ -3740,6 +3740,113 @@ because machine 3 stores tiles that way and says so in its manifest.
   the suite would pass. That is the guard written after inventory.py
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
+
+- 516 | BUILT 25 NOVEMBER 2026, pull request, not released (rulings R-57
+  and R-58) | FRICTION SOURCES HAVE ROLES, AND NO CELL GOES BELOW -0.99.
+  John, 24 November: "forest slows down, but a path in the forest
+  mitigates - should that mitigation be 0 or negative ... could we
+  conclude that the lowest is the king? - how do we do this in machine
+  1?" No single overlap rule answers it: additive is right for
+  obstacles and wrong for paths (a path could correct a forest of 5 by
+  at most -0.99), min the reverse (a river in a forest came out cheaper
+  than the forest).
+  ROLES (R-57, John 25 November: "adopt for machine 1, and when we can,
+  machine 7"): GROUND is what you move on (forest 5, marsh 8, field
+  0.5), an OBSTACLE what you cross (a river 3, a railway 2) and ADDS
+  to the ground, a WAY what carries you (a path 0, a road -0.5, a
+  bridge) and, where there is one, REPLACES everything else: the best
+  way wins and ways never add up. Per cell: the lower of ground +
+  obstacles and the best way - so a path through a forest is 0, a
+  river in it 8, a bridge over that river -0.5. QGIS: a role for the
+  barrier layer, a field giving each feature its own (QGIS takes one
+  layer, and a path and a river may share it) and a role for the
+  friction raster. Pro: a fourth column, Role, in the barrier table,
+  and a role for the barrier rasters. No role anywhere: the overlap
+  rule decides, exactly as before. Some roles: a source without one is
+  an obstacle. The overlap rule still combines a cell's ground values,
+  and its obstacle values.
+  THE FLOOR (R-58, John: "cap such cells to just above -1 - or
+  alternatively the minimum value (... your call)"): FOUND 24 November -
+  the -1 check was made on each layer's values BEFORE they were
+  combined, never after, so two roads at -0.6 added up to -1.2, a
+  negative cost, and scipy's route search warned that its results were
+  inaccurate. Now no cell ends below -0.99, a hundredth of a round, and
+  the run says how many were set there. Claude's call: -0.99 rather
+  than the cell's lowest single value, because a fixed floor never
+  makes MORE facilitation slower (with the lowest value, two roads at
+  -0.5 would come out slower than two at -0.45). With roles, ways never
+  add up, so it rarely bites.
+  ALSO FOUND: QGIS stopped with "string index out of range" whenever a
+  barrier layer AND a friction raster were given together -
+  merge_friction handed a table to a function that takes a dict of
+  cells. No test gave both. Both doors now combine through the
+  engine's combine_sources().
+  FILES: equipop/friction.py (ROLES, role_of, agg_for,
+  combine_sources, apply_floor, FLOOR), qgis/equipop_qgis/barriers.py
+  and alg_counts.py, arcgis/EquiPop.pyt, equipop/doors/help.py.
+  NUMBERS THAT CHANGE: only cells where facilitators added up past
+  -0.99 (now -0.99), and QGIS runs with a layer and a raster (which
+  used to stop). Without roles, everything else is as before.
+  NOT YET: machine 7 uses straight lines; roles reach it with its
+  step 3 (modes and friction).
+
+- 515 | BUILT 23 NOVEMBER 2026, pull request, not released (ruling R-56;
+  PROPOSALS.md section 3, "AGREED 22-23 NOVEMBER 2026") | MACHINE 7,
+  STEP 1: WHO GOES WHERE WHEN DESTINATIONS FILL UP - tool 7 in QGIS and
+  Pro. John, 23 November: "the latest version has not got the ABM for
+  the GIS ... I can't find them" - it was designed, not built; then
+  "Please start".
+  WHAT IT IS: people at points (a population field, or one each) go to
+  destinations (a capacity field, or no limit). Four ways to choose,
+  one box:
+    - random order, the nearest with room: groups of m people (10 by
+      default) from every point join ONE queue in a random order, each
+      takes the nearest destination with room, a group finding less
+      room fills it and the rest go on;
+    - random order, drawn by distance decay: the same queue, each group
+      drawing among destinations with room by 2^(-metres/half-life);
+    - closest first: no randomness, the closest person-destination
+      pairs matched first - the stable matching when both sides rank
+      by distance;
+    - flows: no queue and no capacity, each point's people spread by
+      the decay weights - each destination's load is the PRESSURE, and
+      Sim_Ratio compares it with the places.
+  Runs repeat the queue (20 by default) with a seed; the order and the
+  choices are drawn from two separate streams of it. Straight-line
+  metres, and minutes at one speed - friction, slope and modes are step
+  3. Three layers come back: the people (Sim_Placed, Sim_Unmet,
+  Sim_Metres, Sim_Mins, Sim_Spread), the destinations (Sim_Load,
+  Sim_LoadSd, Sim_Ratio, Sim_Full, Sim_Metres) and the trips of the
+  first run as lines (Origin, Dest, People, Metres, Minutes). Both
+  layers are COPIES, so the population and capacity fields come along
+  under their own names.
+  FOUND IN JOHN'S FIRST PRO RUN, 24 November: "TypeError: field
+  'Capacity' exist" - the tool wrote People and Capacity columns onto
+  the copies, and John's capacity field was called Capacity. They are
+  no longer written (the copies carry the person's own fields), and a
+  result name a layer already has is kept beside it under another name,
+  in Pro as in QGIS. The arcpy stand-in had overwritten an existing
+  field quietly where arcpy refuses; it now refuses too, which no other
+  test minded.
+  Every drawn number is named Sim_ and the run log says it is
+  simulated; the run ends with one line per column.
+  FILES: equipop/assign.py (the engine), equipop/doors/assigndoor.py
+  (the half both doors share), qgis/equipop_qgis/alg_assign.py, class
+  Assignment in arcgis/EquiPop.pyt. Hidden with 3 to 7 until tool 0
+  shows it; tool 0 is now "0. Show or hide tools 3-7".
+  CHECKED: everyone arrives or is unmet and no destination overflows
+  (every method); unlimited capacity gives every point its nearest
+  destination whatever the seed; the same seed gives the same numbers;
+  closest first has no blocking pair; a decay draw approaches 4:2:1 at
+  0, 1 and 2 half-lives; flows share exactly; beyond the farthest
+  distance people are unmet; the number of candidates changes the speed,
+  not the answer (with a decay, the destinations left out weigh under a
+  millionth); both doors write the engine's numbers, matched on the
+  copies' own identifiers in Pro.
+  NOT YET (steps 2 and 3, PROPOSALS 3): tiers and time slots, anchors
+  and the detour rule, the radius of gyration and the ellipse, modes
+  with friction, observed tier 1. The literature named in PROPOSALS 3
+  is still to be checked against sources.
 
 - 514 | OPEN 23 NOVEMBER 2026 (the external review, finding 6) | GRIDBY
   NEVER DELETES A FILE IT DID NOT WRITE.

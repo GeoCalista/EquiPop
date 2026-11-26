@@ -268,6 +268,16 @@ def _install_fake_arcpy(table: pd.DataFrame):
                 "implementation.")
         t = _tab().set_index(key)
         add = pd.DataFrame(array).set_index(akey)
+        # AS ARCPY DOES (John, Pro, 24 November 2026): ExtendTable
+        # refuses a field that is already there, whatever its case -
+        # "TypeError: field 'Capacity' exist". The stand-in used to
+        # overwrite it quietly, so tool 7 writing Capacity onto a layer
+        # whose own capacity field was called Capacity passed here and
+        # failed in Pro (BACKLOG 515).
+        have = {str(c).lower() for c in t.columns}
+        for c in add.columns:
+            if str(c).lower() in have:
+                raise TypeError(f"field '{c}' exist")
         for c in add.columns:
             t[c] = add[c]
         _settab(t.reset_index())
@@ -366,7 +376,12 @@ def _install_fake_arcpy(table: pd.DataFrame):
         # (field, Malta, v1.20 - this is what made KeyError 'OBJECTID'
         # possible). The simulator must rename it too, or the bug is
         # invisible here.
-        t = state["table"].copy()
+        # v1.66.0, BACKLOG 515: the layer ASKED FOR, when the test
+        # named one - tool 7 copies two layers, people and
+        # destinations, and copying "the" table for both would write
+        # the destinations' results onto a copy of the people
+        named = state.get("layers", {}).get(_unalias(_layer))
+        t = (named if named is not None else state["table"]).copy()
         src_oid = state.get("oid_names", {}).get(str(_layer),
                                                  "OBJECTID")
         dst_oid = state.get("oid_names", {}).get(str(out), "OBJECTID")
@@ -692,6 +707,39 @@ def _install_fake_arcpy(table: pd.DataFrame):
         return (table_key(target) in state.get("created", {})
                 or Exists(target))
 
+    # ---- v1.66.0, BACKLOG 515: a LINE feature class written row by
+    # row - tool 7's trips. CreateFeatureclass files it like a table,
+    # with SHAPE@ as a field InsertCursor accepts; a geometry must be a
+    # Polyline built from an Array of Points, with a spatial reference.
+    def CreateFeatureclass(out_path, out_name, geometry_type="POINT",
+                           *a, spatial_reference=None, **kw):
+        key = table_key(f"{out_path}/{out_name}")
+        state.setdefault("created", {})[key] = pd.DataFrame()
+        state.setdefault("field_types", {})[key] = {
+            "SHAPE@": ("GEOMETRY", None)}
+        state.setdefault("geometry_types", {})[key] = str(geometry_type)
+        state.setdefault("created_sr", {})[key] = spatial_reference
+        return key
+
+    class Point:
+        def __init__(self, X=0.0, Y=0.0, *a):
+            self.X, self.Y = float(X), float(Y)
+
+    class Array(list):
+        pass
+
+    class Polyline:
+        def __init__(self, array, spatial_reference=None, *a):
+            pts = list(array)
+            if len(pts) < 2 or not all(isinstance(p, Point)
+                                       for p in pts):
+                raise ValueError("Polyline: an Array of two or more "
+                                 "Points")
+            self.points = [(p.X, p.Y) for p in pts]
+            self.spatialReference = spatial_reference
+
+    arcpy.Point, arcpy.Array, arcpy.Polyline = Point, Array, Polyline
+    mgmt.CreateFeatureclass = CreateFeatureclass
     mgmt.CreateTable = CreateTable
     mgmt.AddField = AddFieldAnywhere
     mgmt.Delete = DeleteAnything
@@ -1346,7 +1394,10 @@ def test_pyt_barrier_polygon_raster_and_overlap_rules(tmp_path):
          {"type": "polygon",
           "parts": [[[p for p in holed[:4]], [p for p in holed[5:]]]]}],
         [6.0, 4.0, 2.0], unit_size=100)
-    a = fr.sort_values(["x", "y"]).reset_index(drop=True)
+    # v1.66.0 (R-57): the frame also carries each charge's role
+    assert fr["role"].isna().all()
+    a = (fr[["x", "y", "friction"]].sort_values(["x", "y"])
+         .reset_index(drop=True))
     b = ref.sort_values(["x", "y"]).reset_index(drop=True)
     pd.testing.assert_frame_equal(a, b)          # glue == package
 
@@ -1388,7 +1439,7 @@ def test_pyt_dialogs_construct_like_pro():
     # BACKLOG 306: a THIRD column, the optional class field. Without
     # it a cell is charged once per FEATURE, and OSM cuts one street
     # into a new record wherever a tag changes.
-    assert len(m1["barriertable"].columns) == 3   # source, value, class
+    assert len(m1["barriertable"].columns) == 4   # source, value, class, role
     assert "lass" in str(m1["barriertable"].columns[2]), (
         "the third barrier column is not the class field")
     # every value-table column must be a type Pro can marshal

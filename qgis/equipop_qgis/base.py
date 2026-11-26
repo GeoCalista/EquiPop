@@ -652,12 +652,14 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
                                       "google drive", "sharepoint",
                                       "icloud", "box sync"))
 
-    def refuse_long_names(self, parameters, names):
+    def refuse_long_names(self, parameters, names, out=None):
         """The shapefile half of check_target, on its own: called
         before the run with the names it WILL make, and again by
-        write() with the names it DID make (BACKLOG 489)."""
+        write() with the names it DID make (BACKLOG 489). `out` names
+        the output when a tool has more than one (tool 7)."""
         from equipop.doors.fields import refuse_short_target
-        text = refuse_short_target(str(parameters.get(self.OUT) or ""),
+        text = refuse_short_target(str(parameters.get(out or self.OUT)
+                                       or ""),
                                    names,
                                    container="a GeoPackage (.gpkg)")
         if text:
@@ -838,7 +840,7 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
             return None
 
     def write(self, parameters, context, source, result, order,
-              feedback, descriptions=None):
+              feedback, descriptions=None, out=None, features=None):
         """Original columns, then the results, row for row.
 
         `descriptions` (v1.56.0, BACKLOG 410): {result key: sentence},
@@ -846,7 +848,13 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
         survives depends on the output format and the QGIS version - a
         temporary layer keeps it, a shapefile cannot - so the run
         messages carry the same sentences regardless.
+
+        `out` and `features` (v1.66.0, BACKLOG 515): a tool with more
+        than one output names which, and which features it copies -
+        tool 7 writes its people and its destinations this way.
         """
+        out = out or self.OUT
+        feats = self._features if features is None else features
         out_fields = QgsFields()
         for f in source.fields():
             out_fields.append(f)
@@ -890,7 +898,8 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
         # again here on the names the file will hold, renames
         # included, before the file exists.
         self.refuse_long_names(parameters,
-                               [mapped.get(n, n) for n in order])
+                               [mapped.get(n, n) for n in order],
+                               out=out)
         for name in order:
             fld = QgsField(mapped.get(name, name), QMetaType.Type.Double)
             text = (descriptions or {}).get(name)
@@ -899,14 +908,14 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
             out_fields.append(fld)
 
         sink, dest = self.parameterAsSink(
-            parameters, self.OUT, context, out_fields,
+            parameters, out, context, out_fields,
             source.wkbType(), source.sourceCrs())
         if sink is None:
             raise QgsProcessingException(
                 "No output was created - choose a destination for the "
                 "results.")
 
-        n = len(self._features)
+        n = len(feats)
         # BACKLOG 291. COUNT WHAT THE SINK TOOK, not what was offered.
         # addFeature() returns False when the sink rejects a feature -
         # a field type it will not hold, a shapefile's 255-field or
@@ -918,7 +927,7 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
         # diagnosis of them, and it is one mechanism that can no
         # longer be the answer.
         written, refused = 0, []
-        for i, f in enumerate(self._features):
+        for i, f in enumerate(feats):
             nf = QgsFeature(out_fields)
             if f.hasGeometry():
                 nf.setGeometry(f.geometry())

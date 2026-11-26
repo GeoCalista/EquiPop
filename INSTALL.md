@@ -66,8 +66,8 @@ route in section 2.
 4. Verify (see below), then **restart QGIS**.
 5. Plugin: **Plugins → Manage and Install Plugins → Install from ZIP**,
    choose `equipop_qgis-1.65.0.zip`, then restart QGIS again.
-6. The Processing Toolbox shows tools 0, 1 and 2. **Tools 3 to 6 are
-   hidden until you run 0. Show or hide tools 3-6** and choose *All
+6. The Processing Toolbox shows tools 0, 1 and 2. **Tools 3 to 7 are
+   hidden until you run 0. Show or hide tools 3-7** and choose *All
    tools* (since 1.62.0; the same choice shows them in ArcGIS Pro).
 
 **pyproj is REQUIRED and QGIS does not ship it.** Install it in the
@@ -171,8 +171,8 @@ with `"equipop==1.47.11"` and drop `--no-deps --force-reinstall`.
 and repeat. Cloning is entirely GUI.
 
 **The toolbox** (`EquiPop.pyt` and its help files, see
-`arcgis/ARCGIS_GUIDE.md`) shows tools 0, 1 and 2. **Tools 3 to 6 are
-hidden until you run 0. Show or hide tools 3-6**, choose *All tools*,
+`arcgis/ARCGIS_GUIDE.md`) shows tools 0, 1 and 2. **Tools 3 to 7 are
+hidden until you run 0. Show or hide tools 3-7**, choose *All tools*,
 then right-click the toolbox in the Catalog pane and choose
 **Refresh** (since 1.62.0; the same choice shows them in QGIS).
 

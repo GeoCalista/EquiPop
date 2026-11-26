@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-alg_show.py - tool 0: show or hide tools 3 to 6.
+alg_show.py - tool 0: show or hide tools 3 to 7.
 
 v1.62.0, BACKLOG 438. John, 25 October 2026: the same plugin for
-everybody, with one difference - whether tools 3 to 6 are listed -
+everybody, with one difference - whether tools 3 to 7 are listed -
 "let us make the default to hide - but please indicate in help etc.,
 how it can be lifted". This is the lifting.
 
@@ -22,14 +22,14 @@ from .base import EquipopAlgorithm, algorithm_flag
 #: toolbox; BACKLOG 218). The same words as toolset.CHOICES - a test
 #: pins it.
 CHOICES = ["Only tools 1 and 2 (the standard set)",
-           "All tools, 1 to 6"]
+           "All tools, 1 to 7"]
 
 
 class ShowTools(EquipopAlgorithm):
-    """Choose whether the toolbox lists tools 3 to 6."""
+    """Choose whether the toolbox lists tools 3 to 7."""
 
     EQP_TOOL = "ShowTools"
-    EQP_LABEL = "0. Show or hide tools 3-6"
+    EQP_LABEL = "0. Show or hide tools 3-7"
 
     def name(self):
         return "showtools"

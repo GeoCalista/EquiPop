@@ -100,7 +100,7 @@ def test_the_toolbox_offers_every_registered_tool():
                      "ContinentalRasters", "PixelReach",
                      "SpatialDemography",
                      "WorldPopCatalogue", "OsmCatalogue", "FetchSelected",
-                     "FolderInventory"], names
+                     "FolderInventory", "Assignment"], names
 
 
 def test_every_registered_tool_can_be_constructed():
