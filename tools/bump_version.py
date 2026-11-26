@@ -4,6 +4,9 @@ NOWHERE IT MUST NOT.
 
     python tools/bump_version.py 1.47.11
     python tools/bump_version.py 1.47.11 --check   # say, change nothing
+    python tools/bump_version.py 1.66.0.dev7+g3fa21c9 --try
+        # a TRY BUILD's own version, in a workflow's checkout only,
+        # never committed (BACKLOG 513; tools/try_version.py makes it)
 
 WHY THIS EXISTS (v1.47.11). The version lived in a dozen files and was
 moved with a blanket sed:
@@ -113,7 +116,13 @@ def main(argv):
         print(__doc__)
         return 0
     new = argv[0]
-    if not re.fullmatch(r"\d+\.\d+\.\d+", new):
+    trying = "--try" in argv
+    if trying:
+        if not re.fullmatch(r"\d+\.\d+\.\d+\.dev\d+\+g[0-9a-f]{7}", new):
+            print(f"[bump] '{new}' is not a try version like "
+                  "1.66.0.dev7+g3fa21c9 (tools/try_version.py)")
+            return 2
+    elif not re.fullmatch(r"\d+\.\d+\.\d+", new):
         print(f"[bump] '{new}' is not a version like 1.47.12")
         return 2
     check = "--check" in argv
@@ -203,6 +212,11 @@ def main(argv):
         for m in missed:
             print("   ", m)
         return 1
+
+    if trying:
+        print(f"[bump] a try build, {new}: for this checkout only, "
+              "never to be committed")
+        return 0
 
     print()
     print("[bump] NOT TOUCHED, on purpose: " + ", ".join(NEVER))

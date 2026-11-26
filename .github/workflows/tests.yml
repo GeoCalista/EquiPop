@@ -13,7 +13,9 @@
 #            and the files a GitHub release carries gathered from it?
 #            The files are kept for 14 days as a download: what you
 #            install for the hand checks in ArcGIS Pro and Stata, which
-#            no CI can run (both need a licence).
+#            no CI can run (both need a licence). It is a TRY BUILD,
+#            named NEXT.devN+gSHA, never the last release's name
+#            (BACKLOG 513); BUILD.txt in it says what it is.
 #
 # Which of these BLOCK a merge is set in the repository settings
 # (Settings -> Rules -> protect main), not here. See CONTRIBUTING.md,
@@ -122,10 +124,25 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0     # the release tags, for the try build's name
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
+      - name: Give this try build a version of its own
+        # BACKLOG 513. Until 1.66.0 a try build called itself the last
+        # release, so its files looked like the release's. Now it is
+        # NEXT.devN+gSHA (tools/try_version.py), written into THIS
+        # checkout only, before anything is installed; nothing is
+        # committed. Pro, QGIS and Stata's doctor show it, and BUILD.txt
+        # in the download says what it is.
+        env:
+          TRY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          V=$(python tools/try_version.py --sha "$TRY_SHA")
+          python tools/bump_version.py "$V" --try
+          echo "V=$V" >> "$GITHUB_ENV"
       - name: Install the build tools
         # pytest: the help generator loads the toolbox with the arcpy
         # stand-in in tests/, which imports it (BACKLOG 497)
@@ -134,10 +151,11 @@ jobs:
           python -m pip install build twine pytest geopandas pyogrio
           python -m pip install -e .
       - name: Build every file of a release
-        run: |
-          V=$(python -c "import equipop; print(equipop.__version__)")
-          bash tools/make_bundle.sh "$V" "$RUNNER_TEMP/equipop-$V"
-          echo "V=$V" >> "$GITHUB_ENV"
+        env:
+          TRY_PR: ${{ github.event.pull_request.number }}
+          TRY_BRANCH: ${{ github.head_ref || github.ref_name }}
+          TRY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash tools/make_bundle.sh "$V" "$RUNNER_TEMP/equipop-$V"
       - name: Gather the files a GitHub release carries
         # the same script the release workflow runs (BACKLOG 506), so a
         # release is never the first time it runs
@@ -150,6 +168,7 @@ jobs:
           "$RUNNER_TEMP/clean/bin/python" -I -c "import equipop, numpy as np; from equipop import stata_bridge as sb; print('equipop', equipop.__version__); r = sb.dispatch('counts', np.arange(5.0) * 100, np.zeros(5), k_values=[2]); assert list(r['N_2']) == [2.0] * 5, r"
       - uses: actions/upload-artifact@v7
         with:
-          name: equipop-${{ env.V }}-${{ github.sha }}
+          # the version names the commit already (BACKLOG 513)
+          name: equipop-${{ env.V }}
           path: ${{ runner.temp }}/equipop-${{ env.V }}
           retention-days: 14
