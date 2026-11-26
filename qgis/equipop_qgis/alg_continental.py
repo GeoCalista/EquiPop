@@ -66,6 +66,7 @@ class ContinentalRasters(EquipopAlgorithm):
     # The key into equipop.doors.help, so this tool and the Pro tool
     # explain themselves with IDENTICAL words. base.py reads it.
     EQP_TOOL = "ContinentalRasters"
+    EQP_GROUP = "Rasters and pixels"
 
     def name(self):
         return "continentalrasters"

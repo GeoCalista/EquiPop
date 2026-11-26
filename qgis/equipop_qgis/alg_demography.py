@@ -104,6 +104,7 @@ class SpatialDemography(EquipopAlgorithm):
     """Demographic indices over k-neighbourhoods, from a raster folder."""
 
     EQP_TOOL = "SpatialDemography"
+    EQP_GROUP = "Demography"
 
     def name(self):
         return "spatialdemography"

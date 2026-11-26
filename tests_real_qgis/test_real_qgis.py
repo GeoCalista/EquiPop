@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import pytest
-from qgis.core import (Qgis, QgsFeature, QgsGeometry,
+from qgis.core import (Qgis, QgsApplication, QgsFeature, QgsGeometry,
                        QgsProcessingException, QgsPointXY,
                        QgsVectorLayer)
 import processing
@@ -125,6 +125,36 @@ def test_the_plugin_says_it_runs_on_this_qgis():
 def test_every_tool_is_registered(provider):
     ids = {a.id() for a in provider.algorithms()}
     assert {ALG_COUNTS, ALG_STATS} <= ids, ids
+
+
+# BACKLOG 517: the groups John set, as the real registry reports them.
+# Tool 0 has an empty group, which puts it at the top of the toolbox.
+GROUP_OF = {
+    "showtools": "",
+    "countsandshares": "Neighbourhoods",
+    "valuestatistics": "Statistics",
+    "continentalrasters": "Rasters and pixels",
+    "pixelreach": "Rasters and pixels",
+    "spatialdemography": "Demography",
+    "worldpopcatalogue": "Finding and fetching data",
+    "osmcatalogue": "Finding and fetching data",
+    "fetchselected": "Finding and fetching data",
+    "spatialdatafetch": "Finding and fetching data",
+    "folderinventory": "Finding and fetching data",
+    "assignment": "Simulation",
+}
+
+
+def test_every_tool_sits_in_its_group(provider):
+    reg = QgsApplication.processingRegistry()
+    got = {}
+    for a in provider.algorithms():
+        alg = reg.algorithmById(a.id()) or a
+        got[alg.name()] = (alg.group(), alg.groupId())
+    assert set(got) == set(GROUP_OF), sorted(got)
+    for name, (group, gid) in got.items():
+        assert group == GROUP_OF[name], name
+        assert gid == "".join(c for c in group.lower() if c.isalnum())
 
 
 # --------------------------------------------------- counts, parity

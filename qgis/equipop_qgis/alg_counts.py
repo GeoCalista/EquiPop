@@ -128,6 +128,7 @@ from .base import EquipopAlgorithm
 class CountsAndShares(EquipopAlgorithm):
 
     EQP_TOOL = "CountsShares"
+    EQP_GROUP = "Neighbourhoods"
     OUT = "outfc"
 
     def name(self):

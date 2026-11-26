@@ -53,6 +53,7 @@ class ValueStatistics(EquipopAlgorithm):
 
 
     EQP_TOOL = "ValueStatistics"
+    EQP_GROUP = "Statistics"
     OUT = "outfc"
 
     def name(self):

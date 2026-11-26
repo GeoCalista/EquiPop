@@ -3741,6 +3741,35 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 517 | BUILT 25 NOVEMBER 2026, pull request, not released | THE TOOLS
+  SIT IN GROUPS BY WHAT THEY ARE FOR, THE SAME IN PRO AND QGIS.
+  John, 25 November: "can we arrange the tools in hierarchies ... and
+  for Q as well", with the groups: tool 0 at the top for showing and
+  hiding; Neighbourhoods (tool 1, and later a spatial aggregation tool);
+  Statistics (tool 2, later spatial regressions); Rasters and pixels
+  (3, 3b); Demography (4); Finding and fetching data (5a-5c, 6, and
+  QGIS's 5d); Simulation (7).
+  HOW: Pro's `self.category` on each tool, QGIS's `group()` and
+  `groupId()` on each algorithm. ONE LEVEL in both: Pro can nest
+  toolsets, QGIS cannot, and the two toolboxes should look alike.
+  equipop.doors.toolset.GROUPS is the table. Both doors WRITE THE
+  WORDS DOWN rather than import them, because QGIS asks for a group
+  while it builds the toolbox (218); tests/test_tool_groups.py pins
+  every algorithm and every Pro tool to the table, and a real-QGIS
+  test reads the groups back from the registry.
+  NOTHING ELSE MOVES: tool names, algorithm ids and Pro tool names are
+  unchanged, so saved models, scripts and processing.run() calls find
+  every tool as before. Hiding still works per tool; a group whose
+  tools are all hidden is simply not listed.
+  ORDER: both programs sort groups by name, so they read Demography,
+  Finding and fetching data, Neighbourhoods, Rasters and pixels,
+  Simulation, Statistics. If John wants his order kept, the names
+  need a prefix; asked, not done. The tool names themselves are a
+  later review ("not now").
+  TESTED: broken twice on purpose - tool 3b's group misspelt
+  "Rasters" in QGIS, tool 7's toolset left out in Pro - and caught
+  both times.
+
 - 516 | BUILT 25 NOVEMBER 2026, pull request, not released (rulings R-57
   and R-58) | FRICTION SOURCES HAVE ROLES, AND NO CELL GOES BELOW -0.99.
   John, 24 November: "forest slows down, but a path in the forest

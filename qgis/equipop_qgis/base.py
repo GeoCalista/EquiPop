@@ -253,8 +253,17 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
     NEEDS_A_NEIGHBOURHOOD = False     # machines 1 and 2: k OR r
     K_IS_REQUIRED = False             # machine 4: k, and it is needed
 
+    # BACKLOG 517: each tool sits in a group by what it is for -
+    # Neighbourhoods, Statistics, Rasters and pixels, Demography,
+    # Finding and fetching data, Simulation - and tool 0 at the top,
+    # in none. WRITTEN DOWN on each algorithm as EQP_GROUP, because
+    # QGIS asks while it builds the toolbox (BACKLOG 218);
+    # equipop.doors.toolset.GROUPS is the table, and
+    # tests/test_tool_groups.py pins every algorithm to it.
+    EQP_GROUP = ""
+
     def group(self):
-        return "EquiPop"
+        return self.EQP_GROUP
 
     def checkParameterValues(self, parameters, context):
         """Refuse a bad k or r BEFORE Run, not after.
@@ -289,7 +298,10 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
         return super().checkParameterValues(parameters, context)
 
     def groupId(self):
-        return "equipop"
+        # the group's words, lower case, letters only - the same rule
+        # as toolset.group_id, written out here for the reason above
+        return "".join(ch for ch in self.EQP_GROUP.lower()
+                       if ch.isalnum())
 
     def createInstance(self):
         return type(self)()

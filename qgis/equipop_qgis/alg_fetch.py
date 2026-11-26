@@ -52,6 +52,7 @@ class SpatialDataFetch(EquipopAlgorithm):
     """Fetch data into a folder, with a manifest. Analyses nothing."""
 
     EQP_TOOL = "SpatialDataFetch"
+    EQP_GROUP = "Finding and fetching data"
 
     def name(self):
         return "spatialdatafetch"
