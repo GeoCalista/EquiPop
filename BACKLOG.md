@@ -38,28 +38,35 @@ still being asked for, which the external review pointed at), and at
 three of its claims against the code before trusting any of them** -
 that is how the last three staleness findings were made.*
 
-### After the external review of the 1.66.0 candidate — a work order
-*Written 23 November 2026, agreed with John the same day. The review
-("EquiPop code review: 1.65.0 development bundle", of the try build
-26fc501c) found six things; Claude checked each against the code and
-all six are real - two reach further than the review says. Nothing is
-coded yet; John: "wait with coding until we have chatted to a
-conclusion". The detail is in 511-514.*
+### One queue, one thing coded at a time — the work order from 26 November 2026
+*Agreed with John on 26 November 2026, after four pull requests had
+been built on top of one another (#24, #25, #26) and had to be untangled.
+John: "what will be the next step so we do not mix up all the
+trajectories?" THE RULE: only one thing is coded at a time, on its
+own branch from main, and it is merged before the next starts. Ideas
+and designs may be talked through alongside, but they wait in this
+queue for their turn. Done items LEAVE the list (the rule above);
+their story is in the detail below.*
 
-A. **Tool 3b's own fixes (512), inside pull request #21** - BUILT 23
-   November - before it merges: the within-cell rule (R-55), the formula box, the raster
-   checks on the Python route, clashing column names, Pro's band read.
-B. **An empty row moves other people's distances (511, R-54)** - in
-   EVERY tool, not only 3b. BUILT 23 November. Its own pull request, with numbers that
-   change.
-C. **One set of files for PyPI and the release page, and try builds
-   that say what they are (513).** A good first pull request for
-   Marina or Umut.
-D. **Gridby never deletes a file it did not write (514).** Also a good
-   first pull request.
-E. **Rasters in degrees (decision d, 510).** Its own pull request.
-F. **Release 1.66.0.** Machine 7 step 1 (515, PROPOSALS.md section 3)
-   started early, on 23 November, at John's go: "Please start".
+1. **Finish 1.66.0**, one pull request at a time:
+   a. **Gridby never deletes a file it did not write (514)** - BUILT
+      26 November, pull request.
+   b. **One set of files for PyPI and the release page; try builds
+      that say what they are (513).**
+   c. **Rasters in degrees (decision d, 510)** - John's ruling first.
+   d. **Release 1.66.0**, with hand checks of tool 7 (515), friction
+      roles (516), the tool groups (517), tool 3b (510, 512) and the
+      empty-row fix (511).
+2. **1.67.0: the spatial aggregation tool** - statistics by area, the
+   AREA family of tools 1 and 2 (equipop.area has had the engine half
+   since long). Six design questions are with John (26 November).
+   Just before it, the short review of the tool names, so the new
+   tool is named once and the order of the groups is settled.
+3. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
+   (the concept note for the board meeting of 9 December 2026), as
+   planned in "EquiPop and MCP".
+4. **Machine 7, step 2** - tiers, time slots and the week
+   (PROPOSALS.md section 3).
 
 ### After the code review of 1.63.7 — a work order, for John to change
 *Written at 1.63.8, 11 November 2026; item B done at 1.64.0; the
@@ -3877,8 +3884,21 @@ because machine 3 stores tiles that way and says so in its manifest.
   with friction, observed tier 1. The literature named in PROPOSALS 3
   is still to be checked against sources.
 
-- 514 | OPEN 23 NOVEMBER 2026 (the external review, finding 6) | GRIDBY
-  NEVER DELETES A FILE IT DID NOT WRITE.
+- 514 | BUILT 26 NOVEMBER 2026, pull request, not released (the
+  external review, finding 6) | GRIDBY NEVER DELETES A FILE IT DID NOT
+  WRITE.
+  BUILT: write_gridby(path) REFUSES an existing file with a sentence
+  naming it (FileExistsError). With overwrite=True it writes the town
+  to a temporary folder beside the target (same disk), checks that all
+  ten layers are there with every row, and only then replaces the old
+  file in one rename; whatever fails, the old file is as it was and
+  nothing temporary is left. The rename goes through atomic.swap_in,
+  like every other swap in the package, so a file held open by QGIS,
+  Pro or a scanner is retried and then named in a sentence.
+  release_assets.sh passes overwrite=True,
+  because a rerun replaces our own earlier file. Five tests, three of
+  which go red with the old os.remove() put back.
+  WHAT WAS THERE:
   write_gridby(path) removes whatever is at `path` before writing its
   ten layers (gridby.py, the os.remove before the loop). A teacher who
   added a layer to the GeoPackage loses it, and if a write fails the
