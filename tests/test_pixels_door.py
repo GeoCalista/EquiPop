@@ -601,12 +601,121 @@ def test_a_raster_in_feet_or_without_a_system_is_refused(tmp_path):
         run(ONE_PERSON, bare, hectares="0,01", **QUIET)
 
 
-def test_a_raster_in_degrees_is_refused_until_it_is_projected(tmp_path):
-    """Decision d is not built: degrees would come back as metres."""
-    deg = _tif2(tmp_path / "deg.tif", np.ones((2, 2), "uint8"),
-                crs="EPSG:4326", x0=18.0, y1=59.0, cell=0.0001)
-    with pytest.raises(BadNumber, match="degrees"):
-        run(ONE_PERSON, deg, hectares="0,01", **QUIET)
+# ---------------------------------------------------------------------
+# R-59, decision d (John, 26 November 2026: "(b)"): a raster in DEGREES
+# is used as it is. Each counting pixel keeps its value and its own
+# area on the WGS84 ellipsoid; only its centre is placed in the
+# people's system. Nothing is resampled.
+# ---------------------------------------------------------------------
+
+def _stockholm_block(tmp_path, a=None):
+    """A 0.04 x 0.04 degree raster of 0.0001 degree pixels near
+    Stockholm, class 10 in the 0.02 x 0.02 degree block 18.05-18.07 E,
+    59.32-59.34 N, class 20 elsewhere."""
+    d, n = 0.0001, 400
+    x0, y1 = 18.04, 59.35
+    if a is None:
+        lon = x0 + (np.arange(n) + 0.5) * d
+        lat = y1 - (np.arange(n) + 0.5) * d
+        a = np.full((n, n), 20, "uint8")
+        a[np.ix_((lat > 59.32) & (lat < 59.34),
+                 (lon > 18.05) & (lon < 18.07))] = 10
+    return _tif2(tmp_path / "deg.tif", a, crs="EPSG:4326", x0=x0, y1=y1,
+                 cell=d), a
+
+
+def _sweref(lon, lat):
+    T = pytest.importorskip("pyproj").Transformer.from_crs(
+        "EPSG:4326", "EPSG:3006", always_xy=True)
+    return T.transform(lon, lat)
+
+
+def test_a_raster_in_degrees_asks_which_system_the_people_are_in(tmp_path):
+    """A Python caller with a file must name the people's system; the
+    sentence says how. BROKEN WITH: the degrees read as metres."""
+    deg, _ = _stockholm_block(tmp_path)
+    with pytest.raises(BadNumber, match="people_crs"):
+        run(ONE_PERSON, deg, base="10", hectares="1", **QUIET)
+    with pytest.raises(BadNumber, match="metres"):
+        run(ONE_PERSON, deg, base="10", hectares="1",
+            people_crs="EPSG:4326", **QUIET)
+
+
+def test_a_raster_in_degrees_gives_true_distances(tmp_path):
+    """From the middle of the 2 x 2 km block, 1 ha is gathered within
+    the 1 ha circle (56.4 m); from 0.01 degree east of it, the distance
+    is past the true gap to its edge (569.2 m, pyproj's geodesic).
+    BROKEN WITH: move_pixels() left out - lon/lat against SWEREF."""
+    Geod = pytest.importorskip("pyproj").Geod
+    deg, _ = _stockholm_block(tmp_path)
+    x, y = _sweref([18.06, 18.08], [59.33, 59.33])
+    got = run(pd.DataFrame({"x": x, "y": y}), deg, base="10",
+              hectares="1", people_crs="EPSG:3006", **QUIET)
+    assert got.Dist_1[0] == pytest.approx(100 * np.sqrt(1 / np.pi),
+                                          rel=0.01)
+    _, _, gap = Geod(ellps="WGS84").inv(18.08, 59.33, 18.07, 59.33)
+    assert gap < got.Dist_1[1] < gap + 60
+
+
+def test_the_block_keeps_its_true_area_and_nothing_is_resampled(tmp_path):
+    """The block's hectares are its geodesic area (253.66 ha), and every
+    class-10 pixel is one point: no pixel split, merged or blurred into
+    its neighbour's class."""
+    Geod = pytest.importorskip("pyproj").Geod
+    deg, a = _stockholm_block(tmp_path)
+    said = []
+    x, y = _sweref([18.06], [59.33])
+    run(pd.DataFrame({"x": x, "y": y}), deg, base="10", hectares="1",
+        people_crs="EPSG:3006", say=said.append)
+    area, _ = Geod(ellps="WGS84").polygon_area_perimeter(
+        [18.05, 18.07, 18.07, 18.05], [59.32, 59.32, 59.34, 59.34])
+    base = [s for s in said if s.startswith("[pixels] base:")][0]
+    assert f"{abs(area) / 1e4:,.1f} ha" in base
+    moved = [s for s in said if "pixel centres placed" in s][0]
+    assert f"{int((a == 10).sum()):,} pixel centres" in moved
+    assert "nothing resampled" in moved
+
+
+def test_an_analysis_cell_works_on_a_raster_in_degrees(tmp_path):
+    """The cell is in metres in the people's system, after the move;
+    the hectares are kept, only gathered into fewer points."""
+    deg, _ = _stockholm_block(tmp_path)
+    x, y = _sweref([18.06, 18.08], [59.33, 59.33])
+    people = pd.DataFrame({"x": x, "y": y})
+    said = []
+    got = run(people, deg, base="10", hectares="5", cell="100",
+              people_crs="EPSG:3006", say=said.append)
+    base = [s for s in said if s.startswith("[pixels] base:")][0]
+    assert "analysis cells of 100 m" in base and "253.7 ha" in base
+    assert got.Dist_5.notna().all()
+    with pytest.raises(BadNumber, match="smaller"):
+        run(people, deg, base="10", hectares="5", cell="5",
+            people_crs="EPSG:3006", **QUIET)
+
+
+def test_a_gis_door_s_own_conversion_is_used(tmp_path):
+    """A door's payload brings its conversion (QGIS's or Pro's own) and
+    says which; pyproj is not asked."""
+    deg, a = _stockholm_block(tmp_path)
+    T = pytest.importorskip("pyproj").Transformer.from_crs(
+        "EPSG:4326", "EPSG:3006", always_xy=True)
+    calls = []
+
+    def door(lon, lat):
+        calls.append(len(lon))
+        return T.transform(lon, lat)
+
+    payload = {"bands": {1: a}, "x_min": 18.04, "y_max": 59.35,
+               "cell_w": 0.0001, "cell_h": 0.0001, "nodata": {1: None},
+               "geographic": True, "to_people": door,
+               "moved_by": "QGIS (EPSG:4326 to EPSG:3006)"}
+    said = []
+    x, y = _sweref([18.06], [59.33])
+    got = run(pd.DataFrame({"x": x, "y": y}), payload, base="10",
+              hectares="1", say=said.append)
+    assert calls == [int((a == 10).sum())]
+    assert any("by QGIS (EPSG:4326 to EPSG:3006)" in s for s in said)
+    assert got.Dist_1[0] == pytest.approx(56.4, rel=0.01)
 
 
 def test_a_masked_pixel_has_no_value_even_without_nodata(tmp_path):

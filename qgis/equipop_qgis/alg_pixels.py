@@ -164,8 +164,11 @@ class PixelReach(EquipopAlgorithm):
         if idle:
             ch.info("Not in the pixel value, so not read: "
                     + ", ".join(f'"{n}"' for n in idle) + ".")
+        # R-59: a raster in DEGREES is not "another system" - its
+        # pixels are placed in the people's by QGIS's own conversion
         other = [(n, lyr) for n, lyr in used
-                 if not same_crs(lyr.crs(), crs)]
+                 if not lyr.crs().isGeographic()
+                 and not same_crs(lyr.crs(), crs)]
         same = not other
         if not (metric and same):
             if metric:
@@ -181,7 +184,8 @@ class PixelReach(EquipopAlgorithm):
         with stage(ch, "reading the people"):
             pts = self.read_points(source, feedback)
         with stage(ch, "reading the rasters"):
-            payloads = [(n, read_bands(lyr, wanted[n], ch))
+            payloads = [(n, read_bands(lyr, wanted[n], ch,
+                                       to_crs=crs, context=context))
                         for n, lyr in used]
         people = pd.DataFrame({"x": pts.data["x"], "y": pts.data["y"]})
         try:
@@ -234,11 +238,12 @@ def _descriptions(order):
     return out
 
 
-def read_bands(raster, bands, ch):
+def read_bands(raster, bands, ch, to_crs=None, context=None):
     """The bands a value box needs, of a QGIS raster layer, as the
     payload pixelsdoor.run takes: {"bands": {n: array}}, the west and
     north edges, the pixel size, each band's nodata, and whether the
-    coordinates are degrees.
+    coordinates are degrees - and then (R-59) QGIS's own conversion of
+    a pixel centre into `to_crs`, the people's system.
 
     GDAL first - every QGIS has it, and it reads a file in one call.
     Through QGIS's provider otherwise (a raster that is not a file),
@@ -278,11 +283,12 @@ def read_bands(raster, bands, ch):
                 f"{', '.join(map(str, bands))} of {ds.RasterCount}, "
                 f"{ds.RasterYSize:,} x {ds.RasterXSize:,} pixels of "
                 f"{gt[1]:g} x {abs(gt[5]):g}.")
-        return {"bands": arrays, "x_min": gt[0], "y_max": gt[3],
-                "cell_w": gt[1], "cell_h": abs(gt[5]),
-                "nodata": nodata, "geographic": geographic,
-                "count": ds.RasterCount,
-                "source": os.path.basename(path)}
+        return _moving(raster, to_crs, context, {
+            "bands": arrays, "x_min": gt[0], "y_max": gt[3],
+            "cell_w": gt[1], "cell_h": abs(gt[5]),
+            "nodata": nodata, "geographic": geographic,
+            "count": ds.RasterCount,
+            "source": os.path.basename(path)})
     w, h = raster.width(), raster.height()
     if w * h > PROVIDER_LIMIT:
         raise QgsProcessingException(
@@ -301,13 +307,41 @@ def read_bands(raster, bands, ch):
         nodata[b] = provider.sourceNoDataValue(b)
     ch.info(f"Raster \"{raster.name()}\" read through QGIS: band(s) "
             f"{', '.join(map(str, bands))}, {h:,} x {w:,} pixels.")
-    return {"bands": arrays, "x_min": float(ext.xMinimum()),
-            "y_max": float(ext.yMaximum()),
-            "cell_w": float(ext.width()) / w,
-            "cell_h": float(ext.height()) / h,
-            "nodata": nodata, "geographic": geographic,
-            "count": raster.bandCount(),
-            "source": os.path.basename(path) or raster.name()}
+    return _moving(raster, to_crs, context, {
+        "bands": arrays, "x_min": float(ext.xMinimum()),
+        "y_max": float(ext.yMaximum()),
+        "cell_w": float(ext.width()) / w,
+        "cell_h": float(ext.height()) / h,
+        "nodata": nodata, "geographic": geographic,
+        "count": raster.bandCount(),
+        "source": os.path.basename(path) or raster.name()})
+
+
+def _moving(raster, to_crs, context, payload):
+    """R-59 (decision d, John, 26 November 2026: "(b)"). A raster in
+    degrees is used as it is: the engine keeps each counting pixel's
+    value and its own area, and calls `to_people` to place its centre in
+    the people's system - QGIS's own QgsCoordinateTransform, with the
+    project's datum transformations. Nothing is resampled."""
+    if not payload["geographic"] or to_crs is None:
+        return payload
+    from qgis.core import QgsCoordinateTransform, QgsPointXY, QgsProject
+    ctx = (context.transformContext() if context is not None
+           else QgsProject.instance().transformContext())
+    ct = QgsCoordinateTransform(raster.crs(), to_crs, ctx)
+
+    def to_people(lon, lat):
+        x = np.empty(len(lon))
+        y = np.empty(len(lat))
+        for i in range(len(lon)):
+            p = ct.transform(QgsPointXY(float(lon[i]), float(lat[i])))
+            x[i], y[i] = p.x(), p.y()
+        return x, y
+
+    payload["to_people"] = to_people
+    payload["moved_by"] = (f"QGIS ({raster.crs().authid()} to "
+                           f"{to_crs.authid()})")
+    return payload
 
 
 def _check_count(count, bands):

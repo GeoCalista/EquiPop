@@ -1009,11 +1009,14 @@ HELP = {
                "layer name, so the order they are listed in does not "
                "matter. They must share one pixel size and one grid; "
                "where their extents differ, only the overlap is used. "
-               "All must be in the SAME coordinate system as the people "
-               "layer, and that system must be in metres. EquiPop will "
-               "not reproject or resample them for you: that moves and "
-               "blends pixels. A raster the formula does not name is "
-               "not read.",
+               "A raster in METRES must be in the SAME coordinate system "
+               "as the people layer. A raster in DEGREES (latitude and "
+               "longitude, as ESA WorldCover comes) is used as it is: "
+               "each pixel that counts keeps its value and its own area, "
+               "and only its centre is placed in the people's system, "
+               "by the GIS itself. EquiPop never resamples: that blends "
+               "pixels, and a land-cover class with them. A raster the "
+               "formula does not name is not read.",
     "value": "THE VALUE OF EACH PIXEL. Empty: the raster as it is (one "
              "raster, band 1). A number: that band of the one raster - "
              "3 is its band 3. A FORMULA names "
@@ -1260,8 +1263,9 @@ USAGE = {
         "travel modes follow. "
         "MORE TOOLS: 3 to 7 are hidden until shown; {showtools}",
     "PixelReach":
-        "Give the people layer and the raster - or several rasters - in "
-        "the same metric coordinate system. Pixel value: empty for the "
+        "Give the people layer, in metres, and the raster - or several "
+        "rasters - in the same system or in degrees. Pixel value: empty "
+        "for the "
         "raster as it is, or a formula naming the rasters in quotes, "
         "such as ndvi(\"B08\", \"B04\"). Base: which pixels count (empty = all). Treatment: which of "
         "them to look for (0,7 to 1 for the very green). Start with one "

@@ -286,6 +286,10 @@ def _read_one(raster, want, name):
                                        "cell_h")}
         meta["geographic"] = bool(raster.get("geographic"))
         meta["source"] = str(raster.get("source") or name)
+        # R-59: a raster in degrees comes with the door's own way of
+        # placing a point in the people's system, and its name
+        meta["to_people"] = raster.get("to_people")
+        meta["moved_by"] = raster.get("moved_by")
         nd = raster.get("nodata")
         got = {}
         if "bands" in raster:
@@ -350,6 +354,30 @@ def _read_one(raster, want, name):
         raise BadNumber(f"The bands of {label} differ in size.")
     meta["shape"] = shapes.pop()
     return out, meta
+
+
+def _pyproj_mover(raster_crs, people_crs):
+    """R-59 for a Python caller with a raster FILE in degrees: pyproj
+    places each pixel centre in the people's system, which the caller
+    names (a GIS door brings its own conversion instead)."""
+    if people_crs in (None, ""):
+        raise BadNumber(
+            "The raster's coordinates are degrees. Say which system the "
+            "people's x and y are in, in metres - people_crs="
+            "\"EPSG:32633\", say - and each pixel is placed in it with "
+            "its own area; nothing is resampled.")
+    try:
+        from pyproj import CRS, Transformer
+    except ImportError:
+        raise BadNumber("A raster in degrees needs pyproj to place its "
+                        "pixels: pip install pyproj") from None
+    dst = CRS.from_user_input(people_crs)
+    if dst.is_geographic:
+        raise BadNumber("people_crs is in degrees; the people's x and y "
+                        "must be in metres.")
+    t = Transformer.from_crs(CRS.from_user_input(raster_crs), dst,
+                             always_xy=True)
+    return lambda x, y: t.transform(x, y)
 
 
 def _check_system(crs, label):
@@ -438,8 +466,9 @@ def _bands(rasters, formula, say=print):
         for b, a in bands.items():
             cut[(name, b)] = a[r_lo - r0:r_hi - r0, c_lo - c0:c_hi - c0]
         n = m.get("count", len(bands))
+        unit = " degree" if m["geographic"] else " m"
         say(f'[pixels] "{name}" = {m["source"]}: {n} band'
-            f"{'s' if n != 1 else ''}, {w:g} m pixels, "
+            f"{'s' if n != 1 else ''}, {w:g}{unit} pixels, "
             f"{m['shape'][0]:,} x {m['shape'][1]:,}")
     if len(read) > 1 and any(
             (v[2] - v[0], v[3] - v[1]) != (r_hi - r_lo, c_hi - c_lo)
@@ -452,6 +481,9 @@ def _bands(rasters, formula, say=print):
             "y_max": float(ref_meta["y_max"]) - r_lo * h,
             "cell_w": w, "cell_h": h,
             "geographic": ref_meta["geographic"],
+            "crs": ref_meta.get("crs"),
+            "to_people": ref_meta.get("to_people"),
+            "moved_by": ref_meta.get("moved_by"),
             "which": which,
             "sources": {k: m["source"] for k, (_, m) in read.items()}}
     return out, meta
@@ -540,7 +572,7 @@ def describe(value="", base="", treatment="", hectares="",
 def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
         base="", treatment="", hectares="", radius="", cell="",
         layer_is_metric: bool = True, same_crs: bool = True,
-        say=print) -> pd.DataFrame:
+        people_crs=None, say=print) -> pd.DataFrame:
     """For each row of `people` (x, y): the chain, as the module's top
     says. Rows without coordinates (an empty geometry) get empty
     results; the others are computed as if they were alone.
@@ -551,7 +583,11 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
     system): the distances are in the layer's units, so they must be
     metres, and the pixels are placed in the raster's coordinates, so
     the two must agree. Both are refused with a sentence that says what
-    to do, never computed wrongly.
+    to do, never computed wrongly. A raster in DEGREES is the
+    exception (R-59): its pixels are moved into the people's system - a
+    GIS door's payload brings its own conversion ("to_people"), and a
+    Python caller with a raster file names the people's system,
+    people_crs="EPSG:32633", for pyproj.
 
     Returns x, y and per k Dist_<k> (metres to gather k hectares of
     base; EMPTY where the raster holds less than k), with a treatment
@@ -562,7 +598,7 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
     import numpy as np
 
     from ..bandmath import evaluate
-    from ..pixels import mass_from_values, reach
+    from ..pixels import mass_from_values, move_pixels, reach, to_cells
     if not layer_is_metric:
         raise BadNumber(
             "The people layer is not in metres (it is in degrees, or "
@@ -587,24 +623,37 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
     cell_m = parse_cell(cell)
     pairs = _named(rasters, raster)
     bands, meta = _bands(pairs, formula, say)
-    if meta["geographic"]:
-        raise BadNumber(
-            "The raster's coordinates are degrees (latitude and "
-            "longitude), and distances here are metres. Project it to "
-            "the people's system in metres first (QGIS: Raster > "
-            "Projections > Warp; Pro: Project Raster).")
+    geographic = bool(meta["geographic"])
+    if geographic:
+        to_people = meta.get("to_people") or _pyproj_mover(
+            meta.get("crs"), people_crs)
     _say_roles(formula, meta, say)
     v = evaluate(formula, bands)
+    unit = " degrees" if geographic else ""
     say(f"[pixels] value: {formula.text or 'the raster as it is'}, "
         f"{v.shape[0]:,} x "
         f"{v.shape[1]:,} pixels of {abs(meta['cell_w']):g} x "
-        f"{abs(meta['cell_h']):g}; {int(np.isfinite(v).sum()):,} with a "
-        "value")
+        f"{abs(meta['cell_h']):g}{unit}; {int(np.isfinite(v).sum()):,} "
+        "with a value")
     try:
         mass = mass_from_values(
             v, meta["x_min"], meta["y_max"], meta["cell_w"],
-            meta["cell_h"], geographic=meta["geographic"],
-            base=base_spec, treatment=treat_spec, cell=cell_m)
+            meta["cell_h"], geographic=geographic,
+            base=base_spec, treatment=treat_spec,
+            cell=None if geographic else cell_m)
+        if geographic and len(mass):
+            # R-59: each counting pixel's centre into the people's
+            # system, its own area kept; nothing resampled
+            mass = move_pixels(mass, to_people)
+            px = float(np.sqrt(mass.ha.max() * 10_000.0))
+            say(f"[pixels] the raster is in degrees: {len(mass):,} "
+                "pixel centres placed in the people's system"
+                + (f" by {meta['moved_by']}" if meta.get("moved_by")
+                   else "")
+                + f", each with its own area ({mass.ha.min() * 1e4:,.0f}"
+                f" to {mass.ha.max() * 1e4:,.0f} m2); nothing resampled")
+            if cell_m:
+                mass = to_cells(mass, cell_m, px)
     except ValueError as e:
         raise BadNumber(str(e))
     if mass.empty:
@@ -618,20 +667,26 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
            if cell_m else "")
         + (f"; treatment: {mass.t_ha.sum():,.1f} ha of it"
            if treat_spec is not None else ""))
-    if not meta["geographic"]:
+    if geographic:
+        from ..pixels import _area_ha
+        valued = float(_area_ha(abs(meta["cell_w"]), abs(meta["cell_h"]),
+                                float(meta["y_max"]),
+                                np.nonzero(np.isfinite(v))[0],
+                                True).sum())
+    else:
         valued = (np.isfinite(v).sum() * abs(meta["cell_w"])
                   * abs(meta["cell_h"]) / 10_000.0)
-        if valued > 0 and mass.ha.sum() >= 0.99 * valued and ks:
-            k0 = ks[-1]
-            say(f"[pixels] NOTE: the base is {mass.ha.sum() / valued:.0%} "
-                f"of the pixels with a value, so Dist_{_tag(k0)} is about "
-                f"{100 * np.sqrt(k0 / np.pi):,.0f} m - the radius of a "
-                f"circle of {k0:g} ha - for almost everyone, and grows "
-                "only near the raster's edge or pixels without a value. "
-                "It then measures the raster, not the base. For the "
-                "distance to green, give a base (such as 0,3 to 1); for "
-                "how green the nearest hectares are, give a treatment "
-                "and read R_.")
+    if valued > 0 and mass.ha.sum() >= 0.99 * valued and ks:
+        k0 = ks[-1]
+        say(f"[pixels] NOTE: the base is {mass.ha.sum() / valued:.0%} "
+            f"of the pixels with a value, so Dist_{_tag(k0)} is about "
+            f"{100 * np.sqrt(k0 / np.pi):,.0f} m - the radius of a "
+            f"circle of {k0:g} ha - for almost everyone, and grows "
+            "only near the raster's edge or pixels without a value. "
+            "It then measures the raster, not the base. For the "
+            "distance to green, give a base (such as 0,3 to 1); for "
+            "how green the nearest hectares are, give a treatment "
+            "and read R_.")
     if treat_spec is not None and not mass.t_ha.sum() > 0:
         say("[pixels] NOTE: no base pixel is in the treatment, so every "
             "T_ and R_ is 0. Check that the treatment lies inside the "
@@ -646,7 +701,8 @@ def run(people: pd.DataFrame, raster=None, *, rasters=None, value="",
             "coordinates (empty geometry) and get empty results.")
     here = pd.DataFrame({"x": x[have], "y": y[have]})
     # R-55: the real cell - the analysis cell, or the pixel
-    side = cell_m or float(np.sqrt(abs(meta["cell_w"] * meta["cell_h"])))
+    side = cell_m or (mass.attrs.get("cell_m") if geographic else
+                      float(np.sqrt(abs(meta["cell_w"] * meta["cell_h"]))))
     part = reach(here, mass, ks, r_values=rs,
                  treat_col="t_ha" if treat_spec is not None else None,
                  unit_size=side)

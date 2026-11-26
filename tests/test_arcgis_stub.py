@@ -164,6 +164,10 @@ def _install_fake_arcpy(table: pd.DataFrame):
         # catalogue), looked up by the path it was made at
         if table_key(key) in state.get("created", {}):
             return state["created"][table_key(key)]
+        # R-59: a feature class written by NumPyArrayToFeatureClass in
+        # this run reads back as itself, as in real arcpy
+        if str(key) in state.get("written", {}):
+            return state["written"][str(key)]["table"]
         key = _unalias(key)
         if key in state.get("aux_tables", {}):
             return state["aux_tables"][key]
@@ -610,6 +614,10 @@ def _install_fake_arcpy(table: pd.DataFrame):
                     f"NumPyArrayToFeatureClass: no field {c!r} in the "
                     f"array; it has {names}")
         df = _pd.DataFrame({n: arr[n] for n in names})
+        # the points' own coordinates, as SHAPE@X/Y read them back -
+        # and project them, given a spatial reference (R-59)
+        df["SHAPE@X"] = df[xy[0]].to_numpy(float)
+        df["SHAPE@Y"] = df[xy[1]].to_numpy(float)
         state.setdefault("written", {})[str(out)] = {
             "table": df, "xy": tuple(xy), "sr": sr}
         state.setdefault("tables", {})[str(out)] = df
