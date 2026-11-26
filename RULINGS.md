@@ -87,7 +87,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-51 | The sample data stays as it is until a publication leans on it | In force |
 | R-52 | A trip's start and end squares count as ordinary ground | In force |
 | R-53 | Pixels count as mass through one chain: value, base, treatment, hectares, analysis cell | In force |
-| R-54 | A place with nobody in it does not move anyone's distance | In force, not yet built |
+| R-54 | A place with nobody in it does not move anyone's distance | In force |
 | R-55 | Mass inside a cell is spread evenly over the cell's real area | In force |
 
 ---
@@ -522,10 +522,10 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 
 ### R-54 · A place with nobody in it does not move anyone's distance
 **Rule.** When k is reached partway through a ring (R-02), the distance is interpolated from the last neighbour that holds people or mass. A neighbour with nobody in it - a row outside the reference (R-11), a kept zero, a person in tool 3b - is not a ring. Every place's results are the same whether it is run alone, with others, in subsets or in batches, and whether empty rows are kept or not.
-**Why.** R-11 says such a row is "nobody's neighbour", and the interpolation broke it: in Counts, 100 people each at 0, 1000 and 2000 m with k = 150 give the person at 0 708 m, and one kept row with no people at 500 m made it 791 m. The external review found the same in tool 3b, 23 November 2026. John: "empty rows should be ignored".
+**Why.** R-11 says such a row is "nobody's neighbour", and the interpolation broke it: in Counts, 100 people each at 0, 1000 and 2000 m with k = 150 give the person at 0 708 m, and one kept row with no people at 500 m made it 791 m. The external review found the same in tool 3b, 23 November 2026. John: "empty rows should be ignored". The grid engine had always skipped an empty ring; the fast, stats and effort engines now do the same, and an unreached k ends at the last place that held people.
 **Source.** BACKLOG 511.
-**Pinned by.** none yet - the tests come with BACKLOG 511.
-**Status.** In force, not yet built.
+**Pinned by.** `tests/test_empty_rows_move_nothing.py::test_empty_rows_move_no_one_s_distance_in_any_engine`, `tests/test_empty_rows_move_nothing.py::test_the_engines_agree_with_empty_rows_present`, `tests/test_empty_rows_move_nothing.py::test_counts_hand_case_an_empty_row_between_two_full_ones`, `tests/test_empty_rows_move_nothing.py::test_tool_3b_gives_each_person_the_same_answer_alone_together_or_in_batches`
+**Status.** In force.
 
 ### R-55 · Mass inside a cell is spread evenly over the cell's real area
 **Rule.** When a person sits on a cell that holds mass - a pixel, or an analysis cell - the distance to gather part of it is found as if that mass were spread evenly over the cell, the own-cell rule of R-03 applied to mass. The cell is the real one: the pixel's or the analysis cell's own size, a non-square pixel by its area, never a default.

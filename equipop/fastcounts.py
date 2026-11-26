@@ -100,6 +100,24 @@ def _lab(x) -> str:
     return numeric_tag(x)
 
 
+def _last_counted(cp, j):
+    """The last neighbour, up to j, that added to the count: the first
+    index at which the running count already stood at its value at j
+    (R-54, BACKLOG 511). Adding nobody leaves a running sum exactly
+    unchanged, so equality finds it. 0 - the origin itself - when
+    nothing has counted yet."""
+    return int(np.searchsorted(cp[:j + 1], cp[j], side="left"))
+
+
+def _last_counted_rows(cp, j):
+    """_last_counted for many origins at once: cp is (rows, M), j one
+    index per row."""
+    j = np.asarray(j, dtype=np.int64)
+    val = cp[np.arange(len(j)), j]
+    reached = cp >= val[:, None]
+    return np.argmax(reached, axis=1)
+
+
 def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                    m_neighbors: int | None = None,
                    chunk: int = 4096,
@@ -356,7 +374,10 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                     n_k = cp[pos]
                     grp_k = {v: cgrp[v][r][pos] for v in bvars}
                     den_k = {v: float(cok[v][r][pos]) for v in bvars}
-                    d_k = float(dd[pos])
+                    # R-54: an unreached k ends at the last neighbour
+                    # that counted, not at an empty one beyond it
+                    d_k = float(dd[_last_counted(cp, pos)] if partial
+                                else dd[pos])
                     if decay is not None:
                         nd_k = float(cpopd[r][pos])
                         grpd_k = {v: float(cgrpd[v][r][pos])
@@ -419,7 +440,12 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                                 (_ring(okp[v]) * wd_ring * w).sum())
                     ring_all = float(rpop.sum())
                     f = taken / ring_all if ring_all > 0 else 1.0
-                    d_prev = float(dd[lo - 1]) if lo > 0 else 0.0
+                    # R-54 (BACKLOG 511): from the last neighbour that
+                    # COUNTED - an empty one (a row outside the
+                    # reference, a kept zero, a person in tool 3b) is
+                    # nobody's neighbour and moves no one's distance
+                    d_prev = (float(dd[_last_counted(cp, lo - 1)])
+                              if lo > 0 else 0.0)
                     if lo > 0 and d_prev <= 0.0 and sp > 0.0:
                         # BACKLOG 191. Everything counted so far is the
                         # origin's OWN cell, and its people are not
@@ -669,6 +695,11 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
             grp_k = {v: at(cgS[v], pos) for v in bvars}
             den_k = {v: at(coS[v], pos) for v in bvars}
             d_k = at(dd, pos)
+            if partial.any():
+                # R-54: an unreached k ends at the last neighbour that
+                # counted, not at an empty one beyond it
+                pr = np.flatnonzero(partial)
+                d_k[pr] = dd[pr, _last_counted_rows(cp[pr], pc[pr])]
             if decay is not None:
                 nd_k = at(cpdS, pos)
                 grpd_k = {v: at(cgdS[v], pos) for v in bvars}
@@ -745,8 +776,13 @@ def run_knn_counts(cd: CellData, k_values: list[int] | None = None,
                 with np.errstate(divide="ignore", invalid="ignore"):
                     f = np.where(pos_t, taken / np.where(pos_t, total, 1.0),
                                  1.0)
-                d_prev = np.where(lo_r > 0,
-                                  dd[rr, np.maximum(lo_r - 1, 0)], 0.0)
+                # R-54 (BACKLOG 511): from the last neighbour that
+                # COUNTED, never an empty one in between
+                d_prev = np.where(
+                    lo_r > 0,
+                    dd[rr, _last_counted_rows(cp[rr],
+                                              np.maximum(lo_r - 1, 0))],
+                    0.0)
                 fix = (lo_r > 0) & (d_prev <= 0.0) & (sp > 0.0)
                 d_prev = np.where(fix, np.minimum(rk1, dd[rr, hi_r]),
                                   d_prev)

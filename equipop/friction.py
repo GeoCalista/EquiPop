@@ -650,11 +650,16 @@ def _count_from_grid(grid, pop, k_values, id_col, chunk, origins=None,
                 # so the reported radius was INPUT ORDER. Reordering
                 # identical cells moved one origin's Dist_2 from
                 # 141.421 to 100.0.
-                dist_m = max(
-                    float(np.hypot(grid.pop_x[ci] - grid.pop_x[oi],
-                                   grid.pop_y[ci] - grid.pop_y[oi]))
-                    for ci in ring)
-                rounds_now = float(r0)
+                # R-54 (BACKLOG 511): a ring with nobody in it moves
+                # neither the distance nor the rounds - the next
+                # crossing ring is interpolated from the last ring that
+                # held people
+                if ring_all > 0:
+                    dist_m = max(
+                        float(np.hypot(grid.pop_x[ci] - grid.pop_x[oi],
+                                       grid.pop_y[ci] - grid.pop_y[oi]))
+                        for ci in ring)
+                    rounds_now = float(r0)
                 while pending and sum_all >= pending[0]:
                     k = pending.pop(0)
                     rec[f"N_{k}"] = sum_all
