@@ -52,8 +52,11 @@ their story is in the detail below.*
    a. **Gridby never deletes a file it did not write (514)** - BUILT
       26 November, pull request.
    b. **One set of files for PyPI and the release page; try builds
-      that say what they are (513).**
-   c. **Rasters in degrees (decision d, 510)** - John's ruling first.
+      that say what they are (513)** - BUILT 26 November, pull request.
+   c. **Rasters in degrees (decision d, 510)** - John, 26 November:
+      "(b)": EquiPop moves each counting pixel's centre into the
+      people's system with the GIS's own tools, keeps its true area,
+      and resamples nothing. Ruling R-59 with its pull request.
    d. **Release 1.66.0**, with hand checks of tool 7 (515), friction
       roles (516), the tool groups (517), tool 3b (510, 512) and the
       empty-row fix (511).
@@ -3910,9 +3913,35 @@ because machine 3 stores tiles that way and says so in its manifest.
   A good first pull request for a new contributor: small, a clear
   success condition, and no number changes.
 
-- 513 | OPEN 23 NOVEMBER 2026 (the external review, finding 5 and
-  "release identity") | ONE SET OF FILES FOR PyPI AND THE RELEASE PAGE,
-  AND TRY BUILDS THAT SAY WHAT THEY ARE.
+- 513 | BUILT 26 NOVEMBER 2026, pull request, not released (the
+  external review, finding 5 and "release identity") | ONE SET OF FILES
+  FOR PyPI AND THE RELEASE PAGE, AND TRY BUILDS THAT SAY WHAT THEY ARE.
+  BUILT (a): release.yml's build job runs make_bundle.sh once - the
+  Pro help first, then the wheel and source archive - and
+  release_assets.sh; PyPI's two files are COPIED from the release
+  page's set, and a step checks them against SHA256SUMS.txt before
+  anything is uploaded. The attach job only uploads. make_bundle.sh
+  now checks that the source archive carries EXACTLY the help files
+  step 1 wrote, not merely some.
+  BUILT (b): tools/try_version.py names a try build NEXT.devN+gSHA
+  (1.66.0.dev7+g3fa21c9): NEXT is the unreleased version in
+  pyproject.toml, or the next minor release when that one is tagged;
+  N the commits since the last tag; SHA the pull request's own commit.
+  The bundle job writes it into its checkout only (bump_version.py
+  --try, refused without --try; a test keeps the committed version
+  plain), so every file, the download's name, Pro's messages, QGIS's
+  plugin list and equipop doctor show it, and BUILD.txt at the top of
+  the download says "A TRY BUILD, NOT A RELEASE", the release it leads
+  to, the commit and the pull request. QGIS's version check read
+  "dev7+g3fa21c9" as one more number, so a try plugin would have
+  looked newer than the release under it; QGIS and Pro now both order
+  a try build after the release before it and before the one it leads
+  to. Tested: a whole try bundle and its release files built on a
+  stamped copy; the PyPI check passes on equal files and fails on one
+  changed byte.
+  LEFT FOR JOHN: one line on the 1.65.0 release page (the pull request
+  gives the words). PyPI's 1.65.0 files stay as they are.
+  WHAT WAS THERE:
   (a) release.yml builds the wheel and source archive for PyPI without
   the Pro help sidecars; the attach job then runs make_bundle.sh, which
   writes the sidecars, DELETES dist/ and builds both again, and those

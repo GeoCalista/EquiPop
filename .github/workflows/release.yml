@@ -14,6 +14,16 @@
 #      checksums (tools/release_assets.sh, BACKLOG 506). Nothing is
 #      attached by hand any more.
 #
+# ONE BUILD (BACKLOG 513, the external review of 23 November). Until
+# 1.66.0 the wheel and source archive were built twice: once here for
+# PyPI, without the Pro help files, and again inside make_bundle.sh for
+# the release page. Measured on 1.65.0: the same code, but different
+# bytes, so SHA256SUMS.txt did not describe what PyPI serves, and
+# PyPI's source archive carried none of the ten Pro help files. Now
+# the build job makes every file once, PyPI gets the wheel and source
+# archive from that one set, and a step checks them against the
+# checksums the release page carries.
+#
 # PyPI trusts this file by name: the trusted publisher on PyPI is
 # owner GeoCalista, repository EquiPop, workflow release.yml,
 # environment pypi. Renaming this file, the repository or the
@@ -29,9 +39,9 @@ permissions:
 
 jobs:
   build:
-    name: build and check the package
+    name: build every file once
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -45,12 +55,34 @@ jobs:
             echo "::error::The tag $GITHUB_REF_NAME is not v$V. Delete the release and its tag, and make it again as v$V."
             exit 1
           fi
-      - name: Build the wheel and the source archive
+      - name: Install the build tools
+        # pytest: the Pro help generator loads the toolbox with the arcpy
+        # stand-in in tests/ (BACKLOG 497); geopandas: the Gridby file
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
-          python -m build
+          python -m pip install build twine pytest geopandas pyogrio
+          python -m pip install -e .
+      - name: Build every file of the release, once
+        # make_bundle.sh writes the Pro help first, then builds the wheel
+        # and the source archive exactly once (and checks the source
+        # archive carries every help file); release_assets.sh gathers
+        # what the release page carries and their SHA-256.
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          if ! bash tools/make_bundle.sh "$V" "$RUNNER_TEMP/bundle" > "$RUNNER_TEMP/bundle.log" 2>&1; then
+            cat "$RUNNER_TEMP/bundle.log"; exit 1
+          fi
+          bash tools/release_assets.sh "$V" "$RUNNER_TEMP/bundle" "$RUNNER_TEMP/bundle" "$RUNNER_TEMP/assets"
+          mkdir -p dist
+          cp "$RUNNER_TEMP/assets/equipop-$V-py3-none-any.whl" "$RUNNER_TEMP/assets/equipop-$V.tar.gz" dist/
           python -m twine check --strict dist/*
+      - name: PyPI gets exactly the files the release page lists
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v w="equipop-$V-py3-none-any.whl" -v t="equipop-$V.tar.gz" '$2 == w || $2 == t' "$RUNNER_TEMP/assets/SHA256SUMS.txt" > "$RUNNER_TEMP/pypi.sha256"
+          test "$(wc -l < "$RUNNER_TEMP/pypi.sha256")" -eq 2
+          ( cd dist && sha256sum -c "$RUNNER_TEMP/pypi.sha256" )
+          test "$(ls dist | wc -l)" -eq 2
       - name: Install the wheel into a clean Python and run it
         run: |
           python -m venv "$RUNNER_TEMP/clean"
@@ -61,6 +93,11 @@ jobs:
         with:
           name: dist
           path: dist/
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        with:
+          name: assets
+          path: ${{ runner.temp }}/assets/
           retention-days: 30
 
   publish:
@@ -84,33 +121,15 @@ jobs:
     name: attach the files people install
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: write          # to add files to this release, nothing else
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-      - name: Install the build tools
-        # pytest: the Pro help generator loads the toolbox with the arcpy
-        # stand-in in tests/ (BACKLOG 497); geopandas: the Gridby file
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine pytest geopandas pyogrio
-          python -m pip install -e .
       - uses: actions/download-artifact@v8
         with:
-          name: dist
-          path: dist/
-      - name: Build the plugins and the teaching town
-        run: |
-          V="${GITHUB_REF_NAME#v}"
-          if ! bash tools/make_bundle.sh "$V" "$RUNNER_TEMP/bundle" > "$RUNNER_TEMP/bundle.log" 2>&1; then
-            cat "$RUNNER_TEMP/bundle.log"; exit 1
-          fi
-          bash tools/release_assets.sh "$V" "$RUNNER_TEMP/bundle" dist "$RUNNER_TEMP/assets"
+          name: assets
+          path: assets/
       - name: Attach them to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/assets/* --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$GITHUB_REF_NAME" assets/* --clobber --repo "$GITHUB_REPOSITORY"

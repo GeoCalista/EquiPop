@@ -109,10 +109,20 @@ python -m twine check "dist/equipop-$V-py3-none-any.whl" \
     "dist/equipop-$V.tar.gz" >> "$LOGS/build_py.log" 2>&1
 cp "dist/equipop-$V-py3-none-any.whl" "dist/equipop-$V.tar.gz" "$WORK/"
 
-# ...and CHECK that MANIFEST.in's permission actually delivered.
-if [ "$(tar tzf "$WORK/equipop-$V.tar.gz" | grep -c 'pyt\.xml')" -eq 0 ]; then
+# ...and CHECK that MANIFEST.in's permission actually delivered:
+# EXACTLY the sidecars step 1 wrote, not merely some (BACKLOG 513 -
+# PyPI's 1.65.0 source archive carried none, from a second build).
+WANT_XML=$(cd arcgis && ls EquiPop.*.pyt.xml | sort)
+GOT_XML=$(tar tzf "$WORK/equipop-$V.tar.gz" | sed -n 's#^[^/]*/arcgis/\(EquiPop\..*\.pyt\.xml\)$#\1#p' | sort)
+if [ -z "$GOT_XML" ]; then
     echo "FATAL: the sdist carries no Pro help sidecars - step 1 ran" >&2
     echo "  too late, or MANIFEST.in lost its include line." >&2
+    exit 1
+fi
+if [ "$GOT_XML" != "$WANT_XML" ]; then
+    echo "FATAL: the sdist's Pro help sidecars are not the ones step 1" >&2
+    echo "  wrote. Step 1: $(echo $WANT_XML)" >&2
+    echo "  sdist:  $(echo $GOT_XML)" >&2
     exit 1
 fi
 
@@ -185,6 +195,30 @@ cp arcgis/ARCGIS_GUIDE.md "$WORK/"
 # working tree it unpacks and tests - John looked for it inside the
 # working-tree zip inside the release zip, and could not find it.
 cp tools/windows_check.py "$WORK/"
+# BACKLOG 513: what this bundle IS, in a file a person opens first. A
+# try build (tools/try_version.py) says so, and names its commit and
+# the release it leads to; a release says it is one.
+COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+case "$V" in
+    *.dev*)
+        {
+            echo "EquiPop $V - A TRY BUILD, NOT A RELEASE"
+            echo ""
+            echo "It leads to EquiPop ${V%%.dev*}, which is not released yet."
+            echo "Use it for hand checks only. Every program shows $V:"
+            echo "Pro's messages, QGIS's plugin list and Stata's equipop doctor."
+        } > "$WORK/BUILD.txt" ;;
+    *)
+        echo "EquiPop $V - THE RELEASE" > "$WORK/BUILD.txt" ;;
+esac
+{
+    echo ""
+    echo "commit     $COMMIT"
+    if [ -n "${TRY_PR:-}" ]; then
+        echo "pull request #$TRY_PR, branch ${TRY_BRANCH:-?}, its commit ${TRY_SHA:-?}"
+    fi
+    echo "built      $(date -u '+%Y-%m-%d %H:%M UTC')"
+} >> "$WORK/BUILD.txt"
 
 # ---- 9. verify, leave the tree as it was found, install -------------
 # Every archive a user unzips is re-opened, CRC-checked, name-checked

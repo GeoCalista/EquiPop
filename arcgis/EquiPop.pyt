@@ -758,10 +758,21 @@ TOOLBOX_VERSION = "1.65.0"
 
 
 def _vtuple(v):
-    try:
-        return tuple(int(p) for p in str(v).split(".")[:3])
-    except ValueError:
+    """A version as numbers to compare: 1.66.0 -> (1, 66, 0, 1, 0).
+
+    BACKLOG 513: a TRY BUILD, 1.66.0.dev7+g3fa21c9 -> (1, 66, 0, 0, 7),
+    sorts after 1.65.0 and before 1.66.0, the release it leads to - so
+    a 1.66.0 toolbox over a try-build package is refused as the newer
+    half, as it should be. The same rule as _version_key in the QGIS
+    plugin's base.py. None for what cannot be read.
+    """
+    m = re.match(r"(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.\d+)*(?:\.?dev(\d+))?",
+                 str(v).strip())
+    if not m:
         return None
+    major, minor, patch, dev = m.groups()
+    nums = (int(major), int(minor or 0), int(patch or 0))
+    return nums + ((0, int(dev)) if dev is not None else (1, 0))
 
 
 def _announce_version(messages):

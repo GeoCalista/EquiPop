@@ -96,22 +96,34 @@ def _package_behind():
     return None
 
 
+def _version_key(v):
+    """A version as numbers to compare: 1.66.0 -> (1, 66, 0, 1, 0).
+
+    BACKLOG 513: a TRY BUILD is 1.66.0.dev7+g3fa21c9 -> (1, 66, 0, 0,
+    7), after 1.65.0 and before 1.66.0, the release it leads to. The
+    digits of "dev7+g3fa21c9" used to be read as one more number, which
+    made a try plugin look NEWER than the 1.66.0 release and refused
+    it. The same rule is _version_key in arcgis/EquiPop.pyt. None for
+    what cannot be read, which says nothing rather than guess.
+    """
+    import re
+    m = re.match(r"(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.\d+)*(?:\.?dev(\d+))?",
+                 str(v).strip())
+    if not m:
+        return None
+    major, minor, patch, dev = m.groups()
+    nums = (int(major), int(minor or 0), int(patch or 0))
+    return nums + ((0, int(dev)) if dev is not None else (1, 0))
+
+
 def _newer(a, b):
     """Is version a newer than b? Numeric compare, not string.
 
     "1.44.0" < "1.5.0" as text, which would give exactly the wrong
     advice at the next minor bump.
     """
-    def parts(v):
-        out = []
-        for piece in str(v).split("."):
-            digits = "".join(c for c in piece if c.isdigit())
-            out.append(int(digits) if digits else 0)
-        return out
-    try:
-        return parts(a) > parts(b)
-    except Exception:                               # pragma: no cover
-        return False
+    ka, kb = _version_key(a), _version_key(b)
+    return ka is not None and kb is not None and ka > kb
 
 
 def matrix_cells(alg, parameters, name, context):
