@@ -47,6 +47,8 @@ OPTIONAL = (
     ("rasterio", "rasters: terrain, WorldPop, barrier surfaces"),
     ("openpyxl", "reading .xlsx"),
     ("pyarrow", "parquet, used by tiled continental runs"),
+    # v1.68.0, BACKLOG 522: the fourth door
+    ("mcp", "the MCP server for AI assistants: pip install \"equipop[mcp]\""),
 )
 
 _ARCH_HINT = (

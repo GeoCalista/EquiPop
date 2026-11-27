@@ -1,0 +1,145 @@
+{
+ "message": "If you use EquiPop in your research, please cite the software report below and the methods papers relevant to the functions you use.",
+ "software": {
+  "title": "EquiPop (Python)",
+  "authors": [
+   "Östh, John"
+  ],
+  "version": "1.67.0",
+  "license": "MIT",
+  "repository": "https://github.com/GeoCalista/EquiPop"
+ },
+ "preferred": {
+  "type": "report",
+  "title": "Introducing the EquiPop software: An application for the calculation of k-nearest neighbour contexts/neighbourhoods",
+  "authors": [
+   "Östh, John"
+  ],
+  "year": 2014,
+  "institution": "Uppsala University, Department of Social and Economic Geography",
+  "location": "Uppsala, Sweden"
+ },
+ "references": [
+  {
+   "type": "article",
+   "title": "Measuring the scale of segregation using k-nearest neighbor aggregates",
+   "authors": [
+    "Östh, John",
+    "Clark, William A. V.",
+    "Malmberg, Bo"
+   ],
+   "year": 2015,
+   "journal": "Geographical Analysis",
+   "volume": 47,
+   "issue": 1,
+   "start": 34,
+   "end": 49
+  },
+  {
+   "type": "article",
+   "title": "A new way of determining distance decay parameters in spatial interaction models with application to job accessibility analysis in Sweden",
+   "authors": [
+    "Östh, John",
+    "Lyhagen, Johan",
+    "Reggiani, Aura"
+   ],
+   "year": 2016,
+   "journal": "European Journal of Transport and Infrastructure Research",
+   "volume": 16,
+   "issue": 2,
+   "start": 344,
+   "end": 363
+  },
+  {
+   "type": "generic",
+   "title": "Integrating infrastructure and accessibility in measures of bespoke neighbourhoods",
+   "authors": [
+    "Östh, John",
+    "Türk, Umut"
+   ],
+   "year": 2020,
+   "start": 378,
+   "end": 394,
+   "collection_title": "Handbook of Urban Segregation",
+   "publisher": "Edward Elgar Publishing"
+  },
+  {
+   "type": "article",
+   "title": "Spatial proximity and accessibility patterns of X-minute cities",
+   "authors": [
+    "Türk, Umut",
+    "Östh, John",
+    "Kourtit, Karima",
+    "Nijkamp, Peter"
+   ],
+   "year": 2026,
+   "journal": "Journal of Urban Mobility",
+   "volume": 9,
+   "identifiers": [
+    "100239"
+   ]
+  },
+  {
+   "type": "slides",
+   "title": "Scaling spatial econometrics: From explicit W to EquiPop index structures",
+   "authors": [
+    "Türk, Umut",
+    "Östh, John",
+    "Toger, Marina"
+   ],
+   "year": 2025,
+   "conference": "Urban Lab meeting, IBF, Uppsala University",
+   "location": "Uppsala, Sweden"
+  },
+  {
+   "type": "slides",
+   "title": "Operator-Based Spatial Econometrics with EquiPop: A Validated Prototype for SLX, SAR and SDM",
+   "authors": [
+    "Türk, Umut",
+    "Östh, John",
+    "Toger, Marina"
+   ],
+   "year": 2026,
+   "conference": "ERSA - European Regional Science Association",
+   "location": "Sofia, Bulgaria"
+  },
+  {
+   "type": "data",
+   "title": "World Population Prospects 2024",
+   "authors": [
+    "United Nations, Department of Economic and Social Affairs, Population Division"
+   ],
+   "year": 2024,
+   "url": "https://population.un.org/wpp/",
+   "repository": "https://github.com/PPgp/wpp2024",
+   "notes": "Licence CC BY 3.0 IGO. Via the wpp2024 R package 1.1-3 (2024-11-26). EquiPop ships a derived table, equipop/data/wpp2024_reference.csv.xz, built by tools/make_wpp_reference.py."
+  },
+  {
+   "type": "article",
+   "title": "Average age at death in infancy and infant mortality level: Reconsidering the Coale-Demeny formulas at current levels of low mortality",
+   "authors": [
+    "Andreev, Evgeny M.",
+    "Kingkade, W. Ward"
+   ],
+   "year": 2015,
+   "journal": "Demographic Research",
+   "volume": 33,
+   "issue": 13,
+   "start": 363,
+   "end": 390
+  },
+  {
+   "type": "article",
+   "title": "Evaluation of methodologies for small area life expectancy estimation",
+   "authors": [
+    "Eayres, D.",
+    "Williams, E. S."
+   ],
+   "year": 2004,
+   "journal": "Journal of Epidemiology and Community Health",
+   "volume": 58,
+   "issue": 3,
+   "start": 243
+  }
+ ]
+}

@@ -176,6 +176,15 @@ hidden until you run 0. Show or hide tools 3-7**, choose *All tools*,
 then right-click the toolbox in the Catalog pane and choose
 **Refresh** (since 1.62.0; the same choice shows them in QGIS).
 
+## 4. An AI assistant (MCP) — since 1.68.0
+
+Claude Desktop: download `equipop-<version>.mcpb` from the release
+page and open it; the app installs the server with its own Python,
+nothing else on your computer changes. Other assistants, or your own
+Python: `pip install "equipop[mcp]"`, then point the assistant at
+`equipop mcp`. The whole of it, and what leaves your computer (ruling
+R-63), is in README_MCP.md.
+
 ## Verify — the same line in every host
 
 ```

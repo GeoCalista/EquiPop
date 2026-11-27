@@ -96,6 +96,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-60 | A person on no pixel gathers the first pixel within that pixel's own disc | In force |
 | R-61 | A point counts in one area per level: inside it, else the first whose border it is on, else the nearest | In force |
 | R-62 | An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N | In force |
+| R-63 | What leaves the computer through the MCP server: descriptions and summaries, never rows; results to a new file | In force |
 
 ---
 
@@ -598,4 +599,13 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** John, 27 November 2026: the weighting "is perfect as you suggest", and the definitions are tool 2's so that a mean by area and a mean by neighbourhood mean the same thing. The threshold is "one of the main points of why we use equipop": an area can hold three people, a neighbourhood of k always holds k, and the help says so - with the caution that overlapping neighbourhoods can differ by a few people, so k reduces the risk of disclosure and does not remove it.
 **Source.** BACKLOG 521.
 **Pinned by.** `tests/test_areas_doors.py::test_the_statistics_are_tool_2_s_per_person`, `tests/test_areas_doors.py::test_few_people_hide_the_results_but_keep_n`, `tests/test_areas_doors.py::test_qgis_writes_the_shared_numbers_on_the_areas_and_points`, `tests/test_areas_doors.py::test_pro_writes_the_shared_numbers_on_copies_of_both_layers`
+**Status.** In force.
+
+## L. The MCP server (the fourth door)
+
+### R-63 · What leaves the computer through the MCP server: descriptions and summaries, never rows; results to a new file
+**Rule.** The MCP server runs on the person's own computer, but everything a tool returns goes to the assistant and so to the AI company's servers. A tool therefore returns descriptions and summaries only: column names, N, the extent, the coordinate system, and per column the missing count, the distinct count, the mean, the median and the 10th and 90th percentiles - not the minimum or the maximum, which are one person's values. The full result is written to a NEW file next to the input and the assistant receives its path; a name that exists gets a number, and nothing is ever overwritten or deleted. No row leaves unless the person starts the server with `--rows`, and then only through `equipop_peek`, at most twenty. The server opens the file or folder it is given and nothing beside it.
+**Why.** John, 27 November 2026, on the design of the local server (the concept note "EquiPop and MCP", 21 November: "register microdata never leaves the user's machine"). The same reason the hosted server answers only from public material. A mean is a statistic; a row is a person.
+**Source.** BACKLOG 522.
+**Pinned by.** `tests/test_mcp_server.py::test_look_describes_a_table_without_a_single_row`, `tests/test_mcp_server.py::test_counts_and_shares_writes_a_new_file_and_returns_summaries`, `tests/test_mcp_server.py::test_rows_leave_only_with_the_switch`
 **Status.** In force.

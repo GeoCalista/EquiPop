@@ -150,6 +150,25 @@ MATRIX = {
             "2026, B5).", 521,
             absent=("stata/equipop.ado", "areasdoor")),
     },
+    # BACKLOG 522, 28 November 2026: the fourth door - an MCP server
+    # for AI assistants, on the person's own computer. The rows of the
+    # matrix above are the tools; this row is the door that gives an
+    # assistant tools 1, 1b, 2 and 3b. Not a GIS tool, so no QGIS or
+    # Pro cell; Stata has its own route.
+    "the MCP server - tools 1, 1b, 2 and 3b for an AI assistant": {
+        "python": door("equipop/mcp/server.py", "def build_server("),
+        "qgis": not_yet(
+            "An assistant reaches QGIS's own tools through the server, "
+            "not through QGIS.", 522,
+            absent=("qgis/equipop_qgis/provider.py", "equipop.mcp")),
+        "pro": not_yet(
+            "An assistant reaches Pro's own tools through the server, "
+            "not through Pro.", 522,
+            absent=("arcgis/EquiPop.pyt", "equipop.mcp")),
+        "stata": not_yet(
+            "Stata will have its own route (John, 27 November 2026, B5).",
+            522, absent=("stata/equipop.ado", "equipop.mcp")),
+    },
     # ---------------------------------------------------- the machines
     "machine 1 - counts and shares": {
         "python": PYTHON,
@@ -527,6 +546,8 @@ INTERNAL = {
     # nearest) and the half both GIS doors share; its capability is the
     # matrix row above
     "zones", "doors.areasdoor",
+    # v1.68.0, BACKLOG 522: the MCP server and the `equipop` command
+    "mcp", "mcp.server", "mcp.files", "cli", "cite",
     "doors.help", "doors.report", "doors.fields", "doors.loader",
     "doors.rungs", "doors.registry", "doors.reference",
     "doors.decaynames", "doors.demography", "doors.continental",

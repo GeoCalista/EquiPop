@@ -93,7 +93,8 @@ Today John makes the releases. The steps, in order:
 3. The hand checks in the CHANGELOG row (ArcGIS Pro and Stata on Windows, Stata on macOS), with the files from the pull request's *release bundle* download.
 4. *Squash and merge* the release pull request.
 5. **PyPI, with no token:** on GitHub, *Releases → Draft a new release*, a new tag `vX.Y.Z` (exactly the version in `pyproject.toml`), *Publish release*. The `release` workflow checks the tag, builds, tests the wheel, and waits for a maintainer to approve the upload (*Actions → the release run → Review deployments*).
-6. **Nothing to attach by hand.** The same run attaches the QGIS, Pro and Stata zips, the SSC archive, the wheel and source archive, the Gridby GeoPackage and a checksum list to the release (`tools/release_assets.sh`). From those, the QGIS plugin repository and SSC by email.
+6. **Nothing to attach by hand.** The same run attaches the QGIS, Pro and Stata zips, the SSC archive, the wheel and source archive, the Gridby GeoPackage, the MCP Bundle (`equipop-X.Y.Z.mcpb`, since 1.68.0) and a checksum list to the release (`tools/release_assets.sh`). From those, the QGIS plugin repository and SSC by email.
+7. **The MCP Registry, with no token** (since 1.68.0, BACKLOG 522): once PyPI has the package and the release page its files, the same run writes `server.json` (`tools/make_server_json.py`) and waits in the `mcp-registry` environment for a maintainer's approval, exactly as the PyPI upload does; approved, it lists `io.github.geocalista/equipop` by OIDC. The environment is made once, on GitHub under *Settings → Environments*, with a required reviewer; without one GitHub creates it on first use with no protection, and the listing would go out on its own.
 
 **Version numbers.** A correction is a patch release (1.63.8), even when it moves a number. A ruling or a new capability starts a minor release (1.64.0).
 
