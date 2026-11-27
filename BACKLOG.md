@@ -48,27 +48,15 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **Finish 1.66.0**, one pull request at a time:
-   a. **Gridby never deletes a file it did not write (514)** - BUILT
-      26 November, pull request.
-   b. **One set of files for PyPI and the release page; try builds
-      that say what they are (513)** - BUILT 26 November, pull request.
-   c. **Rasters in degrees (decision d, 510; 518, R-59)** - BUILT 26
-      November, pull request. John: "(b)".
-   c2. **A k smaller than the first pixel reached (519, R-60)** -
-      BUILT 26 November, pull request. John: "(a)".
-   d. **Release 1.66.0**, with hand checks of tool 7 (515), friction
-      roles (516), the tool groups (517), tool 3b (510, 512) and the
-      empty-row fix (511).
-2. **1.67.0: the spatial aggregation tool** - statistics by area, the
+1. **1.67.0: the spatial aggregation tool** - statistics by area, the
    AREA family of tools 1 and 2 (equipop.area has had the engine half
    since long). Six design questions are with John (26 November).
    Just before it, the short review of the tool names, so the new
    tool is named once and the order of the groups is settled.
-3. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
+2. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
    planned in "EquiPop and MCP".
-4. **Machine 7, step 2** - tiers, time slots and the week
+3. **Machine 7, step 2** - tiers, time slots and the week
    (PROPOSALS.md section 3).
 
 ### After the code review of 1.63.7 — a work order, for John to change
@@ -3751,7 +3739,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 519 | BUILT 26 NOVEMBER 2026, pull request, not released (ruling
+- 519 | DONE v1.66.0, 27 NOVEMBER 2026 (built 26 November, #30) (ruling
   R-60; found while building 518) | A k SMALLER THAN THE FIRST PIXEL A
   PERSON REACHES IS "GATHERED" TOO SOON.
   BUILT, John's (a), 26 November: run_knn_counts(...,
@@ -3785,7 +3773,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   edge, d - r, and k is reached at about d - r + 2r x k/m), or simply
   the distance to the first pixel. Not coded.
 
-- 518 | BUILT 26 NOVEMBER 2026, pull request, not released (ruling R-59;
+- 518 | DONE v1.66.0, 27 NOVEMBER 2026 (built 26 November, #29) (ruling R-59;
   decision d of 510) | TOOL 3b TAKES A RASTER IN DEGREES AS IT IS.
   John, 26 November: "(b)" - EquiPop handles it, rather than refusing
   until the person warps it (which blurs a land-cover map's classes
@@ -3818,7 +3806,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   Pro's points read back without their indices; the sphere put back.
   FOUND WHILE BUILDING: 519.
 
-- 517 | BUILT 25 NOVEMBER 2026, pull request, not released | THE TOOLS
+- 517 | DONE v1.66.0, 27 NOVEMBER 2026 (built 25 November, #26) | THE TOOLS
   SIT IN GROUPS BY WHAT THEY ARE FOR, THE SAME IN PRO AND QGIS.
   John, 25 November: "can we arrange the tools in hierarchies ... and
   for Q as well", with the groups: tool 0 at the top for showing and
@@ -3847,7 +3835,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   "Rasters" in QGIS, tool 7's toolset left out in Pro - and caught
   both times.
 
-- 516 | BUILT 25 NOVEMBER 2026, pull request, not released (rulings R-57
+- 516 | DONE v1.66.0, 27 NOVEMBER 2026 (built 25 November, #25) (rulings R-57
   and R-58) | FRICTION SOURCES HAVE ROLES, AND NO CELL GOES BELOW -0.99.
   John, 24 November: "forest slows down, but a path in the forest
   mitigates - should that mitigation be 0 or negative ... could we
@@ -3896,7 +3884,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   NOT YET: machine 7 uses straight lines; roles reach it with its
   step 3 (modes and friction).
 
-- 515 | BUILT 23 NOVEMBER 2026, pull request, not released (ruling R-56;
+- 515 | DONE v1.66.0, 27 NOVEMBER 2026 (built 23 November, #24) (ruling R-56;
   PROPOSALS.md section 3, "AGREED 22-23 NOVEMBER 2026") | MACHINE 7,
   STEP 1: WHO GOES WHERE WHEN DESTINATIONS FILL UP - tool 7 in QGIS and
   Pro. John, 23 November: "the latest version has not got the ABM for
@@ -3954,7 +3942,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   with friction, observed tier 1. The literature named in PROPOSALS 3
   is still to be checked against sources.
 
-- 514 | BUILT 26 NOVEMBER 2026, pull request, not released (the
+- 514 | DONE v1.66.0, 27 NOVEMBER 2026 (built 26 November, #27) (the
   external review, finding 6) | GRIDBY NEVER DELETES A FILE IT DID NOT
   WRITE.
   BUILT: write_gridby(path) REFUSES an existing file with a sentence
@@ -3980,7 +3968,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   A good first pull request for a new contributor: small, a clear
   success condition, and no number changes.
 
-- 513 | BUILT 26 NOVEMBER 2026, pull request, not released (the
+- 513 | DONE v1.66.0, 27 NOVEMBER 2026 (built 26 November, #28) (the
   external review, finding 5 and "release identity") | ONE SET OF FILES
   FOR PyPI AND THE RELEASE PAGE, AND TRY BUILDS THAT SAY WHAT THEY ARE.
   BUILT (a): release.yml's build job runs make_bundle.sh once - the
@@ -4033,7 +4021,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   engine must accept it.
   (a) is a good first pull request for Marina or Umut.
 
-- 512 | BUILT 23 NOVEMBER 2026, pull request #21, not released (the
+- 512 | DONE v1.66.0, 27 NOVEMBER 2026 (built 23 November, #21) (the
   external review, findings 2-4 and two smaller ones; ruling R-55) |
   TOOL 3b: THE REVIEW'S FIXES, INSIDE PULL REQUEST #21 BEFORE IT
   MERGES. All reproduced by Claude.
@@ -4088,7 +4076,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   (e) PRO READS THE WHOLE STACK for one band. Read the dataset's Band_n
   directly, and measure a full Sentinel-2 tile before recommending it.
 
-- 511 | BUILT 23 NOVEMBER 2026, pull request, not released (the
+- 511 | DONE v1.66.0, 27 NOVEMBER 2026 (built 23 November, #23) (the
   external review, finding 1; ruling R-54, John: "empty rows should be
   ignored") | AN EMPTY ROW MOVES OTHER PEOPLE'S Dist_k - IN EVERY TOOL.
   BUILT: the crossing ring is interpolated from the last neighbour that
@@ -4124,7 +4112,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   change": every run with kept empty rows, keep_zero, or tool 3b.
   Its own pull request.
 
-- 510 | BUILT 21 NOVEMBER 2026, pull request, not released | TOOL 3b
+- 510 | DONE v1.66.0, 27 NOVEMBER 2026 (built 21 November, #21) | TOOL 3b
   BECOMES ONE CHAIN (ruling R-53), as agreed with John the same day:
   bands -> value -> base and treatment -> hectares -> analysis cell ->
   Dist_k, T_k, R_k. NEW: equipop/bandmath.py, the value box - a band, or
