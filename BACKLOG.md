@@ -48,13 +48,10 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.67.0: tool 1b, "Summaries by area"** - BUILT 27 November
-   (521), a pull request waiting for John. The group letters (520) are
-   merged (#32). Then the release.
-2. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
+1. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
    planned in "EquiPop and MCP".
-3. **Machine 7, step 2** - tiers, time slots and the week
+2. **Machine 7, step 2** - tiers, time slots and the week
    (PROPOSALS.md section 3).
 
 ### After the code review of 1.63.7 — a work order, for John to change
@@ -3737,7 +3734,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 521 | BUILT 27 NOVEMBER 2026, pull request, not released (rulings
+- 521 | DONE v1.67.0, 27 NOVEMBER 2026 (built 27 November, #33) (rulings
   R-61, R-62) | TOOL 1b, "SUMMARIES BY AREA", in QGIS and Pro.
   John, 25 November: "it is something I don't need, but GIS-novices are
   asking for - so I think it is essential!" Points - people, addresses,
@@ -3782,7 +3779,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   NOT YET: Stata; rasters as input; area to area by shared area (B6);
   the Book's chapter.
 
-- 520 | MERGED 27 NOVEMBER 2026 (#32), not released | THE GROUPS
+- 520 | DONE v1.67.0, 27 NOVEMBER 2026 (built 27 November, #32) | THE GROUPS
   GET LETTERS: A. Neighbourhoods, B. Statistics, C. Rasters and pixels,
   D. Demography, E. Finding and fetching data, F. Simulation.
   John, 27 November, on 517's screenshots from both programs: both
