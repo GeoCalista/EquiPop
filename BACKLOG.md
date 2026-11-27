@@ -48,10 +48,9 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.67.0: tool 1b, "Summaries by area"** - statistics by area, the
-   AREA family of tools 1 and 2 (equipop.area has had the engine half
-   since long). John answered the design questions on 27 November
-   (521). First the group letters (520), then the tool.
+1. **1.67.0: tool 1b, "Summaries by area"** - BUILT 27 November
+   (521), a pull request waiting for John. The group letters (520) are
+   merged (#32). Then the release.
 2. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
    planned in "EquiPop and MCP".
@@ -3738,7 +3737,52 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 520 | BUILT 27 NOVEMBER 2026, pull request, not released | THE GROUPS
+- 521 | BUILT 27 NOVEMBER 2026, pull request, not released (rulings
+  R-61, R-62) | TOOL 1b, "SUMMARIES BY AREA", in QGIS and Pro.
+  John, 25 November: "it is something I don't need, but GIS-novices are
+  asking for - so I think it is essential!" Points - people, addresses,
+  grid centres, or tool 1, 2 or 7's output - summarised over areas:
+  wards, tracts, DeSO, municipalities, counties, which may overlap in
+  one layer. Group "A. Neighbourhoods", shown from the start (STANDARD).
+  Stata gets its own solution later (John, "B5").
+  JOHN'S DECISIONS, 27 November: the name ("A4"); a border point counts
+  once, in the first area ("B1" - "if we include them we increase the
+  total population"); overlapping layers each get full results, and a
+  level field gives one area per level for the points output ("B2");
+  "hide areas with fewer than __ people", with the help saying why a
+  k-neighbourhood helps and that it reduces, not removes, the risk
+  ("B3"); rasters as input and area-to-area by shared area later
+  ("B6"); per person, tool 2's definitions; points in no area snapped
+  to the nearest by default, or left out, ties to the first, and
+  reported.
+  BUILT: equipop/zones.py - which area a point is in (the even-odd
+  rule, so holes and islands need no special case) and which is
+  nearest, in metres, also from degrees; the doors read the layers and
+  pass plain rings, so QGIS, Pro and Python give one answer.
+  equipop/doors/areasdoor.py - the boxes, R-61 (belong), R-62
+  (summarise), the points' columns per level, and the messages:
+  points on borders (with a question when there are many: grid
+  CORNERS sit on the borders of areas built from the same grid),
+  snapped and how far, ties, left out, empty areas, hidden areas.
+  qgis/equipop_qgis/alg_areas.py and the Pro class AreaSummaries:
+  the areas are read in the points' system (QGIS's transform, Pro's
+  spatial_reference); the results go onto the areas - in Pro onto a
+  copy, matched on the copy's identifiers (164) - and, if asked, the
+  points. Tool 7's Pro writer became _extend_copy, shared, and writes
+  text (the area's name) as well as numbers; QGIS's write() takes
+  text_columns for the same.
+  CHECKED: zones against shapely on 20,000 points over a 4 x 4 grid of
+  1 km squares with a hole, a quarter on grid lines - the same areas,
+  the same borders, the same nearest distances. A town worked by hand
+  (tests/test_areas_doors.py, its docstring) in the shared half, QGIS
+  and Pro.
+  THE STAND-IN LEARNED two things QGIS does: polygon features have
+  their own ids, and a polygon output can be read back (asPoint() on a
+  polygon raises there as here).
+  NOT YET: Stata; rasters as input; area to area by shared area (B6);
+  the Book's chapter.
+
+- 520 | MERGED 27 NOVEMBER 2026 (#32), not released | THE GROUPS
   GET LETTERS: A. Neighbourhoods, B. Statistics, C. Rasters and pixels,
   D. Demography, E. Finding and fetching data, F. Simulation.
   John, 27 November, on 517's screenshots from both programs: both

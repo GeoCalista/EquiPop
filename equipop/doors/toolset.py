@@ -37,7 +37,8 @@ from pathlib import Path
 
 #: Always shown. Door-neutral names: the Pro classes, and each QGIS
 #: algorithm's EQP_TOOL.
-STANDARD = ("ShowTools", "CountsShares", "ValueStatistics")
+STANDARD = ("ShowTools", "CountsShares", "AreaSummaries",
+            "ValueStatistics")      # 1b: BACKLOG 521, shown
 #: Hidden until shown. SpatialDataFetch (5d) is QGIS's older fetch.
 EXTENDED = ("ContinentalRasters", "PixelReach", "SpatialDemography",
             "WorldPopCatalogue", "OsmCatalogue", "FetchSelected",
@@ -69,6 +70,7 @@ DEFAULT = False
 GROUPS = {
     "ShowTools": "",
     "CountsShares": "A. Neighbourhoods",
+    "AreaSummaries": "A. Neighbourhoods",
     "ValueStatistics": "B. Statistics",
     "ContinentalRasters": "C. Rasters and pixels",
     "PixelReach": "C. Rasters and pixels",

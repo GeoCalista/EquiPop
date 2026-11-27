@@ -186,7 +186,8 @@ def test_pro_lists_0_1_and_2_until_shown(fresh):
     """BROKEN WITH: `self.tools = self.all_tools` (nothing hidden)."""
     pyt, _AC = _pro()
     names = [t.__name__ for t in pyt.Toolbox().tools]
-    assert names == ["ShowTools", "CountsShares", "ValueStatistics"]
+    assert names == ["ShowTools", "CountsShares", "AreaSummaries",
+                     "ValueStatistics"]          # 1b: BACKLOG 521
     toolset.set_show_all(True)
     assert [t.__name__ for t in pyt.Toolbox().tools] == [
         t.__name__ for t in pyt.Toolbox().all_tools]

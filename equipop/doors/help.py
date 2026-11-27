@@ -18,6 +18,85 @@ Text moved unchanged from arcgis/make_help_xml.py in 1.18.0.
 """
 
 HELP = {
+    # -- tool 1b, summaries by area (BACKLOG 521; R-61, R-62) ----------
+    "areapoints":
+        "THE POINTS to summarise: people, addresses, the cells of a "
+        "population grid as points, or the output of tool 1, 2 or 7 - "
+        "whatever holds the numbers you want per area. In degrees, they "
+        "are placed in metres for the run, as in every tool.",
+    "areas":
+        "THE AREAS: a polygon layer - wards, census tracts, DeSO, "
+        "municipalities, counties. They may overlap: one layer can hold "
+        "municipalities AND counties, and each area gets its own "
+        "results. In another coordinate system than the points, they "
+        "are placed in the points' system for the run; the layer itself "
+        "is not changed.",
+    "areaname":
+        "THE FIELD THAT NAMES EACH AREA - a code or a name. Optional: it "
+        "names the area on the points output (without it the areas are "
+        "numbered 1, 2, 3 in the layer's order); the areas output keeps "
+        "all its own fields anyway.",
+    "arealevel":
+        "THE LEVEL FIELD, for areas that overlap: which areas belong "
+        "together, such as 'municipality' and 'county'. Within a level a "
+        "point counts in ONE area - a person lives in one municipality "
+        "and one county - and the points output gets one set of columns "
+        "per level. Without it, a point inside two overlapping areas "
+        "counts in both, which is right for the areas' own results, and "
+        "the points output is refused because a point cannot hold two "
+        "areas' results in one column. It also matters on borders: a "
+        "point on a border that a municipality shares with its county "
+        "counts once in each level with it, and in one area only "
+        "without it.",
+    "areapeople":
+        "PEOPLE PER POINT - a population field. Every result is then PER "
+        "PERSON: a point of 40 people weighs 40 times one of 1, in the "
+        "counts, the shares and every statistic. Empty: each point is "
+        "one.",
+    "areacounts":
+        "COUNT FIELDS - people of a group, households, jobs. Each is "
+        "SUMMED over the area (T_) and divided by the area's people "
+        "(R_), the same T_ and R_ as tool 1.",
+    "areavalues":
+        "VALUE FIELDS - income, rent, age, or a result of tool 1 or 2 "
+        "such as R_ or Dist_. Each is summarised over the area with the "
+        "statistics ticked below, weighted by the people at each point.",
+    "areastats":
+        "THE STATISTICS of each value field, with tool 2's definitions: "
+        "the variance divides by n - 1, the median is interpolated, "
+        "percentiles by weight. Mean and median unless you tick others.",
+    "areahide":
+        "HIDE AREAS WITH FEWER THAN ... PEOPLE: such an area keeps its N "
+        "and shows no other result (Hidden = 1), so a value describing "
+        "three people is not published. Empty: nothing is hidden. WHY "
+        "EQUIPOP HELPS HERE: an area can hold three people; a "
+        "neighbourhood of k people (tools 1 and 2) always holds k. With "
+        "k at or above this threshold, no value rests on fewer people "
+        "than it allows, wherever the borders are drawn. Overlapping "
+        "neighbourhoods can still differ by only a few people, so this "
+        "REDUCES the risk of disclosure; it does not remove it.",
+    "areaoutside":
+        "POINTS IN NO AREA - on the coast, beyond the edge of the layer, "
+        "in a gap between two areas. Snapped (the default): each goes "
+        "to the nearest area, at the same distance to the first in the "
+        "file, and the run says how many went and how far the farthest "
+        "was. Left out: they count nowhere, and the run says how many. "
+        "With a level field, this is done within each level.",
+    "areasnap":
+        "SNAP ONLY WITHIN ... METRES: a point farther than this from "
+        "every area is left out instead, and counted in the messages. "
+        "Empty: any distance. Not used when points in no area are left "
+        "out.",
+    "out_areas":
+        "THE AREAS, WITH THEIR RESULTS: every area of the layer, also "
+        "those with nobody in them (N = 0), with N people, Npts points, "
+        "T_ and R_ for each count field, a column per statistic for "
+        "each value field, and Hidden.",
+    "out_points":
+        "THE POINTS, WITH THEIR AREA'S RESULTS (optional): each point "
+        "with the name and results of the area it counts in - one set "
+        "of columns per level when a level field is given. A point in "
+        "no area keeps empty columns.",
     # -- machine 7, step 1: tool 7, who goes where (BACKLOG 515) ------
     "origins":
         "THE PEOPLE: a point layer, in a projected system in metres - "
@@ -1089,6 +1168,10 @@ LABELS = {
     # an analysis, and it must sort first so it is found.
     "ShowTools": "0. Show or hide tools 3-7",
     "CountsShares": "1. Counts and Shares (k / radius / decay)",
+    # v1.67.0, BACKLOG 521: John, 27 November 2026 - "1b. Summaries by
+    # area" is enough. Areas, not neighbourhoods, but it answers the
+    # same question tool 1 does, for people who start from areas.
+    "AreaSummaries": "1b. Summaries by area",
     "ValueStatistics": "2. Value Statistics (numeric fields among the "
                        "k nearest)",
     "ContinentalRasters": "3. Raster Data Curation",
@@ -1113,6 +1196,18 @@ LABELS = {
 
 
 SUMMARY = {
+    "AreaSummaries":
+        "Summarises points over areas - wards, census tracts, DeSO, "
+        "municipalities, counties - the way an area-based statistic is "
+        "made: per area, how many people, how many of each group and "
+        "their share, and the mean, median, spread or any other "
+        "statistic of a value such as income, weighted per person. "
+        "Areas may overlap (municipalities and counties in one layer); "
+        "each gets its own results. A point on a border counts once, in "
+        "the first area; a point in no area is snapped to the nearest "
+        "or left out, as you choose; areas with too few people can have "
+        "their results hidden. The results come back on the areas, and "
+        "if you like on the points.",
     "Assignment":
         "Sends the people at each point to destinations that can fill "
         "up - schools, preschools, workplaces, clinics. People choose "
@@ -1248,6 +1343,19 @@ SUMMARY = {
 }
 
 USAGE = {
+    "AreaSummaries":
+        "Start with the points, the areas and one value field: you get "
+        "N and the mean and median per area. Add count fields for "
+        "shares, and the people field when a point is more than one "
+        "person - without it, a grid cell of 200 people weighs as much "
+        "as one of 2. For municipalities and counties in one layer, give "
+        "the level field. The tool also works the other way round from "
+        "tool 1: summarise tool 1's R_ or tool 2's Mean_ per area to "
+        "compare neighbourhoods drawn by people with areas drawn by "
+        "borders. Read the messages: how many points sat on borders, "
+        "how many were snapped and how far. Many points on borders "
+        "usually means the points are the CORNERS of grid cells, not "
+        "their centres.",
     "Assignment":
         "Start with your people and destinations in one projected "
         "system in metres, and a capacity field if places are limited. "

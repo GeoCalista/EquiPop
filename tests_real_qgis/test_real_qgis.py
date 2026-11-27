@@ -132,6 +132,7 @@ def test_every_tool_is_registered(provider):
 GROUP_OF = {
     "showtools": "",
     "countsandshares": "A. Neighbourhoods",
+    "areasummaries": "A. Neighbourhoods",
     "valuestatistics": "B. Statistics",
     "continentalrasters": "C. Rasters and pixels",
     "pixelreach": "C. Rasters and pixels",
@@ -499,3 +500,69 @@ def test_assignment_through_processing_run(tmp_path, choose):
     assert trips.isValid() and trips.featureCount() == len(want.trips)
     f = next(trips.getFeatures())
     assert len(list(f.geometry().vertices())) == 2      # one straight line
+
+
+def _town_areas():
+    """Tool 1b's town (tests/test_areas_doors.py): four squares, two
+    levels, and five points - on a border, on a corner, outside."""
+    x0, y0 = 670000.0, 6580000.0
+    areas = QgsVectorLayer("Polygon?crs=EPSG:3006&field=name:string(5)"
+                           "&field=level:string(10)", "areas", "memory")
+    feats = []
+    for (a, b), name, level in zip(
+            [(0, 1000), (1000, 2000), (0, 2000), (3000, 4000)],
+            ["A", "B", "C", "E"], ["muni", "muni", "county", "muni"]):
+        f = QgsFeature(areas.fields())
+        f.setGeometry(QgsGeometry.fromPolygonXY([[
+            QgsPointXY(x0 + a, y0), QgsPointXY(x0 + b, y0),
+            QgsPointXY(x0 + b, y0 + 1000), QgsPointXY(x0 + a, y0 + 1000)]]))
+        f.setAttributes([name, level])
+        feats.append(f)
+    assert areas.dataProvider().addFeatures(feats)
+    pts = QgsVectorLayer("Point?crs=EPSG:3006&field=pid:integer"
+                         "&field=pop:double&field=old:double"
+                         "&field=inc:double", "pts", "memory")
+    xy = [(500, 500), (1000, 500), (1500, 500), (2050, 500), (1000, 1000)]
+    vals = [(10, 2, 100), (4, 1, 200), (6, 3, 300), (3, 0, 400),
+            (1, 0, 500)]
+    feats = []
+    for i, ((x, y), v) in enumerate(zip(xy, vals)):
+        f = QgsFeature(pts.fields())
+        f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x0 + x, y0 + y)))
+        f.setAttributes([i] + [float(a) for a in v])
+        feats.append(f)
+    assert pts.dataProvider().addFeatures(feats)
+    return areas, pts
+
+
+def test_summaries_by_area_through_processing_run(tmp_path):
+    """Tool 1b (BACKLOG 521, R-61, R-62) through processing.run, written
+    to GeoPackages and read back: the areas' numbers are worked by hand
+    in tests/test_areas_doors.py, and the points carry their area's
+    name as text, one set per level."""
+    areas, pts = _town_areas()
+    out_a, out_p = str(tmp_path / "a.gpkg"), str(tmp_path / "p.gpkg")
+    processing.run("equipop:areasummaries", dict(
+        areapoints=pts, areas=areas, areaname="name", arealevel="level",
+        areapeople="pop", areacounts=["old"], areavalues=["inc"],
+        areastats=[0, 1], areaoutside=0, out_areas=out_a,
+        out_points=out_p))
+    lyr = QgsVectorLayer(out_a, "a", "ogr")
+    got = {f["name"]: (f["N"], f["Npts"], f["Mean_inc"])
+           for f in lyr.getFeatures()}
+    assert {k: v[:2] for k, v in got.items()} == {
+        "A": (15, 3), "B": (9, 2), "C": (24, 5), "E": (0, 0)}
+    assert got["A"][2] == pytest.approx(2300 / 15)
+    p = _read(out_p)
+    assert list(p["Area_muni"]) == ["A", "A", "B", "B", "A"]
+    assert list(p["Area_county"]) == ["C"] * 5
+    np.testing.assert_allclose(_num(p["N_muni"]), [15, 15, 9, 9, 15])
+
+
+def test_summaries_by_area_refuse_points_for_overlapping_areas(tmp_path):
+    areas, pts = _town_areas()
+    with pytest.raises(QgsProcessingException, match="level field"):
+        processing.run("equipop:areasummaries", dict(
+            areapoints=pts, areas=areas, areapeople="pop",
+            out_areas=str(tmp_path / "a.gpkg"),
+            out_points=str(tmp_path / "p.gpkg")))

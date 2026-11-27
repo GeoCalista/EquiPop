@@ -1776,9 +1776,14 @@ def _add_columns(layer, oid, sub, fresh, messages):
         "This target does not support the fast bulk write, so the "
         "results are written row by row instead. Same numbers, "
         "slower - a large layer will take noticeably longer.")
+    def _is_text(nm):                   # tool 1b's area names, BACKLOG 521
+        return sub.dtype[nm].kind in "US"
+
     for name in fresh:
         try:
-            arcpy.management.AddField(target, name, "DOUBLE")
+            arcpy.management.AddField(target, name,
+                                      "TEXT" if _is_text(name)
+                                      else "DOUBLE")
         except Exception as exc:
             raise _write_failure(exc, f"add the result field "
                                  f"'{name}'", target)
@@ -1790,7 +1795,8 @@ def _add_columns(layer, oid, sub, fresh, messages):
                 if i is None:
                     continue
                 for j, nm in enumerate(fresh, start=1):
-                    row[j] = float(sub[nm][i])
+                    row[j] = (str(sub[nm][i]) if _is_text(nm)
+                              else float(sub[nm][i]))
                 cur.updateRow(row)
     except Exception as exc:
         raise _write_failure(exc, "fill the new result fields",
@@ -4710,6 +4716,225 @@ def _inventory_rows(got):
     return out
 
 
+class AreaSummaries:
+    """TOOL 1b for Pro: points summarised over areas - wards, tracts,
+    municipalities, counties (BACKLOG 521; rulings R-61 and R-62). The
+    QGIS twin is qgis/equipop_qgis/alg_areas.py.
+
+    Thin. Which area a point counts in is equipop.zones and
+    equipop.doors.areasdoor, which QGIS calls with the same boxes. What
+    is Pro's own: reading the points, reading the areas' rings in the
+    points' spatial reference (arcpy projects them on the way in), and
+    writing results onto COPIES of the areas and, if asked, the points,
+    matched on the copies' own identifiers (BACKLOG 164).
+    """
+
+    def __init__(self):
+        self.label = "1b. Summaries by area"
+        self.category = "A. Neighbourhoods"  # BACKLOG 521
+        from equipop.doors.help import SUMMARY
+        self.description = SUMMARY["AreaSummaries"]
+
+    def getParameterInfo(self):
+        from equipop.doors.areasdoor import OUTSIDE_LABELS, STAT_LABELS
+        num = ["Short", "Long", "Float", "Double"]
+        areas = _p("areas", "The areas - wards, tracts, municipalities "
+                            "(may overlap)", "GPFeatureLayer")
+        areas.filter.list = ["Polygon"]
+        name = _p("areaname", "The field that names each area "
+                              "(optional)", "Field", required=False)
+        name.parameterDependencies = ["areas"]
+        level = _p("arealevel", "Level field - which areas belong "
+                                "together, when they overlap (optional)",
+                   "Field", required=False)
+        level.parameterDependencies = ["areas"]
+        people = _p("areapeople", "People per point (empty = one each)",
+                    "Field", required=False)
+        counts = _p("areacounts", "Count fields to sum and share "
+                                  "(optional)", "Field", required=False,
+                    multiValue=True)
+        values = _p("areavalues", "Value fields to summarise (optional)",
+                    "Field", required=False, multiValue=True)
+        for f in (people, counts, values):
+            f.parameterDependencies = ["areapoints"]
+            f.filter.list = num
+        stats = _p("areastats", "Statistics of the value fields",
+                   "GPString", required=False, multiValue=True)
+        stats.filter.type = "ValueList"
+        stats.filter.list = [w for _, w in STAT_LABELS]
+        stats.value = "Mean;Median"
+        outside = _p("areaoutside", "Points in no area", "GPString")
+        outside.filter.type = "ValueList"
+        outside.filter.list = list(OUTSIDE_LABELS)
+        outside.value = OUTSIDE_LABELS[0]
+        return [_p("areapoints", "The points - people, addresses, grid "
+                                 "centres, or a tool's output",
+                   "GPFeatureLayer"),
+                areas, name, level, people, counts, values, stats,
+                _p("areahide", "Hide areas with fewer than ... people "
+                               "(empty = hide none)", "GPString",
+                   required=False),
+                outside,
+                _p("areasnap", "Snap only within ... metres (empty = any "
+                               "distance)", "GPString", required=False),
+                _p("out_areas", "The areas, with their results (new "
+                                "feature class)", "DEFeatureClass",
+                   direction="Output"),
+                _p("out_points", "The points, with their area's results "
+                                 "(optional new feature class)",
+                   "DEFeatureClass", direction="Output",
+                   required=False)]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        return
+
+    @staticmethod
+    def _boxes(pm):
+        return dict(stats=_multi(pm, "areastats"),
+                    min_people=_txt(pm, "areahide"),
+                    outside=_txt(pm, "areaoutside"),
+                    snap_within=_txt(pm, "areasnap"))
+
+    def updateMessages(self, parameters):
+        """The typed boxes refused while the dialog is still open, on
+        the box that is wrong."""
+        if _doors(strict=False) is None:
+            return
+        from equipop.doors.areasdoor import parse_boxes
+        from equipop.doors.numbers import BadNumber
+        pm = _byname(parameters)
+        try:
+            parse_boxes(**self._boxes(pm))
+        except BadNumber as bad:
+            text = str(bad)
+            box = ("areahide" if text.startswith("Hide") else
+                   "areasnap" if text.startswith("Snap") else
+                   "areaoutside" if text.startswith("Points") else
+                   "areastats")
+            if pm.get(box) is not None:
+                pm[box].setErrorMessage(text)
+
+    def execute(self, parameters, messages):
+        _announce_version(messages)
+        _doors()
+        import pandas as pd
+
+        from equipop.doors.areasdoor import describe, parse_boxes, run
+        from equipop.doors.numbers import BadNumber
+        from equipop.zones import Areas
+
+        pm = _byname(parameters)
+        ch = _channel(messages)
+        points, areas = _txt(pm, "areapoints"), _txt(pm, "areas")
+        out_a, out_p = _txt(pm, "out_areas"), _txt(pm, "out_points")
+        for value, box in ((points, "the points layer"),
+                           (areas, "the areas layer"),
+                           (out_a, "a new feature class for the areas")):
+            if not value:
+                raise arcpy.ExecuteError(f"Choose {box}.")
+        name_f, level_f = _txt(pm, "areaname"), _txt(pm, "arealevel")
+        people_f = _txt(pm, "areapeople")
+        counts, values = _multi(pm, "areacounts"), _multi(pm, "areavalues")
+        try:
+            kw = parse_boxes(**self._boxes(pm))
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+        desc_a = arcpy.Describe(areas)
+        if _kind(desc_a) != "polygon":
+            raise arcpy.ExecuteError(
+                "The areas box takes POLYGONS - the areas to summarise "
+                "over.")
+        _require_crs(arcpy.Describe(points), "The points layer")
+        _require_crs(desc_a, "The areas layer")
+
+        with _stage(messages, "reading the points"):
+            # in degrees, placed in metres as every tool does
+            _, data, _ = _read_input(
+                points, _COORD_GEOM, None, None,
+                [people_f] + counts + values, messages,
+                context="points layer", auto_project=True)
+            sr = _read_input.last_sr
+            unit = _read_input.last_unit
+        if unit not in ("metres", "map units") and \
+                kw["snap_within"] is not None:
+            raise arcpy.ExecuteError(
+                f"The points are in {unit}, and 'snap only within' is "
+                "read in metres. Leave that box empty, or save the "
+                "points in a system in metres.")
+        with _stage(messages, "reading the areas"):
+            rings, names, levels = _area_rings(areas, sr, name_f,
+                                               level_f)
+        frame = pd.DataFrame({c: np.asarray(_numeric(
+            data[c], c, "The points layer"), float)
+            for c in [people_f] + counts + values if c})
+        try:
+            with _stage(messages, "calculating"):
+                table, pts, _ = run(
+                    frame, data["x"], data["y"], Areas(rings),
+                    names=names, levels=levels, people=people_f or None,
+                    counts=counts, values=values,
+                    want_points=bool(out_p), say=ch.info, **kw)
+        except BadNumber as bad:
+            raise arcpy.ExecuteError(str(bad))
+        texts = describe(counts, values, kw["stats"], levels)
+
+        with _stage(messages, "writing output"):
+            # each copy is made, then given its results, then the next
+            # - and the results are matched on the COPY's identifiers
+            for src, out, frame_ in ((areas, out_a, table),
+                                     (points, out_p, pts)):
+                if not out or frame_ is None:
+                    continue
+                arcpy.management.CopyFeatures(src, out)
+                oid = arcpy.Describe(out).OIDFieldName
+                with arcpy.da.SearchCursor(out, [oid]) as cur:
+                    ids = [int(r[0]) for r in cur]
+                if len(ids) != len(frame_):
+                    raise arcpy.ExecuteError(
+                        f"The copy {out} holds {len(ids):,} rows and the "
+                        f"run made {len(frame_):,}. Clear any selection "
+                        "or definition query that changed between "
+                        "reading and copying, and run again.")
+                words = [c for c in frame_.columns
+                         if not pd.api.types.is_numeric_dtype(frame_[c])]
+                _extend_copy(out, oid, ids, frame_, messages,
+                             text_columns=words)
+        ch.info("The new columns: " + "; ".join(
+            f"{c} = {texts[c]}" for c in table.columns if c in texts))
+
+
+def _area_rings(layer, sr, name_field, level_field):
+    """Every area's rings in the points' spatial reference, in the
+    layer's own order - an empty geometry keeps its place with no
+    rings, so row j of the results is area j of the copy. Rings split
+    on None (the holes), every part kept, as read_shapes does."""
+    cols = ["SHAPE@"] + [f for f in (name_field, level_field) if f]
+    rings, names, levels = [], [], []
+    with arcpy.da.SearchCursor(layer, cols, spatial_reference=sr) as cur:
+        for row in cur:
+            geom, at = row[0], 1
+            area = []
+            for part in (geom or []):
+                ring = []
+                for p in part:
+                    if p is None:
+                        area.append(ring)
+                        ring = []
+                    else:
+                        ring.append((p.X, p.Y))
+                area.append(ring)
+            rings.append([r for r in area if len(r) >= 3])
+            if name_field:
+                names.append("" if row[at] is None else str(row[at]))
+                at += 1
+            if level_field:
+                levels.append("" if row[at] is None else str(row[at]))
+    return rings, (names or None), (levels if level_field else None)
+
+
 class Assignment:
     """TOOL 7 for Pro: who goes where when destinations fill up
     (machine 7, step 1; BACKLOG 515; ruling R-56). The QGIS twin is
@@ -4888,30 +5113,7 @@ class Assignment:
         texts = describe(a.method, a.runs, bool(cf), kw["speed_kmh"])
 
         def extend(out, oid, ids, frame):
-            # a result name the copy already has - a second run on a
-            # first run's output - is written beside it under another
-            # name, and the run says so (BACKLOG 316, as Counts does);
-            # ExtendTable refuses an existing field outright
-            names, _ = _keep_both_names(
-                {c: c for c in frame.columns},
-                {f.name for f in _target_fields(out).values()},
-                messages)
-            frame = frame.rename(columns=names)
-            # a renamed name can pass a shapefile's ten characters: say
-            # so plainly rather than let the format refuse it
-            txt = _refuse_shp_overflow(str(out), list(names.values()))
-            if txt:
-                raise arcpy.ExecuteError(txt)
-            order = list(frame.columns)
-            sub = np.empty(len(frame), dtype=[(str(oid), "<i8")]
-                           + [(c, "<f8") for c in order])
-            sub[str(oid)] = np.asarray(ids, np.int64)
-            for c in order:
-                sub[c] = frame[c].to_numpy(float)
-            _add_columns(out, oid, sub, order, messages)
-            messages.addMessage(f"Wrote {len(frame):,} rows with "
-                                f"{len(order)} new columns to {out}: "
-                                + ", ".join(order))
+            _extend_copy(out, oid, ids, frame, messages)
 
         with _stage(messages, "writing output"):
             extend(outs["out_origins"], oid_o, data_o[oid_o],
@@ -4926,6 +5128,39 @@ class Assignment:
                    t["destinations"])
             _write_trips(outs["out_trips"], sr, t["trips"], data_o,
                          data_d, dict(texts["trips"]), messages)
+
+
+def _extend_copy(out, oid, ids, frame, messages, text_columns=()):
+    """Results onto a COPY, matched on the copy's own identifiers
+    (BACKLOG 164). Written for tool 7 (BACKLOG 515) and shared with tool
+    1b (BACKLOG 521), which also writes text: the area's name.
+
+    A result name the copy already has - a second run on a first run's
+    output - is written beside it under another name, and the run says
+    so (BACKLOG 316, as Counts does); ExtendTable refuses an existing
+    field outright."""
+    names, _ = _keep_both_names(
+        {c: c for c in frame.columns},
+        {f.name for f in _target_fields(out).values()}, messages)
+    text = {names[c] for c in text_columns}
+    frame = frame.rename(columns=names)
+    # a renamed name can pass a shapefile's ten characters: say so
+    # plainly rather than let the format refuse it
+    txt = _refuse_shp_overflow(str(out), list(names.values()))
+    if txt:
+        raise arcpy.ExecuteError(txt)
+    order = list(frame.columns)
+    words = {c: ["" if v is None or v != v else str(v)
+                 for v in frame[c].tolist()] for c in order if c in text}
+    sub = np.empty(len(frame), dtype=[(str(oid), "<i8")] + [
+        (c, f"<U{max([1] + [len(w) for w in words[c]])}") if c in text
+        else (c, "<f8") for c in order])
+    sub[str(oid)] = np.asarray(ids, np.int64)
+    for c in order:
+        sub[c] = words[c] if c in text else frame[c].to_numpy(float)
+    _add_columns(out, oid, sub, order, messages)
+    messages.addMessage(f"Wrote {len(frame):,} rows with {len(order)} "
+                        f"new columns to {out}: " + ", ".join(order))
 
 
 def _write_trips(out, sr, trips, o, d, texts, messages):
@@ -5921,7 +6156,8 @@ class Toolbox:
         # v1.66.0, BACKLOG 517: each tool names its toolset in its own
         # self.category (equipop.doors.toolset.GROUPS is the table, a
         # test pins it). Tool 0 has none, so it stays at the top.
-        self.all_tools = [ShowTools, CountsShares, ValueStatistics,
+        self.all_tools = [ShowTools, CountsShares, AreaSummaries,
+                          ValueStatistics,
                           ContinentalRasters, PixelReach,
                           SpatialDemography,
                           WorldPopCatalogue, OsmCatalogue, FetchSelected,
