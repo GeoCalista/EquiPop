@@ -125,10 +125,12 @@ under "EquiPop": *0. Show or hide tools 3-7*, *1. Counts and Shares*
 and *2. Value Statistics* - EquiPop's standard set.
 
 **Toolsets (since 1.66.0).** Each tool sits in a toolset by what it is
-for: *Neighbourhoods* (1), *Statistics* (2), *Rasters and pixels* (3,
-3b), *Demography* (4), *Finding and fetching data* (5a, 5b, 5c, 6) and
-*Simulation* (7). Tool 0 stays at the top, in none. A toolset whose
-tools are all hidden is not listed. Scripts and models call a tool by
+for: *A. Neighbourhoods* (1), *B. Statistics* (2), *C. Rasters and
+pixels* (3, 3b), *D. Demography* (4), *E. Finding and fetching data*
+(5a, 5b, 5c, 6) and *F. Simulation* (7); the letters keep that order,
+since Pro sorts toolsets by name. Tool 0 is in none: Pro lists it
+below the toolsets. A toolset whose tools are all hidden is not
+listed. Scripts and models call a tool by
 its name, not its toolset, so the toolsets change nothing in them.
 
 **Showing tools 3 to 7 (since 1.62.0).** The other eight - *Raster Data

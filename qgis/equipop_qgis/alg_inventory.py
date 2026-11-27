@@ -58,7 +58,7 @@ class FolderInventory(EquipopAlgorithm):
     """Describe a folder's contents. Reads; changes nothing."""
 
     EQP_TOOL = "FolderInventory"
-    EQP_GROUP = "Finding and fetching data"
+    EQP_GROUP = "E. Finding and fetching data"
 
     def name(self):
         return "folderinventory"

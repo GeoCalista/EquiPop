@@ -265,9 +265,10 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
     NEEDS_A_NEIGHBOURHOOD = False     # machines 1 and 2: k OR r
     K_IS_REQUIRED = False             # machine 4: k, and it is needed
 
-    # BACKLOG 517: each tool sits in a group by what it is for -
-    # Neighbourhoods, Statistics, Rasters and pixels, Demography,
-    # Finding and fetching data, Simulation - and tool 0 at the top,
+    # BACKLOG 517, 520: each tool sits in a group by what it is for -
+    # A. Neighbourhoods, B. Statistics, C. Rasters and pixels,
+    # D. Demography, E. Finding and fetching data, F. Simulation (the
+    # letters keep that order) - and tool 0 at the top,
     # in none. WRITTEN DOWN on each algorithm as EQP_GROUP, because
     # QGIS asks while it builds the toolbox (BACKLOG 218);
     # equipop.doors.toolset.GROUPS is the table, and

@@ -48,11 +48,10 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.67.0: the spatial aggregation tool** - statistics by area, the
+1. **1.67.0: tool 1b, "Summaries by area"** - statistics by area, the
    AREA family of tools 1 and 2 (equipop.area has had the engine half
-   since long). Six design questions are with John (26 November).
-   Just before it, the short review of the tool names, so the new
-   tool is named once and the order of the groups is settled.
+   since long). John answered the design questions on 27 November
+   (521). First the group letters (520), then the tool.
 2. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
    planned in "EquiPop and MCP".
@@ -3738,6 +3737,23 @@ because machine 3 stores tiles that way and says so in its manifest.
   the suite would pass. That is the guard written after inventory.py
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
+
+- 520 | BUILT 27 NOVEMBER 2026, pull request, not released | THE GROUPS
+  GET LETTERS: A. Neighbourhoods, B. Statistics, C. Rasters and pixels,
+  D. Demography, E. Finding and fetching data, F. Simulation.
+  John, 27 November, on 517's screenshots from both programs: both
+  sort groups by name (Demography came first), and the order is his.
+  A letter in front keeps it - "A1: sure". Tool 0: Pro lists toolsets
+  before tools, so it shows last in Pro and first in QGIS - "A2:
+  accepting it". The QGIS group ids follow (aneighbourhoods, ...);
+  nothing calls a tool by its group, so models and scripts are
+  unaffected. A test pins the order.
+  TOOL NUMBERS (John, "A3"): kept for now; "in the future I want to
+  remove them". Not done: the numbers are in the Book, the manual,
+  every help text and the tests, and tool 0's label names them
+  ("Show or hide tools 3-7"). When it comes: one pull request that
+  renames the labels and the texts together, with the groups' letters
+  carrying the order the numbers carry now.
 
 - 519 | DONE v1.66.0, 27 NOVEMBER 2026 (built 26 November, #30) (ruling
   R-60; found while building 518) | A k SMALLER THAN THE FIRST PIXEL A

@@ -70,8 +70,8 @@ The tools appear in the Processing Toolbox under **EquiPop**, each in
 a group by what it is for (since 1.66.0):
 
 - 0. Show or hide tools 3-7 (at the top, in no group)
-- **Neighbourhoods:** 1. Counts and Shares (k / radius / decay)
-- **Statistics:** 2. Value Statistics (numeric fields among the k nearest)
+- **A. Neighbourhoods:** 1. Counts and Shares (k / radius / decay)
+- **B. Statistics:** 2. Value Statistics (numeric fields among the k nearest)
 
 **Tools 3 to 7 are hidden until you show them** (since 1.62.0): raster
 curation, spatial demography, the downloads from WorldPop and
@@ -84,9 +84,10 @@ is kept for your user and shared with the ArcGIS Pro toolbox; the
 environment variable `EQUIPOP_SHOW_ALL_TOOLS=1` (or `0`) overrides it,
 for a classroom image.
 
-Shown, they sit in four more groups: **Rasters and pixels** (3, 3b),
-**Demography** (4), **Finding and fetching data** (5a to 5d, 6) and
-**Simulation** (7). A group whose tools are hidden is not listed. Models
+Shown, they sit in four more groups: **C. Rasters and pixels** (3, 3b),
+**D. Demography** (4), **E. Finding and fetching data** (5a to 5d, 6)
+and **F. Simulation** (7). The letters keep the groups in this order,
+since QGIS sorts them by name. A group whose tools are hidden is not listed. Models
 and scripts find a tool by its id (`equipop:countsandshares`), not by
 its group, so the groups change nothing in them.
 

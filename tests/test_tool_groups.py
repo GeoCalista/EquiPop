@@ -21,8 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / "qgis"))
 
-GROUP_NAMES = {"", "Neighbourhoods", "Statistics", "Rasters and pixels",
-               "Demography", "Finding and fetching data", "Simulation"}
+GROUP_NAMES = {"", "A. Neighbourhoods", "B. Statistics",
+               "C. Rasters and pixels", "D. Demography",
+               "E. Finding and fetching data", "F. Simulation"}
 
 
 def _qgis_algorithms():
@@ -93,9 +94,19 @@ def test_pro_toolsets_are_one_level():
 
 
 @pytest.mark.parametrize("name, gid", [
-    ("Rasters and pixels", "rastersandpixels"),
-    ("Finding and fetching data", "findingandfetchingdata"),
+    ("C. Rasters and pixels", "crastersandpixels"),
+    ("E. Finding and fetching data", "efindingandfetchingdata"),
     ("", ""),
 ])
 def test_group_id(name, gid):
     assert toolset.group_id(name) == gid
+
+
+def test_the_letters_put_the_groups_in_john_s_order():
+    """BACKLOG 520: both programs sort groups by name; the letters make
+    that order A. Neighbourhoods, B. Statistics, ... F. Simulation.
+    BROKEN WITH: the letters left off - Demography would come first."""
+    named = sorted(set(toolset.GROUPS.values()) - {""})
+    assert [g.split(". ", 1)[1] for g in named] == [
+        "Neighbourhoods", "Statistics", "Rasters and pixels",
+        "Demography", "Finding and fetching data", "Simulation"]

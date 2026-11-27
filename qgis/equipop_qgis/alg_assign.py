@@ -28,7 +28,7 @@ class Assignment(EquipopAlgorithm):
     """Who goes where when destinations fill up."""
 
     EQP_TOOL = "Assignment"
-    EQP_GROUP = "Simulation"
+    EQP_GROUP = "F. Simulation"
     OUT = "out_origins"
 
     def name(self):
