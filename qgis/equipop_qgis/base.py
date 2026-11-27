@@ -865,7 +865,8 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
             return None
 
     def write(self, parameters, context, source, result, order,
-              feedback, descriptions=None, out=None, features=None):
+              feedback, descriptions=None, out=None, features=None,
+              text_columns=()):
         """Original columns, then the results, row for row.
 
         `descriptions` (v1.56.0, BACKLOG 410): {result key: sentence},
@@ -877,6 +878,9 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
         `out` and `features` (v1.66.0, BACKLOG 515): a tool with more
         than one output names which, and which features it copies -
         tool 7 writes its people and its destinations this way.
+
+        `text_columns` (v1.67.0, BACKLOG 521): results written as text,
+        not numbers - tool 1b's area names on the points.
         """
         out = out or self.OUT
         feats = self._features if features is None else features
@@ -926,7 +930,9 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
                                [mapped.get(n, n) for n in order],
                                out=out)
         for name in order:
-            fld = QgsField(mapped.get(name, name), QMetaType.Type.Double)
+            fld = QgsField(mapped.get(name, name),
+                           QMetaType.Type.QString if name in text_columns
+                           else QMetaType.Type.Double)
             text = (descriptions or {}).get(name)
             if text:
                 fld.setAlias(text)                       # BACKLOG 410
@@ -959,6 +965,9 @@ class EquipopAlgorithm(QgsProcessingAlgorithm):
             vals = list(f.attributes())
             for name in order:
                 v = result[name][i]
+                if name in text_columns:
+                    vals.append(None if v is None else str(v))
+                    continue
                 vals.append(None if v is None or
                             (isinstance(v, float) and np.isnan(v))
                             else float(v))

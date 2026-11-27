@@ -94,6 +94,8 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-58 | No cell is faster than a hundredth of a round | In force |
 | R-59 | A raster in degrees is used as it is: its pixels keep their values and true areas, and only their centres move | In force |
 | R-60 | A person on no pixel gathers the first pixel within that pixel's own disc | In force |
+| R-61 | A point counts in one area per level: inside it, else the first whose border it is on, else the nearest | In force |
+| R-62 | An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N | In force |
 
 ---
 
@@ -580,4 +582,20 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Why.** Found while building R-59 (BACKLOG 519): the interpolation started at the person, so a k smaller than the first pixel was "gathered" closer than that pixel - 0.01 ha from a 10 m pixel 572 m away came back at 404 m, 0.5 ha from 1 ha pixels 2,000 m away at 1,414 m. John, 26 November 2026, chose (a), the pixel's own disc, over the plain distance to the pixel, because it is R-55's rule for the pixel a person stands on.
 **Source.** BACKLOG 519.
 **Pinned by.** `tests/test_pixels_door.py::test_a_small_k_is_never_gathered_before_the_first_pixel`, `tests/test_pixels_door.py::test_a_coarse_raster_with_a_small_k`, `tests/test_pixels_door.py::test_the_first_ring_starts_at_the_edge_of_the_real_cell`, `tests/test_pixels_door.py::test_tool_1_is_unchanged_by_r_60`
+**Status.** In force.
+
+## K. Summaries by area (tool 1b)
+
+### R-61 · A point counts in one area per level: inside it, else the first whose border it is on, else the nearest
+**Rule.** In tool 1b a point inside an area counts in it. A point exactly on a border (within a micrometre per kilometre of coordinate size, about 7 mm on a national grid) and inside none counts ONCE, in the first of those areas in the layer. A point in no area is, as the person chooses, snapped to the nearest area (the default; at the same distance from two, the first) or left out; an optional limit leaves out points farther than it. All of this is done within each level when a level field is given (a person lives in one municipality and one county). Without one, a point inside overlapping areas counts in each of them, and the points output is refused. The run reports the points on borders, those snapped with the farthest distance, the ties, and those left out.
+**Why.** John, 27 November 2026, on the design of tool 1b: "if we include them we increase the total population (assume we weight on local pop, that pop is counted twice)" - so a border point counts once; and on points in no area, "open up for a choice - either as you suggests or snapped to the nearest (default - if same distance > first or random assignment -> report so)". The first rather than a random draw, so the same input gives the same numbers on any computer.
+**Source.** BACKLOG 521.
+**Pinned by.** `tests/test_areas_doors.py::test_each_point_counts_where_r61_puts_it`, `tests/test_areas_doors.py::test_points_in_no_area_left_out_or_beyond_the_limit`, `tests/test_areas_doors.py::test_the_points_get_their_area_per_level_and_overlap_is_refused`, `tests/test_zones.py::test_the_same_answers_as_shapely`, `tests/test_zones.py::test_the_nearest_area_and_a_tie_goes_to_the_first`
+**Status.** In force.
+
+### R-62 · An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N
+**Rule.** With a people field every result of tool 1b is per person: N is the area's people, T_ sums a count field and R_ divides it by N, and each statistic of a value field is weighted by the people at each point, with tool 2's definitions (the variance over n - 1, the median interpolated, percentiles by weight). Every area of the layer is in the output, those with nobody in them as N = 0. An area with fewer people than the person's threshold keeps N and shows no other result (Hidden = 1).
+**Why.** John, 27 November 2026: the weighting "is perfect as you suggest", and the definitions are tool 2's so that a mean by area and a mean by neighbourhood mean the same thing. The threshold is "one of the main points of why we use equipop": an area can hold three people, a neighbourhood of k always holds k, and the help says so - with the caution that overlapping neighbourhoods can differ by a few people, so k reduces the risk of disclosure and does not remove it.
+**Source.** BACKLOG 521.
+**Pinned by.** `tests/test_areas_doors.py::test_the_statistics_are_tool_2_s_per_person`, `tests/test_areas_doors.py::test_few_people_hide_the_results_but_keep_n`, `tests/test_areas_doors.py::test_qgis_writes_the_shared_numbers_on_the_areas_and_points`, `tests/test_areas_doors.py::test_pro_writes_the_shared_numbers_on_copies_of_both_layers`
 **Status.** In force.

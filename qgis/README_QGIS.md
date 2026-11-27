@@ -70,7 +70,8 @@ The tools appear in the Processing Toolbox under **EquiPop**, each in
 a group by what it is for (since 1.66.0):
 
 - 0. Show or hide tools 3-7 (at the top, in no group)
-- **A. Neighbourhoods:** 1. Counts and Shares (k / radius / decay)
+- **A. Neighbourhoods:** 1. Counts and Shares (k / radius / decay);
+  1b. Summaries by area (since 1.67.0)
 - **B. Statistics:** 2. Value Statistics (numeric fields among the k nearest)
 
 **Tools 3 to 7 are hidden until you show them** (since 1.62.0): raster

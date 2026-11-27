@@ -120,12 +120,13 @@ is the place to run it.)
 
 Copy the `arcgis/EquiPop.pyt` file anywhere convenient (it can live
 in the project folder). In Pro's **Catalog** pane: right-click
-**Toolboxes -> Add Toolbox** -> pick the .pyt. THREE tools appear
-under "EquiPop": *0. Show or hide tools 3-7*, *1. Counts and Shares*
-and *2. Value Statistics* - EquiPop's standard set.
+**Toolboxes -> Add Toolbox** -> pick the .pyt. FOUR tools appear
+under "EquiPop": *0. Show or hide tools 3-7*, *1. Counts and Shares*,
+*1b. Summaries by area* (since 1.67.0) and *2. Value Statistics* -
+EquiPop's standard set.
 
 **Toolsets (since 1.66.0).** Each tool sits in a toolset by what it is
-for: *A. Neighbourhoods* (1), *B. Statistics* (2), *C. Rasters and
+for: *A. Neighbourhoods* (1, 1b), *B. Statistics* (2), *C. Rasters and
 pixels* (3, 3b), *D. Demography* (4), *E. Finding and fetching data*
 (5a, 5b, 5c, 6) and *F. Simulation* (7); the letters keep that order,
 since Pro sorts toolsets by name. Tool 0 is in none: Pro lists it
@@ -140,12 +141,12 @@ Analysis*, the three fetching tools
 selected*, *What is in this folder?* and *7. Who goes where* (since
 1.66.0) - are hidden until you show them. Run *0. Show or hide tools 3-7*, choose *All tools, 1 to 7*,
 then right-click the EquiPop toolbox in the Catalog pane and choose
-**Refresh** (or restart Pro). ELEVEN tools then appear. Run tool 0 again
+**Refresh** (or restart Pro). TWELVE tools then appear. Run tool 0 again
 with *Only tools 1 and 2* to hide them. Hiding changes only the list:
 nothing is uninstalled and no result changes. The choice is saved for
 your Windows user and is shared with the QGIS plugin; the environment
 variable `EQUIPOP_SHOW_ALL_TOOLS=1` (or `0`) overrides it, for a
-classroom image. All eleven tools have in-dialog help and a '?' page.
+classroom image. All twelve tools have in-dialog help and a '?' page.
 
 **Fetching data (5a-5c, v1.59.0).** 5a or 5b lists what a provider has
 as a table in memory - one row per file or layer, with its size, date

@@ -2,6 +2,7 @@
 """provider.py - the EquiPop group in the QGIS Processing toolbox."""
 from qgis.core import QgsProcessingProvider
 
+from .alg_areas import AreaSummaries
 from .alg_assign import Assignment
 from .alg_catalogue import (FetchSelected, OsmCatalogue,
                             WorldPopCatalogue)
@@ -21,7 +22,8 @@ class EquipopProvider(QgsProcessingProvider):
         # v1.62.0, BACKLOG 438: EVERY tool is registered; 3 to 6 are
         # only hidden from the toolbox until tool 0 shows them (see
         # EquipopAlgorithm.flags), so models that use them still run.
-        for alg in (ShowTools(), CountsAndShares(), ValueStatistics(),
+        for alg in (ShowTools(), CountsAndShares(), AreaSummaries(),
+                    ValueStatistics(),
                     ContinentalRasters(), PixelReach(),
                     SpatialDemography(),
                     WorldPopCatalogue(), OsmCatalogue(),

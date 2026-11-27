@@ -422,7 +422,10 @@ class _ShapeSource:
         return len(self._shapes)
 
     def getFeatures(self, *a, **kw):
-        for parts, attrs in self._shapes:
+        # v1.67.0, BACKLOG 521: each feature its OWN id, as in QGIS.
+        # Every one was 0, so a door naming areas by id named them all
+        # "0" here and nowhere else.
+        for i, (parts, attrs) in enumerate(self._shapes):
             g = QgsGeometry()
             if self._kind == "line":
                 g._parts = [[QgsPointXY(x, y) for x, y in part]
@@ -435,6 +438,7 @@ class _ShapeSource:
                             for ring in parts[0]]
                 g._wkb = 3
             f = QgsFeature(self._fields)
+            f._id = i
             f.setGeometry(g)
             f.setAttributes([attrs.get(fl.name())
                              for fl in self._fields])
@@ -560,7 +564,12 @@ class _Sink:
         # locate. This assumed every feature had a point as soon as
         # the FIRST one did, and died on `None.asPoint()`, so no test
         # could ever read back an output containing such a row.
-        if self.features and any(f.hasGeometry() for f in self.features):
+        # v1.67.0, BACKLOG 521: x and y for POINTS only. Tool 1b writes
+        # its areas back as polygons, and asPoint() on a polygon raises
+        # - in QGIS as here - so no polygon output could be read back.
+        if self.features and any(f.hasGeometry()
+                                 and f.geometry()._pt is not None
+                                 for f in self.features):
             def _xy(f):
                 if not f.hasGeometry():
                     return (np.nan, np.nan)

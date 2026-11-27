@@ -138,6 +138,18 @@ MATRIX = {
             "need it, after steps 2 and 3.", 515,
             absent=("stata/equipop.ado", "assign")),
     },
+    # BACKLOG 521, 27 November 2026: tool 1b - points summarised over
+    # areas. Both GIS doors; Stata gets its own solution later (John,
+    # "B5").
+    "tool 1b - summaries by area": {
+        "python": door("equipop/doors/areasdoor.py", "def run("),
+        "qgis": door("qgis/equipop_qgis/alg_areas.py", "areasdoor"),
+        "pro": door("arcgis/EquiPop.pyt", "class AreaSummaries"),
+        "stata": not_yet(
+            "Stata will have its own solution (John, 27 November "
+            "2026, B5).", 521,
+            absent=("stata/equipop.ado", "areasdoor")),
+    },
     # ---------------------------------------------------- the machines
     "machine 1 - counts and shares": {
         "python": PYTHON,
@@ -511,6 +523,10 @@ INTERNAL = {
     # v1.66.0, BACKLOG 515: machine 7's engine (its capability is the
     # matrix row above) and the half both GIS doors share
     "assign", "doors.assigndoor",
+    # v1.67.0, BACKLOG 521: tool 1b's geometry (which area, which is
+    # nearest) and the half both GIS doors share; its capability is the
+    # matrix row above
+    "zones", "doors.areasdoor",
     "doors.help", "doors.report", "doors.fields", "doors.loader",
     "doors.rungs", "doors.registry", "doors.reference",
     "doors.decaynames", "doors.demography", "doors.continental",

@@ -66,8 +66,9 @@ def test_the_provider_offers_both_tools():
     # REGISTERED whatever tool 0 chose - hiding is a flag, not absence.
     # v1.65.0 added 3b, pixelreach (BACKLOG 509).
     # v1.66.0 added 7, assignment (BACKLOG 515).
+    # v1.67.0 added 1b, areasummaries (BACKLOG 521).
     assert sorted(a.name() for a in prov.algorithms()) == [
-        "assignment",
+        "areasummaries", "assignment",
         "continentalrasters", "countsandshares", "fetchselected",
         "folderinventory", "osmcatalogue", "pixelreach", "showtools",
         "spatialdatafetch", "spatialdemography", "valuestatistics",
@@ -864,7 +865,7 @@ from equipop_qgis.provider import EquipopProvider
 prov = EquipopProvider()
 prov.loadAlgorithms()
 names = sorted(a.name() for a in prov._algs)
-assert sorted(names) == ["assignment",
+assert sorted(names) == ["areasummaries", "assignment",
                          "continentalrasters", "countsandshares",
                          "fetchselected", "folderinventory",
                          "osmcatalogue", "pixelreach", "showtools",
@@ -936,7 +937,8 @@ sys.meta_path.insert(0, _Old())
 from equipop_qgis.provider import EquipopProvider
 prov = EquipopProvider()
 prov.loadAlgorithms()
-assert len(prov._algs) == 12, prov._algs    # 0: 1.62.0, 3b: 1.65.0, 7: 1.66.0
+# 0: 1.62.0, 3b: 1.65.0, 7: 1.66.0, 1b: 1.67.0
+assert len(prov._algs) == 13, prov._algs
 for alg in prov._algs:
     alg.initAlgorithm()
     assert alg.parameterDefinitions(), "no boxes built"
