@@ -50,7 +50,11 @@ KEY = "show_all_tools"
 DEFAULT = False
 
 #: WHERE EACH TOOL SITS in the toolbox. BACKLOG 517, John, 25 November
-#: 2026: groups by what a tool is for, the same in both GIS. Pro calls
+#: 2026: groups by what a tool is for, the same in both GIS. BACKLOG
+#: 520, John, 27 November: a letter in front, because both programs
+#: sort groups by name and the order is his (A. Neighbourhoods first).
+#: Pro lists toolsets before tools, so tool 0 shows last there and
+#: first in QGIS - accepted. Pro calls
 #: a group a toolset (`self.category`), QGIS a group (`group()`). QGIS
 #: has one level of groups only, so neither door nests them.
 #:
@@ -64,23 +68,23 @@ DEFAULT = False
 #: 218). tests/test_tool_groups.py pins both doors to this table.
 GROUPS = {
     "ShowTools": "",
-    "CountsShares": "Neighbourhoods",
-    "ValueStatistics": "Statistics",
-    "ContinentalRasters": "Rasters and pixels",
-    "PixelReach": "Rasters and pixels",
-    "SpatialDemography": "Demography",
-    "WorldPopCatalogue": "Finding and fetching data",
-    "OsmCatalogue": "Finding and fetching data",
-    "FetchSelected": "Finding and fetching data",
-    "SpatialDataFetch": "Finding and fetching data",
-    "FolderInventory": "Finding and fetching data",
-    "Assignment": "Simulation",
+    "CountsShares": "A. Neighbourhoods",
+    "ValueStatistics": "B. Statistics",
+    "ContinentalRasters": "C. Rasters and pixels",
+    "PixelReach": "C. Rasters and pixels",
+    "SpatialDemography": "D. Demography",
+    "WorldPopCatalogue": "E. Finding and fetching data",
+    "OsmCatalogue": "E. Finding and fetching data",
+    "FetchSelected": "E. Finding and fetching data",
+    "SpatialDataFetch": "E. Finding and fetching data",
+    "FolderInventory": "E. Finding and fetching data",
+    "Assignment": "F. Simulation",
 }
 
 
 def group_id(group: str) -> str:
     """QGIS's id for a group: its words, lower case, letters only.
-    "Rasters and pixels" -> "rastersandpixels"; "" -> ""."""
+    "C. Rasters and pixels" -> "rastersandpixels"; "" -> ""."""
     return "".join(ch for ch in group.lower() if ch.isalnum())
 
 

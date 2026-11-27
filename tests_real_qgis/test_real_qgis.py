@@ -131,17 +131,17 @@ def test_every_tool_is_registered(provider):
 # Tool 0 has an empty group, which puts it at the top of the toolbox.
 GROUP_OF = {
     "showtools": "",
-    "countsandshares": "Neighbourhoods",
-    "valuestatistics": "Statistics",
-    "continentalrasters": "Rasters and pixels",
-    "pixelreach": "Rasters and pixels",
-    "spatialdemography": "Demography",
-    "worldpopcatalogue": "Finding and fetching data",
-    "osmcatalogue": "Finding and fetching data",
-    "fetchselected": "Finding and fetching data",
-    "spatialdatafetch": "Finding and fetching data",
-    "folderinventory": "Finding and fetching data",
-    "assignment": "Simulation",
+    "countsandshares": "A. Neighbourhoods",
+    "valuestatistics": "B. Statistics",
+    "continentalrasters": "C. Rasters and pixels",
+    "pixelreach": "C. Rasters and pixels",
+    "spatialdemography": "D. Demography",
+    "worldpopcatalogue": "E. Finding and fetching data",
+    "osmcatalogue": "E. Finding and fetching data",
+    "fetchselected": "E. Finding and fetching data",
+    "spatialdatafetch": "E. Finding and fetching data",
+    "folderinventory": "E. Finding and fetching data",
+    "assignment": "F. Simulation",
 }
 
 

@@ -117,7 +117,7 @@ class WorldPopCatalogue(_Catalogue):
     """5a. What WorldPop has, one row per GeoTIFF."""
 
     EQP_TOOL = "WorldPopCatalogue"
-    EQP_GROUP = "Finding and fetching data"
+    EQP_GROUP = "E. Finding and fetching data"
     EQP_LABEL = "5a. WorldPop - what is there? (lists, downloads nothing)"
 
     def name(self):
@@ -188,7 +188,7 @@ class OsmCatalogue(_Catalogue):
     """5b. What Geofabrik has, one row per layer."""
 
     EQP_TOOL = "OsmCatalogue"
-    EQP_GROUP = "Finding and fetching data"
+    EQP_GROUP = "E. Finding and fetching data"
     EQP_LABEL = ("5b. OpenStreetMap (Geofabrik) - what is there? "
                  "(lists, downloads nothing)")
 
@@ -247,7 +247,7 @@ class FetchSelected(EquipopAlgorithm):
     """5c. Download the selected catalogue rows into a folder."""
 
     EQP_TOOL = "FetchSelected"
-    EQP_GROUP = "Finding and fetching data"
+    EQP_GROUP = "E. Finding and fetching data"
     EQP_LABEL = "5c. Fetch the rows you selected (downloads into a folder)"
 
     def name(self):
