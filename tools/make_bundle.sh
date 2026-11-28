@@ -26,6 +26,7 @@
 # THE ORDER, and why each step is where it is:
 #   1. GENERATE the sidecars        - they must exist before step 2
 #   2. the wheel and sdist          - MANIFEST.in puts them in the sdist
+#   2b. the MCP Bundle (.mcpb)      - round that wheel (BACKLOG 522)
 #   3. the QGIS plugin
 #   4. the Pro toolbox + sidecars loose, which is how a Pro user
 #      actually installs them
@@ -108,6 +109,13 @@ python -m build --outdir dist > "$LOGS/build_py.log" 2>&1
 python -m twine check "dist/equipop-$V-py3-none-any.whl" \
     "dist/equipop-$V.tar.gz" >> "$LOGS/build_py.log" 2>&1
 cp "dist/equipop-$V-py3-none-any.whl" "dist/equipop-$V.tar.gz" "$WORK/"
+
+# ---- 2b. the MCP Bundle, round the very wheel above (BACKLOG 522) --
+# Built HERE, not in release_assets.sh, so that a try build carries it
+# too and the Claude Desktop hand check can be made before a release
+# (28 November 2026: the first try build had none). Needs uv.
+python tools/make_mcpb.py "$V" "$WORK/equipop-$V-py3-none-any.whl" "$WORK" \
+    > "$LOGS/mcpb.log" 2>&1 || { cat "$LOGS/mcpb.log" >&2; exit 1; }
 
 # ...and CHECK that MANIFEST.in's permission actually delivered:
 # EXACTLY the sidecars step 1 wrote, not merely some (BACKLOG 513 -

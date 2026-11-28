@@ -56,10 +56,10 @@ rm -f "$A/equipop_arcgis-$V.zip"
 # overwrite=True: a rerun replaces our own earlier file (BACKLOG 514)
 python -c "import sys; from equipop.gridby import write_gridby; write_gridby(sys.argv[1], overwrite=True)" "$A/gridby-$V.gpkg"
 
-# the MCP Bundle (BACKLOG 522): the server for AI assistants, built
-# around the very wheel above, so it installs the code it was built
-# from. Needs uv (pip install uv) for its lock file.
-python tools/make_mcpb.py "$V" "$A/equipop-$V-py3-none-any.whl" "$A"
+# the MCP Bundle (BACKLOG 522): the server for AI assistants, built by
+# make_bundle.sh around the very wheel above, so it installs the code
+# it was built from - and so a try build carries it too
+need "$B/equipop-$V.mcpb"; cp "$B/equipop-$V.mcpb" "$A/"
 
 # every zip opens, and every member is whole
 python - "$A" <<'PY'

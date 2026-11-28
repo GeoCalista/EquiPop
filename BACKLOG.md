@@ -3737,6 +3737,19 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
+- 525 | BUILT 28 NOVEMBER 2026, pull request, not released | THE TRY
+  BUILD CARRIES THE .mcpb. John's first hand check of the MCP bundle
+  (28 November) found no .mcpb in the try build's download: 522 built
+  it in release_assets.sh, which the tests workflow runs but does not
+  upload - the download is make_bundle.sh's folder. The bundle is now
+  built in make_bundle.sh, round the wheel it has just built, and
+  release_assets.sh copies it like the other files; a try build and a
+  release carry the same .mcpb. Also noted here, for the next person:
+  a try build's download is the HAND-CHECK layout (the Pro toolbox
+  files loose, no equipop_arcgis zip, no SHA256SUMS), not the release
+  page's nine files; V is the text between "equipop-" and ".zip" in
+  the download's name.
+
 - 524 | MERGED 28 NOVEMBER 2026 (#37), not released | TOOL 7
   AFTER THE 1.67.0 REVIEW: two findings, both reproduced. (1) "CLOSEST
   PAIRS FIRST" could serve the wrong person. Each origin looks at its
@@ -3763,7 +3776,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   60 and 30 people, 2 to 1. Six tests, all red on 1.67.0. For 1.68.0
   with 523 (tool 1b).
 
-- 523 | BUILT 28 NOVEMBER 2026, pull request, not released (R-62
+- 523 | MERGED 28 NOVEMBER 2026 (#36), not released (R-62
   amended) | TOOL 1b AFTER THE 1.67.0 REVIEW. An outside code review of
   1.67.0 (28 November, reproduced here) found four things in tool 1b.
   (1) WITH EVERY OPTIONAL FIELD BLANK - just points and polygons, the
