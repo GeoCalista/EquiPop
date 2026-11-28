@@ -67,8 +67,14 @@ HELP = {
         "percentiles by weight. Mean and median unless you tick others.",
     "areahide":
         "HIDE AREAS WITH FEWER THAN ... PEOPLE: such an area keeps its N "
-        "and shows no other result (Hidden = 1), so a value describing "
-        "three people is not published. Empty: nothing is hidden. WHY "
+        "and shows no other result - not Npts, not a count, not a "
+        "statistic (Hidden = 1), so a value describing three people is "
+        "not published. The same threshold applies to each VALUE field "
+        "on its own: where fewer people than that hold a value, that "
+        "field's statistics are hidden however many live in the area "
+        "(an area of 100 people with one recorded income would "
+        "otherwise publish that income as its mean); Nv_ says how many "
+        "held a value. Empty: nothing is hidden. WHY "
         "EQUIPOP HELPS HERE: an area can hold three people; a "
         "neighbourhood of k people (tools 1 and 2) always holds k. With "
         "k at or above this threshold, no value rests on fewer people "
@@ -90,8 +96,8 @@ HELP = {
     "out_areas":
         "THE AREAS, WITH THEIR RESULTS: every area of the layer, also "
         "those with nobody in them (N = 0), with N people, Npts points, "
-        "T_ and R_ for each count field, a column per statistic for "
-        "each value field, and Hidden.",
+        "T_ and R_ for each count field, Nv_ (the people with a value) "
+        "and a column per statistic for each value field, and Hidden.",
     "out_points":
         "THE POINTS, WITH THEIR AREA'S RESULTS (optional): each point "
         "with the name and results of the area it counts in - one set "
