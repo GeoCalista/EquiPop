@@ -34,7 +34,8 @@ list its tools, read their help, cite it correctly and run tools 1,
 receives is descriptions and summaries, never the rows; results are
 written to a new file next to the input. Claude Desktop installs it
 from the `equipop-<version>.mcpb` file on the release page with one
-click; everything else is in README_MCP.md.
+click. MANUAL_MCP.md is the gentle guide; README_MCP.md the short
+reference.
 
 <!-- mcp-name: io.github.geocalista/equipop -->
 

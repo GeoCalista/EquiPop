@@ -1,5 +1,7 @@
 # EquiPop from an AI assistant - the MCP server
 
+*The short reference. New to this? MANUAL_MCP.md is the gentle guide.*
+
 EquiPop's fourth door, beside QGIS, ArcGIS Pro and Stata. An AI
 assistant that speaks MCP (Claude, ChatGPT, Copilot, VS Code and
 others) connects to a small server running on your own computer, and

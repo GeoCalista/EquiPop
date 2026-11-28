@@ -48,9 +48,10 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.68.0: the local MCP server** - BUILT 27-28 November (522), a
-   pull request waiting for John's answers on R-63, the tool list,
-   the registry name and who tests. Phase 1 of the EquiPop Navigator
+1. **1.68.0: the local MCP server** - BUILT 27-28 November (522), pull
+   request #35; John answered on R-63, the tool list, the registry
+   name (listed at this release) and who tests (he asks the team).
+   Waiting for his hand check in Claude Desktop. Phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
    planned in "EquiPop and MCP". Then the release, and the registry
    listing when John approves it.
@@ -3775,9 +3776,35 @@ because machine 3 stores tiles that way and says so in its manifest.
   page with its SHA-256), the mcp-name line in README.md, OIDC for the
   organisation's namespace, gated by the "mcp-registry" environment -
   John's click, as PyPI's.
+  JOHN'S ANSWERS, 28 November: (1) R-63 "good - we need to secure
+  this"; (2) tools 1, 1b, 2, 3b and the citations are the right start;
+  (3) the names are good, and "let us list it for this release" - a
+  separate tool for those able and willing to install, apart from the
+  main installations; (4) he asks the team who tests. Plus: a manual
+  for everyone, "interesting but new to most of us" - MANUAL_MCP.md,
+  the gentle guide (what MCP is, what the assistant can and cannot
+  do, the one-click install, the first conversation, what leaves the
+  computer, good questions, when it goes wrong, behind walls).
+  A QUESTION FOR THE BOARD, not coded now (John, 28 November): "do we
+  have any way of supplying this for behind-walls environments? say
+  that we have all details of the tables, but there are protocols for
+  what comes in and out and this is out of our decision making". The
+  server needs no network and installs from a wheel carried in; what
+  a wall lacks is an assistant inside it. Three routes, in order of
+  realism: a local model inside the wall with the server as it is; a
+  stricter switch (--metadata-only: names, types and N, no statistic)
+  for protocols that let names out but not numbers; and the
+  Navigator's strategy half outside the wall with no data - the
+  person brings the table's description (what equipop_look returns),
+  settles the strategy, and runs it inside.
   NOT YET: the hosted server (Hugging Face), the Navigator's
   question-answering, tools 3, 4, 5, 7 through the server, Stata's
-  own route, an icon for the bundle, a Zenodo DOI.
+  own route, an icon for the bundle, --metadata-only, a Zenodo DOI
+  (John asked for the for and against on 28 November: for - a citable
+  version, a copy outside GitHub, FAIR, no workflow change; against -
+  permanent, a DOI per patch release, one admin connects the
+  organisation to Zenodo, and CITATION.cff must then say what to
+  cite; about half an hour, at a quiet release).
 
 - 521 | DONE v1.67.0, 27 NOVEMBER 2026 (built 27 November, #33) (rulings
   R-61, R-62) | TOOL 1b, "SUMMARIES BY AREA", in QGIS and Pro.
