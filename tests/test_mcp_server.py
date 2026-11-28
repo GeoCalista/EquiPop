@@ -490,6 +490,9 @@ def test_the_release_lists_the_server_only_after_pypi_and_the_files():
     steps = " ".join(str(s.get("run", "")) for s in job["steps"])
     assert "make_server_json.py" in steps
     assert "login github-oidc" in steps and "mcp-publisher publish" in steps
+    bundle = open(os.path.join(ROOT, "tools", "make_bundle.sh"),
+                  encoding="utf-8").read()
+    assert "make_mcpb.py" in bundle, "the try build must carry the .mcpb"
     assets = open(os.path.join(ROOT, "tools", "release_assets.sh"),
                   encoding="utf-8").read()
-    assert "make_mcpb.py" in assets
+    assert 'need "$B/equipop-$V.mcpb"' in assets
