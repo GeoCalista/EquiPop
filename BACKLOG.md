@@ -48,13 +48,12 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.68.0: the local MCP server** - BUILT 27-28 November (522), pull
-   request #35; John answered on R-63, the tool list, the registry
-   name (listed at this release) and who tests (he asks the team).
-   Waiting for his hand check in Claude Desktop. Phase 1 of the EquiPop Navigator
-   (the concept note for the board meeting of 9 December 2026), as
-   planned in "EquiPop and MCP". Then the release, and the registry
-   listing when John approves it.
+1. **1.68.0: the MCP server (522, #35, merged 28 November) and the
+   1.67.0 review's findings** - tool 1b (523, #36) and tool 7 (524,
+   #37), one pull request each; John merged #35 first, so the fixes
+   ship in 1.68.0 rather than a 1.67.1, and the CHANGELOG row says
+   which numbers move. Then the release, with the registry listing
+   when John approves it.
 2. **Machine 7, step 2** - tiers, time slots and the week
    (PROPOSALS.md section 3).
 
@@ -3738,7 +3737,33 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 522 | BUILT 27-28 NOVEMBER 2026, pull request, not released (ruling
+- 524 | BUILT 28 NOVEMBER 2026, pull request, not released | TOOL 7
+  AFTER THE 1.67.0 REVIEW: two findings, both reproduced. (1) "CLOSEST
+  PAIRS FIRST" could serve the wrong person. Each origin looks at its
+  `candidates` nearest destinations (100), and the matching widened
+  only while some destination had room. With 101 destinations and 100
+  looked at, the last place went to a person 7 m away while one 2 m
+  away - whose 100 nearest were all full, so it never saw the 101st -
+  went unmet; with 101 candidates the reverse. The rule now: an origin
+  still waiting whose list was not the whole set triggers another
+  round when some destination has room OR a pair was matched beyond
+  that origin's horizon (the farthest destination it looked at), since
+  an unseen pair of its could have come first; the waiting origins'
+  full lists are added and the matching is redone from the start. Held
+  to the definition computed over ALL pairs on twelve random small
+  towns and every candidate count from 1 up: 1.67.0's rule was wrong
+  in four of the twelve. Analyses that used "closest" with binding
+  capacity and more destinations than candidates should be rerun;
+  "nearest", "decay" and "flows" were not affected by this. (2) FLOWS
+  AND THE DECAY DRAW at long distances: the weight exp(-ln 2 x d /
+  half-life) underflows to 0.0 for d = 20 km with a 10 m half-life, so
+  two destinations 10 m apart got nothing and 90 people were unmet.
+  The weights are now taken relative to the row's nearest distance,
+  which changes no share (every use normalises) and never underflows:
+  60 and 30 people, 2 to 1. Six tests, all red on 1.67.0. For 1.68.0
+  with 523 (tool 1b).
+
+- 522 | MERGED 28 NOVEMBER 2026 (#35), not released (ruling
   R-63) | THE LOCAL MCP SERVER - EquiPop's fourth door, for AI
   assistants (Claude, ChatGPT, Copilot, VS Code ...). Phase 1 of the
   Navigator, as the concept note "EquiPop and MCP" (21 November) laid

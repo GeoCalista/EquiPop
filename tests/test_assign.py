@@ -181,3 +181,96 @@ def test_what_is_refused(kw, says):
         assign(o, d, people="n", **kw)
     with pytest.raises(ValueError, match="0 or more"):
         assign(o.assign(n=-1.0), d, people="n")
+
+
+# ------------------------------------- the 1.67.0 review, 28 November
+def _ring_case():
+    """The review's case, built: 100 destinations on a 1 m ring round
+    A, each already taken by a person standing on it; D at 2 m from A;
+    B at 7 m from D. A's 100 nearest are the full ring, so with 100
+    candidates A never saw D."""
+    ang = np.linspace(0, 2 * np.pi, 100, endpoint=False)
+    dx, dy = list(np.cos(ang)), list(np.sin(ang))
+    dx.append(2.0)
+    dy.append(0.0)
+    d = pd.DataFrame({"x": dx, "y": dy, "c": 1.0})
+    o = pd.DataFrame({"x": list(np.cos(ang)) + [0.0, 9.0],
+                      "y": list(np.sin(ang)) + [0.0, 0.0]})
+    return o, d
+
+
+def test_closest_first_serves_the_2_m_person_not_the_7_m_one():
+    """BACKLOG 524. BROKEN WITH 1.67.0's stopping rule: with 100
+    candidates A (2 m from D) was unmet and B (7 m) got D's last place;
+    with 101 the reverse. The answer must not depend on `candidates`."""
+    o, d = _ring_case()
+    for C in (100, 101, 3):
+        a = assign(o, d, method="closest", capacity="c", candidates=C)
+        assert a.origins.Sim_Placed.tolist()[100:] == [1.0, 0.0], C
+        assert a.origins.Sim_Metres.tolist()[100] == pytest.approx(2.0)
+
+
+def _closest_by_hand(o, d, pop, cap, far=np.inf):
+    """Every pair, by distance then origin then destination, greedily:
+    the definition, with no candidate list at all."""
+    D = np.hypot(o.x.to_numpy()[:, None] - d.x.to_numpy()[None, :],
+                 o.y.to_numpy()[:, None] - d.y.to_numpy()[None, :])
+    need, left = pop.astype(float).copy(), cap.astype(float).copy()
+    placed = np.zeros(len(o))
+    metres = np.zeros(len(o))
+    for i, j in sorted(((i, j) for i in range(len(o))
+                        for j in range(len(d)) if D[i, j] <= far),
+                       key=lambda ij: (D[ij], ij[0], ij[1])):
+        if need[i] <= 1e-9 or left[j] <= 1e-9:
+            continue
+        take = min(need[i], left[j])
+        need[i] -= take
+        left[j] -= take
+        placed[i] += take
+        metres[i] += take * D[i, j]
+    return placed, np.where(placed > 0, metres / np.where(placed > 0,
+                                                          placed, 1), np.nan)
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_closest_first_equals_the_exhaustive_matching(seed):
+    """Small towns, every candidate count from 1 up, against the
+    definition computed over all pairs: the same people placed, the
+    same distances. BROKEN WITH: the stopping rule of 1.67.0 (seeds
+    where capacity binds and a far match precedes a waiting origin's
+    unseen pairs)."""
+    rng = np.random.default_rng(seed)
+    n_o, n_d = int(rng.integers(5, 30)), int(rng.integers(2, 12))
+    o = pd.DataFrame({"x": rng.uniform(0, 1000, n_o),
+                      "y": rng.uniform(0, 1000, n_o),
+                      "n": rng.integers(1, 6, n_o).astype(float)})
+    d = pd.DataFrame({"x": rng.uniform(0, 1000, n_d),
+                      "y": rng.uniform(0, 1000, n_d),
+                      "c": rng.integers(1, 9, n_d).astype(float)})
+    far = 700.0 if seed % 3 == 0 else None
+    want_p, want_m = _closest_by_hand(o, d, o.n.to_numpy(), d.c.to_numpy(),
+                                      np.inf if far is None else far)
+    for C in (1, 2, 3, n_d):
+        a = assign(o, d, method="closest", people="n", capacity="c",
+                   candidates=C, farthest=far)
+        np.testing.assert_allclose(a.origins.Sim_Placed, want_p,
+                                   err_msg=f"seed {seed}, candidates {C}")
+        np.testing.assert_allclose(a.origins.Sim_Metres, want_m,
+                                   equal_nan=True,
+                                   err_msg=f"seed {seed}, candidates {C}")
+
+
+def test_flows_20_km_away_with_a_10_m_half_life_still_share_2_to_1():
+    """BACKLOG 524. BROKEN WITH: weights taken from distance 0, which
+    underflow to nothing at 20 km, so 1.67.0 reported 100% unmet."""
+    o = pd.DataFrame({"x": [0.0], "y": [0.0], "n": [90.0]})
+    d = pd.DataFrame({"x": [20000.0, 20010.0], "y": [0.0, 0.0]})
+    a = assign(o, d, method="flows", people="n", half_life=10.0)
+    got = a.trips.set_index("Dest").People
+    assert got[0] == pytest.approx(60.0) and got[1] == pytest.approx(30.0)
+    assert a.origins.Sim_Unmet[0] == 0
+    # the decay queue draws by the same weights: far away, it still
+    # prefers the nearer place 2 to 1, not the first with room
+    a = assign(o, d, method="decay", people="n", half_life=10.0,
+               group_size=1.0, runs=40, seed=3)
+    assert 0.55 < a.destinations.Sim_Load[0] / 90.0 < 0.78
