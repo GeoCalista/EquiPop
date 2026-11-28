@@ -26,6 +26,9 @@ include BACKLOG.md
 # tests/test_rulings_register.py reads both, and the tests ship.
 include RULINGS.md
 include CONTRIBUTING.md
+# v1.68.0, BACKLOG 522: the MCP server's guide and manual
+include README_MCP.md
+include MANUAL_MCP.md
 
 # The doors that pip cannot deliver: a user installs the package,
 # then copies these onto the machine by hand.

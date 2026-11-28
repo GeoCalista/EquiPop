@@ -30,7 +30,12 @@ dependencies = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10", "pyproj>=3.4"]
 geo = ["geopandas>=0.14", "pyogrio", "rasterio"]
 io = ["openpyxl", "pyarrow", "pyreadstat", "dbfread"]
 viz = ["matplotlib", "jenkspy"]
-test = ["pytest", "openpyxl", "pyarrow", "rasterio", "pyyaml"]
+test = ["pytest", "openpyxl", "pyarrow", "rasterio", "pyyaml", "mcp>=2"]
+# v1.68.0, BACKLOG 522: the MCP server, EquiPop's fourth door
+mcp = ["mcp>=2"]
+
+[project.scripts]
+equipop = "equipop.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/GeoCalista/EquiPop"

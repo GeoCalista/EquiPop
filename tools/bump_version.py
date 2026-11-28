@@ -226,6 +226,7 @@ def main(argv):
     if not check:
         print("\n[bump] regenerate what is derived:")
         print("       python tools/make_sthlp.py")
+        print("       python tools/make_citations.py")
         print("       python arcgis/make_help_xml.py")
         # BACKLOG 331, John's question before the SSC reply went out.
         # The bump moves the ADO's declared version, and the ado asks

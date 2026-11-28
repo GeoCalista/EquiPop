@@ -48,9 +48,13 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.68.0: the local MCP server** - phase 1 of the EquiPop Navigator
+1. **1.68.0: the local MCP server** - BUILT 27-28 November (522), pull
+   request #35; John answered on R-63, the tool list, the registry
+   name (listed at this release) and who tests (he asks the team).
+   Waiting for his hand check in Claude Desktop. Phase 1 of the EquiPop Navigator
    (the concept note for the board meeting of 9 December 2026), as
-   planned in "EquiPop and MCP".
+   planned in "EquiPop and MCP". Then the release, and the registry
+   listing when John approves it.
 2. **Machine 7, step 2** - tiers, time slots and the week
    (PROPOSALS.md section 3).
 
@@ -3733,6 +3737,74 @@ because machine 3 stores tiles that way and says so in its manifest.
   the suite would pass. That is the guard written after inventory.py
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
+
+- 522 | BUILT 27-28 NOVEMBER 2026, pull request, not released (ruling
+  R-63) | THE LOCAL MCP SERVER - EquiPop's fourth door, for AI
+  assistants (Claude, ChatGPT, Copilot, VS Code ...). Phase 1 of the
+  Navigator, as the concept note "EquiPop and MCP" (21 November) laid
+  it out: the server module, server.json for the MCP Registry, and the
+  .mcpb bundle, in one pull request, with publishing in the release
+  workflow. John, 27 November: "let us move on to the local MCP server".
+  BUILT: equipop/mcp/ - server.py (the tools) and files.py (reading and
+  writing under R-63). The tools: equipop_tools, equipop_help,
+  equipop_cite, equipop_columns (describe); equipop_look (a file or
+  folder without rows); equipop_counts_and_shares (tool 1),
+  equipop_value_statistics (tool 2), equipop_summaries_by_area (tool
+  1b), equipop_green_reach (tool 3b, with rasterio); equipop_peek only
+  with --rows. The help is the dialogs' (doors/help.py, a VOCAB_MCP);
+  the engine calls are the doors' (stata_bridge.dispatch, areasdoor.run,
+  pixelsdoor.run), with the doors' explicit defaults (BACKLOG 99);
+  points in degrees refused unless project=true, then UTM as the
+  Stata door does. The mcp package (2.x, MCPServer) is the extra
+  `equipop[mcp]`; the SDK's in-process Client tests the tools.
+  THE COMMAND `equipop` (pyproject [project.scripts]): doctor, cite,
+  help TOOL, mcp [--rows], version; with no terminal it IS the server,
+  so `uvx equipop` works. equipop/cite.py and tools/make_citations.py:
+  CITATION.cff copied into the package as tables/citations.json, so a
+  pip install can cite - with the method paper per tool and aspect.
+  THE BUNDLE, tools/make_mcpb.py: manifest 0.4, server type "uv" (the
+  app brings its own Python), pyproject.toml pointing at the wheel
+  INSIDE the bundle (a try build installs its own code; no PyPI
+  needed for EquiPop), uv.lock (the app runs `uv run --frozen`, which
+  refuses without one - measured), server/main.py. Validated with the
+  official CLI (@anthropic-ai/mcpb 2.1.2): "Manifest schema validation
+  passes". release_assets.sh writes it as the ninth release file.
+  THE REGISTRY, tools/make_server_json.py and the release workflow's
+  "registry" job: io.github.geocalista/equipop, two packages (PyPI
+  through uvx --python ">=3.11" --from equipop[mcp] equipop mcp -
+  measured: without --python a 3.10 machine refuses; the .mcpb on the release
+  page with its SHA-256), the mcp-name line in README.md, OIDC for the
+  organisation's namespace, gated by the "mcp-registry" environment -
+  John's click, as PyPI's.
+  JOHN'S ANSWERS, 28 November: (1) R-63 "good - we need to secure
+  this"; (2) tools 1, 1b, 2, 3b and the citations are the right start;
+  (3) the names are good, and "let us list it for this release" - a
+  separate tool for those able and willing to install, apart from the
+  main installations; (4) he asks the team who tests. Plus: a manual
+  for everyone, "interesting but new to most of us" - MANUAL_MCP.md,
+  the gentle guide (what MCP is, what the assistant can and cannot
+  do, the one-click install, the first conversation, what leaves the
+  computer, good questions, when it goes wrong, behind walls).
+  A QUESTION FOR THE BOARD, not coded now (John, 28 November): "do we
+  have any way of supplying this for behind-walls environments? say
+  that we have all details of the tables, but there are protocols for
+  what comes in and out and this is out of our decision making". The
+  server needs no network and installs from a wheel carried in; what
+  a wall lacks is an assistant inside it. Three routes, in order of
+  realism: a local model inside the wall with the server as it is; a
+  stricter switch (--metadata-only: names, types and N, no statistic)
+  for protocols that let names out but not numbers; and the
+  Navigator's strategy half outside the wall with no data - the
+  person brings the table's description (what equipop_look returns),
+  settles the strategy, and runs it inside.
+  NOT YET: the hosted server (Hugging Face), the Navigator's
+  question-answering, tools 3, 4, 5, 7 through the server, Stata's
+  own route, an icon for the bundle, --metadata-only, a Zenodo DOI
+  (John asked for the for and against on 28 November: for - a citable
+  version, a copy outside GitHub, FAIR, no workflow change; against -
+  permanent, a DOI per patch release, one admin connects the
+  organisation to Zenodo, and CITATION.cff must then say what to
+  cite; about half an hour, at a quiet release).
 
 - 521 | DONE v1.67.0, 27 NOVEMBER 2026 (built 27 November, #33) (rulings
   R-61, R-62) | TOOL 1b, "SUMMARIES BY AREA", in QGIS and Pro.

@@ -24,7 +24,20 @@ hexagonal grids, area aggregation and metadata logging.
 ```
 pip install equipop            # core
 pip install equipop[geo,io,viz]  # shapefiles/rasters, Excel/SPSS, maps
+pip install "equipop[mcp]"     # the MCP server for AI assistants
 ```
+
+## From an AI assistant (MCP)
+EquiPop is an MCP server too: Claude, ChatGPT, Copilot or VS Code can
+list its tools, read their help, cite it correctly and run tools 1,
+1b, 2 and 3b on files on your own computer. What the assistant
+receives is descriptions and summaries, never the rows; results are
+written to a new file next to the input. Claude Desktop installs it
+from the `equipop-<version>.mcpb` file on the release page with one
+click. MANUAL_MCP.md is the gentle guide; README_MCP.md the short
+reference.
+
+<!-- mcp-name: io.github.geocalista/equipop -->
 
 ## Quick start
 ```python
@@ -47,7 +60,8 @@ for segregation profiles `seg_profile`; for policy-area reporting
 Repository: https://github.com/GeoCalista/EquiPop
 
 ## Citing
-Please cite the software and the methods you use - see CITATION.cff.
+Please cite the software and the methods you use - see CITATION.cff,
+or run `equipop cite` (and `equipop cite 2`, `equipop cite decay`...).
 Core reference: Östh (2014), *Introducing the EquiPop software*,
 Uppsala University. Segregation measures: Östh, Clark & Malmberg
 (2015), *Geographical Analysis* 47(1). Decay parameters: Östh, Lyhagen

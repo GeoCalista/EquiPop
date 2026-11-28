@@ -21,6 +21,8 @@
 #   equipop_stata_netinstall-<v>.zip  Stata: unzip, then net install
 #   equipop_ssc_submission-<v>.zip  for the SSC archive
 #   gridby-<v>.gpkg                 the teaching town for QGIS and Pro
+#   equipop-<v>.mcpb                the MCP server, one click in Claude
+#                                   Desktop (v1.68.0, BACKLOG 522)
 #   SHA256SUMS.txt                  a checksum for each of the above
 # =====================================================================
 set -euo pipefail
@@ -54,10 +56,16 @@ rm -f "$A/equipop_arcgis-$V.zip"
 # overwrite=True: a rerun replaces our own earlier file (BACKLOG 514)
 python -c "import sys; from equipop.gridby import write_gridby; write_gridby(sys.argv[1], overwrite=True)" "$A/gridby-$V.gpkg"
 
+# the MCP Bundle (BACKLOG 522): the server for AI assistants, built
+# around the very wheel above, so it installs the code it was built
+# from. Needs uv (pip install uv) for its lock file.
+python tools/make_mcpb.py "$V" "$A/equipop-$V-py3-none-any.whl" "$A"
+
 # every zip opens, and every member is whole
 python - "$A" <<'PY'
 import sys, zipfile, pathlib
-for z in sorted(pathlib.Path(sys.argv[1]).glob("*.zip")):
+for z in sorted(pathlib.Path(sys.argv[1]).glob("*.zip")) + \
+        sorted(pathlib.Path(sys.argv[1]).glob("*.mcpb")):
     with zipfile.ZipFile(z) as f:
         bad = f.testzip()
         assert bad is None, f"{z.name}: {bad} is damaged"

@@ -76,6 +76,12 @@ def read_table(path: str, sheet: str | int = 0, **kw) -> pd.DataFrame:
     if ext == ".parquet":
         return pd.read_parquet(p, **kw)
 
+    if ext == ".dta":                       # v1.68.0, BACKLOG 522
+        df = pd.read_stata(p, **kw)
+        print(f"[io] {p.name}: Stata, {len(df)} rows, "
+              f"{len(df.columns)} columns")
+        return df
+
     if ext == ".json":
         obj = json.loads(p.read_text(encoding="utf-8-sig"))
         if isinstance(obj, dict) and obj.get("type") == "FeatureCollection":
