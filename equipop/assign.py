@@ -269,7 +269,24 @@ class _Space:
         return d[keep], j[keep]
 
     def weights(self, d):
-        return np.exp(-self.a * d)
+        """Decay weights, RELATIVE to the nearest distance in each row.
+
+        Every use divides by the row's total (flows), draws by the
+        cumulative sum (the decay queue) or compares one weight with
+        the row's sum (the widening), so subtracting the row's smallest
+        distance before exponentiating changes no share - and keeps
+        the numbers out of the floor: 1.67.0 computed exp(-ln 2 x
+        20000 / 10) for a destination 20 km away with a 10 m half-life,
+        which is 0.0 in floating point, and 90 people went unmet
+        between two destinations 10 m apart (BACKLOG 524).
+        """
+        d = np.asarray(d, float)
+        if d.ndim == 0 or d.size == 0:
+            return np.exp(-self.a * d)
+        base = np.nanmin(np.where(np.isfinite(d), d, np.nan),
+                         axis=-1, keepdims=True)
+        base = np.where(np.isfinite(base), base, 0.0)
+        return np.exp(-self.a * (d - base))
 
     # -- the queue: "nearest" and "decay" ------------------------------
     def queue(self, pop, cap, m, method, rng_order, rng_choice):
@@ -325,14 +342,33 @@ class _Space:
 
     # -- "closest": the closest pairs first ----------------------------
     def closest(self, pop, cap):
+        """The closest person-destination pairs first, exactly.
+
+        Each origin's `candidates` nearest destinations are looked at
+        first. That is exact unless an origin is still waiting when
+        the list is done AND either some destination has room (it may
+        find it farther out) or a pair was matched at a distance
+        beyond that origin's horizon - the farthest destination it
+        looked at - because an unseen pair of its could have come
+        before that match. 1.67.0 stopped as soon as nothing was left:
+        with 101 destinations and 100 looked at, the last place went
+        to a person 7 m away while one 2 m away, whose 100 nearest were
+        all full, went unmet (BACKLOG 524). Now the waiting origins'
+        full lists are added and the matching is done again from the
+        start, until no such origin remains.
+        """
+        n_o = len(pop)
+        ii = np.repeat(np.arange(n_o), self.C)
+        jj = self.cj.ravel()
+        dd = self.cd.ravel()
+        keep = dd <= self.far
+        ii, jj, dd = ii[keep], jj[keep], dd[keep]
+        horizon = self.cd[:, -1].copy()
+        # origins whose every destination is already in the list
+        whole = np.full(n_o, self.C >= self.n_d)
         while True:
             need = pop.astype(float).copy()
             left = cap.astype(float).copy()
-            ii = np.repeat(np.arange(len(pop)), self.C)
-            jj = self.cj.ravel()
-            dd = self.cd.ravel()
-            keep = dd <= self.far
-            ii, jj, dd = ii[keep], jj[keep], dd[keep]
             order = np.lexsort((jj, ii, dd))
             out = ([], [], [], [])
             for p in order:
@@ -344,15 +380,23 @@ class _Space:
                 left[j] -= take
                 for lst, v in zip(out, (i, j, take, dd[p])):
                     lst.append(v)
-            # an origin still waiting, with more destinations within
-            # reach than it looked at, while some have room: look wider
-            # and match again from the start, so the order stays exact
-            waiting = need > EPS
-            more = self.cd[:, -1] <= self.far
-            if (self.C < self.n_d and (waiting & more).any()
-                    and (left > EPS).any()):
-                self._near(min(self.n_d, self.C * 4))
-                continue
+            waiting = (need > EPS) & ~whole & (horizon <= self.far)
+            if waiting.any():
+                farthest_match = max(out[3]) if out[3] else -np.inf
+                if (left > EPS).any() or \
+                        farthest_match > horizon[waiting].min():
+                    add_i, add_j, add_d = [], [], []
+                    for i in np.nonzero(waiting)[0]:
+                        d, j = self.options(i, everything=True)
+                        new = ~np.isin(j, self.cj[i])
+                        add_i.append(np.full(int(new.sum()), i))
+                        add_j.append(j[new])
+                        add_d.append(d[new])
+                        whole[i] = True
+                    ii = np.concatenate([ii] + add_i)
+                    jj = np.concatenate([jj] + add_j)
+                    dd = np.concatenate([dd] + add_d)
+                    continue
             return (np.asarray(out[0], np.int64),
                     np.asarray(out[1], np.int64),
                     np.asarray(out[2], float),
