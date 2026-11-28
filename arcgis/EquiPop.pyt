@@ -754,7 +754,7 @@ def _ref(value):
 #: The manifest has always recorded the PACKAGE version and never the
 #: TOOLBOX version, and this whole episode is the gap between those
 #: two. Now every run says both, and says so loudly when they differ.
-TOOLBOX_VERSION = "1.67.0"
+TOOLBOX_VERSION = "1.68.0"
 
 
 def _vtuple(v):

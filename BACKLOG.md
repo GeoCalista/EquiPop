@@ -48,14 +48,13 @@ and designs may be talked through alongside, but they wait in this
 queue for their turn. Done items LEAVE the list (the rule above);
 their story is in the detail below.*
 
-1. **1.68.0: the MCP server (522, #35, merged 28 November) and the
-   1.67.0 review's findings** - tool 1b (523, #36) and tool 7 (524,
-   #37), one pull request each; John merged #35 first, so the fixes
-   ship in 1.68.0 rather than a 1.67.1, and the CHANGELOG row says
-   which numbers move. Then the release, with the registry listing
-   when John approves it.
-2. **Machine 7, step 2** - tiers, time slots and the week
+1. **Machine 7, step 2** - tiers, time slots and the week
    (PROPOSALS.md section 3).
+2. **After the board of 9 December 2026:** the hosted server and the
+   Navigator's next phase (the concept note "EquiPop and MCP" and the
+   Navigator note), the behind-walls question and a `--metadata-only`
+   switch (522), removing the tool numbers (520, A3), and a Zenodo DOI
+   if John wants one (522). John orders these after the meeting.
 
 ### After the code review of 1.63.7 — a work order, for John to change
 *Written at 1.63.8, 11 November 2026; item B done at 1.64.0; the
@@ -3737,7 +3736,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 525 | BUILT 28 NOVEMBER 2026, pull request, not released | THE TRY
+- 525 | DONE v1.68.0, 28 NOVEMBER 2026 (built 28 November, #38) | THE TRY
   BUILD CARRIES THE .mcpb. John's first hand check of the MCP bundle
   (28 November) found no .mcpb in the try build's download: 522 built
   it in release_assets.sh, which the tests workflow runs but does not
@@ -3750,7 +3749,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   page's nine files; V is the text between "equipop-" and ".zip" in
   the download's name.
 
-- 524 | MERGED 28 NOVEMBER 2026 (#37), not released | TOOL 7
+- 524 | DONE v1.68.0, 28 NOVEMBER 2026 (built 28 November, #37) | TOOL 7
   AFTER THE 1.67.0 REVIEW: two findings, both reproduced. (1) "CLOSEST
   PAIRS FIRST" could serve the wrong person. Each origin looks at its
   `candidates` nearest destinations (100), and the matching widened
@@ -3776,7 +3775,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   60 and 30 people, 2 to 1. Six tests, all red on 1.67.0. For 1.68.0
   with 523 (tool 1b).
 
-- 523 | MERGED 28 NOVEMBER 2026 (#36), not released (R-62
+- 523 | DONE v1.68.0, 28 NOVEMBER 2026 (built 28 November, #36) (R-62
   amended) | TOOL 1b AFTER THE 1.67.0 REVIEW. An outside code review of
   1.67.0 (28 November, reproduced here) found four things in tool 1b.
   (1) WITH EVERY OPTIONAL FIELD BLANK - just points and polygons, the
@@ -3798,8 +3797,8 @@ because machine 3 stores tiles that way and says so in its manifest.
   messages now carry the layer's unit (m, ft, map units). Four tests,
   each red on 1.67.0. For 1.68.0 with 524 (tool 7).
 
-- 522 | MERGED 28 NOVEMBER 2026 (#35), not released (ruling
-  R-63) | THE LOCAL MCP SERVER - EquiPop's fourth door, for AI
+- 522 | DONE v1.68.0, 28 NOVEMBER 2026 (built 27-28 November, #35)
+  (ruling R-63) | THE LOCAL MCP SERVER - EquiPop's fourth door, for AI
   assistants (Claude, ChatGPT, Copilot, VS Code ...). Phase 1 of the
   Navigator, as the concept note "EquiPop and MCP" (21 November) laid
   it out: the server module, server.json for the MCP Registry, and the

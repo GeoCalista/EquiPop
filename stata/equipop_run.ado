@@ -1,4 +1,4 @@
-*! equipop_run v1.67.0  -  ONE command, the whole toolbox (since EquiPop 1.6).
+*! equipop_run v1.68.0  -  ONE command, the whole toolbox (since EquiPop 1.6).
 *! Syntax:
 *!   equipop_run [if] [in], engine(counts|stats|friction|slope|fca|lisa)
 *!       x() y() [...]
