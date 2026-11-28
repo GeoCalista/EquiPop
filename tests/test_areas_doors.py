@@ -331,3 +331,72 @@ def test_both_doors_have_the_same_boxes_and_help():
     assert q == {p.name for p in tool.getParameterInfo()}
     assert tool.label == LABELS["AreaSummaries"]
     assert not [n for n in q if n not in HELP]
+
+
+# ------------------------------------- the 1.67.0 review, 28 November
+def test_blank_optional_fields_still_give_one_row_per_point():
+    """The review's first finding: with only points and polygons, both
+    GIS doors said "The points layer has no points". BROKEN WITH: the
+    frame built from the optional columns alone."""
+    alg, p = _qgis()
+    for box in ("areapeople", "areacounts", "areavalues"):
+        p[box] = None
+    alg.processAlgorithm(p, None, QgsProcessingFeedback())
+    got = p["_sinks"]["out_areas"].to_frame()
+    assert got.N.tolist() == [3, 2, 5, 0]           # one person per point
+    assert got.Npts.tolist() == [3, 2, 5, 0]
+    pyt, state, msg = _pro()
+    _pro_run(pyt.AreaSummaries(), msg, areapeople=None, areacounts=None,
+             areavalues=None)
+    assert state["copies"]["memory/a"].N.tolist() == [3, 2, 5, 0]
+
+
+def test_a_hidden_area_hides_npts_and_a_thin_value_hides_its_statistics():
+    """R-62 as amended: Npts goes with the statistics, and a value
+    field held by fewer people than the threshold is hidden on its
+    own, with Nv_ saying how many held it. BROKEN WITH: the threshold
+    on N alone."""
+    p = _points()
+    p.loc[[1, 4], "inc"] = np.nan                   # in A only p0 has inc
+    t, _, rep = D.run(p, p.x, p.y, Areas(RINGS), names=NAMES,
+                      people="pop", values=["inc"], min_people=12,
+                      say=lambda *a: None)
+    # A: 15 people, but 10 hold a value -> inc hidden, N and Nv kept
+    assert t.N[0] == 15 and t.Nv_inc[0] == 10
+    assert np.isnan(t.Mean_inc[0]) and t.Hidden[0] == 1
+    assert not np.isnan(t.Npts[0])
+    # B: 9 people -> everything but N hidden, Npts and Nv included
+    assert t.N[1] == 9 and np.isnan(t.Npts[1]) and np.isnan(t.Nv_inc[1])
+    # C: 20 people, 16 with a value -> shown
+    assert t.Nv_inc[2] == 16 and not np.isnan(t.Mean_inc[2])
+    said = []
+    D.run(p, p.x, p.y, Areas(RINGS), names=NAMES, people="pop",
+          values=["inc"], min_people=12, say=said.append)
+    assert any("holding a value" in s for s in said)
+
+
+def test_level_names_that_clean_to_the_same_letters_stay_apart():
+    """The review: "small-area" and "small area" both became
+    Area_small_area, and the second overwrote the first on the points.
+    BROKEN WITH: suffix_of alone."""
+    levels = ["small-area", "small-area", "small area", "small-area"]
+    said = []
+    _, pts, _ = _run(levels=levels, want_points=True, say=said.append)
+    cols = [c for c in pts.columns if c.startswith("Area")]
+    assert cols == ["Area_small_area", "Area_small_area_2"]
+    assert pts.Area_small_area_2.tolist() == ["C"] * 5
+    assert any("_small_area_2" in s for s in said)
+    texts = D.describe([], ["inc"], ["mean"], levels)
+    assert "Mean_inc_small_area_2" in texts
+    assert D.suffixes_of(["muni", "county"]) == {"muni": "muni",
+                                                 "county": "county"}
+
+
+def test_the_snap_distance_is_said_in_the_layer_s_unit():
+    """The review: a 50-foot snap was reported as "50 m away"."""
+    said = []
+    _run(say=said.append, unit="ft")
+    assert any("50 ft away" in s for s in said)
+    said = []
+    _run(say=said.append)
+    assert any("50 m away" in s for s in said)

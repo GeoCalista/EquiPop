@@ -3737,7 +3737,7 @@ because machine 3 stores tiles that way and says so in its manifest.
   and vectorjoin.py shipped with no way to reach them, working on its
   own author.
 
-- 524 | BUILT 28 NOVEMBER 2026, pull request, not released | TOOL 7
+- 524 | MERGED 28 NOVEMBER 2026 (#37), not released | TOOL 7
   AFTER THE 1.67.0 REVIEW: two findings, both reproduced. (1) "CLOSEST
   PAIRS FIRST" could serve the wrong person. Each origin looks at its
   `candidates` nearest destinations (100), and the matching widened
@@ -3762,6 +3762,28 @@ because machine 3 stores tiles that way and says so in its manifest.
   which changes no share (every use normalises) and never underflows:
   60 and 30 people, 2 to 1. Six tests, all red on 1.67.0. For 1.68.0
   with 523 (tool 1b).
+
+- 523 | BUILT 28 NOVEMBER 2026, pull request, not released (R-62
+  amended) | TOOL 1b AFTER THE 1.67.0 REVIEW. An outside code review of
+  1.67.0 (28 November, reproduced here) found four things in tool 1b.
+  (1) WITH EVERY OPTIONAL FIELD BLANK - just points and polygons, the
+  commonest use - both GIS doors said "The points layer has no points":
+  the frame of optional columns had no rows. Now one row per point,
+  whatever is blank; the tests had always filled a field. (2) HIDING:
+  a hidden area still showed Npts (nine people on two points says the
+  nine live in two houses), and the threshold counted the area's
+  people while a value could be held by one - an area of 100 people
+  with one recorded income published that income as its mean. John,
+  28 November, "per field too": Npts goes with the statistics, each
+  value field is hidden on its own where fewer people than the
+  threshold hold it, and Nv_f (the people with a value) is a new
+  column, kept as N is. The help and R-62 say so. (3) LEVEL NAMES that
+  clean to the same letters ("small-area", "small area") gave the same
+  column suffix and the second level overwrote the first on the
+  points: suffixes_of() makes them small_area and small_area_2 and the
+  run says so. (4) A 50-FOOT SNAP was reported as "50 m away": the
+  messages now carry the layer's unit (m, ft, map units). Four tests,
+  each red on 1.67.0. For 1.68.0 with 524 (tool 7).
 
 - 522 | MERGED 28 NOVEMBER 2026 (#35), not released (ruling
   R-63) | THE LOCAL MCP SERVER - EquiPop's fourth door, for AI

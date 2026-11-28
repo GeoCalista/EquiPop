@@ -218,8 +218,18 @@ def summarise(n_areas, pairs, points: pd.DataFrame, *, people=None,
               counts=(), values=(), stats=DEFAULT_STATS,
               min_people=0.0) -> pd.DataFrame:
     """One row per area (all of them, empty ones too): N people, Npts
-    points, T_ and R_ for each count field, a column per statistic for
-    each value field, and Hidden."""
+    points, T_ and R_ for each count field, Nv_ (the people with a
+    value) and a column per statistic for each value field, and Hidden.
+
+    The threshold (R-62, amended 28 November 2026 after the 1.67.0
+    review): an area with fewer than `min_people` people keeps N and
+    hides everything else, Npts included - nine people on two points
+    says the nine live in two houses. And a VALUE field's statistics
+    are hidden wherever the people WITH a value are fewer than the
+    threshold, however many live in the area: an area of 100 people
+    with one recorded income would otherwise publish that income as
+    its mean. Nv_ stays, as N does, so the reader sees why.
+    """
     from ..wstats import weighted_stats
     w_all = (points[people].to_numpy(float) if people
              else np.ones(len(points)))
@@ -231,8 +241,8 @@ def summarise(n_areas, pairs, points: pd.DataFrame, *, people=None,
         idx = by.get(j, np.zeros(0, int))
         w = w_all[idx]
         N = float(np.nansum(w))
-        rec = {"N": N, "Npts": int(len(idx))}
         hidden = min_people > 0 and N < min_people
+        rec = {"N": N, "Npts": np.nan if hidden else int(len(idx))}
         for c in counts:
             t = float(np.nansum(cnt[c][idx]))
             rec[f"T_{c}"] = np.nan if hidden else t
@@ -240,20 +250,44 @@ def summarise(n_areas, pairs, points: pd.DataFrame, *, people=None,
         for v in values:
             x = val[v][idx]
             ok = np.isfinite(x) & np.isfinite(w) & (w > 0)
+            nv = float(np.sum(w[ok]))
+            hide_v = hidden or (min_people > 0 and nv < min_people)
+            rec[f"Nv_{v}"] = np.nan if hidden else nv
             res = (weighted_stats(stats, x[ok], w[ok]) if ok.any()
                    else {s: np.nan for s in stats})
             for s in stats:
-                rec[f"{stat_prefix(s)}_{v}"] = (np.nan if hidden
+                rec[f"{stat_prefix(s)}_{v}"] = (np.nan if hide_v
                                                 else res[s])
-        rec["Hidden"] = int(hidden)
+            if hide_v and not hidden:
+                rec["Hidden"] = 1
+        rec.setdefault("Hidden", int(hidden))
         rows.append(rec)
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df["Hidden"] = df["Hidden"].astype(int)
+    return df
 
 
 def suffix_of(label) -> str:
     """A level's label as a column suffix: letters, digits and _."""
     s = re.sub(r"[^0-9A-Za-z]+", "_", str(label)).strip("_")
     return s or "level"
+
+
+def suffixes_of(labels) -> dict:
+    """Each level's suffix, all different: "small-area" and "small
+    area" both clean to small_area, and the second must not overwrite
+    the first's columns (the 1.67.0 review). The second becomes
+    small_area_2, and the run says so."""
+    out, used = {}, set()
+    for L in dict.fromkeys(list(labels)):
+        base = suffix_of(L)
+        sfx, n = base, 1
+        while sfx.lower() in used:
+            n += 1
+            sfx = f"{base}_{n}"
+        used.add(sfx.lower())
+        out[L] = sfx
+    return out
 
 
 def on_points(n_points, pairs, table: pd.DataFrame, names, levels=None):
@@ -267,8 +301,9 @@ def on_points(n_points, pairs, table: pd.DataFrame, names, levels=None):
     out = {}
     groups = (list(dict.fromkeys(lev.tolist())) if lev is not None
               else [None])
+    sfx_of = suffixes_of(groups) if lev is not None else {}
     for L in groups:
-        sfx = "" if L is None else "_" + suffix_of(L)
+        sfx = "" if L is None else "_" + sfx_of[L]
         p = pairs
         if L is not None:
             p = pairs[np.isin(pairs["area"], np.nonzero(lev == L)[0])]
@@ -294,9 +329,11 @@ def overlapping(pairs) -> int:
 def run(points: pd.DataFrame, x, y, zones, *, names=None, levels=None,
         people=None, counts=(), values=(), stats=DEFAULT_STATS,
         min_people=0.0, outside="nearest", snap_within=None,
-        want_points=False, say=print):
+        want_points=False, say=print, unit="m"):
     """Tool 1b from start to finish. Returns (areas table, points table
-    or None, report)."""
+    or None, report). `unit` names the layer's distance unit in the
+    messages - "m", or "ft" for a layer in feet (the 1.67.0 review:
+    a 50-foot snap was reported as 50 m)."""
     n_areas = len(zones)
     if n_areas == 0:
         raise BadNumber("The areas layer has no areas.")
@@ -320,7 +357,12 @@ def run(points: pd.DataFrame, x, y, zones, *, names=None, levels=None,
     table = summarise(n_areas, pairs, points, people=people,
                       counts=counts, values=values, stats=stats,
                       min_people=min_people)
-    _say(rep, table, min_people, outside, snap_within, levels, say)
+    _say(rep, table, min_people, outside, snap_within, levels, say, unit)
+    if levels is not None:
+        for L, sfx in suffixes_of(levels).items():
+            if sfx != suffix_of(L):
+                say(f'[areas] the level "{L}" gets the column suffix '
+                    f"_{sfx}: another level cleans to the same letters")
     pts = None
     if want_points:
         if levels is None and overlapping(pairs):
@@ -334,7 +376,8 @@ def run(points: pd.DataFrame, x, y, zones, *, names=None, levels=None,
     return table, pts, rep
 
 
-def _say(rep, table, min_people, outside, snap_within, levels, say):
+def _say(rep, table, min_people, outside, snap_within, levels, say,
+         unit="m"):
     n = rep["points"]
     lev = (f" in {len(rep['levels'])} levels" if rep["levels"] else "")
     say(f"[areas] {n:,} points, {len(table):,} areas{lev}; "
@@ -356,12 +399,13 @@ def _say(rep, table, min_people, outside, snap_within, levels, say):
             "should not; it counted in the first. Check the layer.")
     if rep["snapped"]:
         say(f"[areas] {rep['snapped']:,} points in no area were given to "
-            f"the nearest one (the farthest {rep['snap_max']:,.0f} m away)"
+            f"the nearest one (the farthest {rep['snap_max']:,.0f} {unit} "
+            "away)"
             + (f"; {rep['ties']:,} were as near to two, and went to the "
                "first" if rep["ties"] else ""))
     if rep["beyond"]:
         say(f"[areas] {rep['beyond']:,} points were farther than "
-            f"{snap_within:,.0f} m from every area and were left out")
+            f"{snap_within:,.0f} {unit} from every area and were left out")
     if rep["left_out"] and outside == "leave":
         say(f"[areas] {rep['left_out']:,} points lie in no area and were "
             "left out, as chosen")
@@ -371,8 +415,12 @@ def _say(rep, table, min_people, outside, snap_within, levels, say):
             "N = 0")
     hid = int(table.Hidden.sum())
     if hid:
-        say(f"[areas] {hid:,} areas have fewer than {min_people:,.6g} "
-            "people: their statistics are hidden (Hidden = 1); N stays")
+        few = int((table.N < min_people).sum())
+        say(f"[areas] {hid:,} areas have Hidden = 1: {few:,} with fewer "
+            f"than {min_people:,.6g} people (N stays, the rest is hidden)"
+            + (f", {hid - few:,} with fewer than that many people holding "
+               "a value (that value's statistics are hidden; Nv_ says how "
+               "many)" if hid > few else ""))
     if min_people > 0:
         say("[areas] Why EquiPop helps here: an area can hold three "
             "people; an EquiPop neighbourhood of k people always holds k. "
@@ -388,20 +436,21 @@ def describe(counts=(), values=(), stats=DEFAULT_STATS,
     areas' columns, and the points' (one set per level)."""
     d = {"N": "people in the area (points, if no people field)",
          "Npts": "points in the area",
-         "Hidden": "1 where the area has fewer people than the threshold "
-                   "and its statistics are hidden",
+         "Hidden": "1 where the area, or the people with a value in it, "
+                   "are fewer than the threshold and statistics are hidden",
          "Area": "the name of the area the point counts in"}
     for c in counts:
         d[f"T_{c}"] = f"the sum of {c} over the area's points"
         d[f"R_{c}"] = f"{c} as a share of the area's people"
     words = dict(STAT_LABELS)
     for v in values:
+        d[f"Nv_{v}"] = f"the people with a value of {v} in the area"
         for s in stats:
             d[f"{stat_prefix(s)}_{v}"] = (f"{words.get(s, s).lower()} of "
                                           f"{v}, per person")
     if levels is not None:
         base = dict(d)
-        for L in dict.fromkeys(list(levels)):
+        for L, sfx in suffixes_of(levels).items():
             for k, text in base.items():
-                d[f"{k}_{suffix_of(L)}"] = f"{text} ({L})"
+                d[f"{k}_{sfx}"] = f"{text} ({L})"
     return d

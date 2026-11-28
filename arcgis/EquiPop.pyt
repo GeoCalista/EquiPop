@@ -4867,16 +4867,24 @@ class AreaSummaries:
         with _stage(messages, "reading the areas"):
             rings, names, levels = _area_rings(areas, sr, name_f,
                                                level_f)
-        frame = pd.DataFrame({c: np.asarray(_numeric(
-            data[c], c, "The points layer"), float)
-            for c in [people_f] + counts + values if c})
+        # one row per point even with every optional field blank (the
+        # 1.67.0 review: a frame from no columns has no rows, and the
+        # run said "The points layer has no points")
+        frame = pd.DataFrame(index=pd.RangeIndex(len(data["x"])))
+        for c in [people_f] + counts + values:
+            if c:
+                frame[c] = np.asarray(_numeric(data[c], c,
+                                               "The points layer"), float)
         try:
             with _stage(messages, "calculating"):
                 table, pts, _ = run(
                     frame, data["x"], data["y"], Areas(rings),
                     names=names, levels=levels, people=people_f or None,
                     counts=counts, values=values,
-                    want_points=bool(out_p), say=ch.info, **kw)
+                    want_points=bool(out_p), say=ch.info,
+                    unit={"metres": "m", "feet": "ft",
+                          "US survey feet": "ft (US)"}.get(unit, unit),
+                    **kw)
         except BadNumber as bad:
             raise arcpy.ExecuteError(str(bad))
         texts = describe(counts, values, kw["stats"], levels)

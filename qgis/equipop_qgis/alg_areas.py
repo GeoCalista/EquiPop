@@ -22,6 +22,13 @@ import numpy as np
 from .base import EquipopAlgorithm
 
 
+#: the layer's distance unit, as the messages say it (the 1.67.0
+#: review: a 50-foot snap was reported as "50 m away")
+_UNIT_SHORT = {"metres": "m", "map units": "map units", "feet": "ft",
+               "US survey feet": "ft (US)", "kilometres": "km",
+               "yards": "yd", "miles": "mi", "degrees": "degrees"}
+
+
 class AreaSummaries(EquipopAlgorithm):
     """Points summarised over areas: wards, tracts, municipalities."""
 
@@ -195,10 +202,15 @@ class AreaSummaries(EquipopAlgorithm):
                       for f in feats_a] if name_f else None)
             levels = ([("" if f[level_f] is None else str(f[level_f]))
                        for f in feats_a] if level_f else None)
-        frame = pd.DataFrame({c: po.data[c] for c in
-                              [people_f] + counts + values if c})
-        for c in frame.columns:
-            frame[c] = pd.to_numeric(frame[c], errors="coerce")
+        # one row per point even with every optional field blank: a
+        # frame built from no columns has no rows, and 1.67.0 then said
+        # "The points layer has no points" (the 1.67.0 review)
+        n_pts = len(po.data["x"])
+        frame = pd.DataFrame(index=pd.RangeIndex(n_pts))
+        for c in [people_f] + counts + values:
+            if c:
+                frame[c] = pd.to_numeric(pd.Series(list(po.data[c])),
+                                         errors="coerce").to_numpy()
         want_points = parameters.get("out_points") not in (None, "")
         try:
             with stage(ch, "calculating"):
@@ -207,7 +219,8 @@ class AreaSummaries(EquipopAlgorithm):
                     np.asarray(po.data["y"], float), Areas(rings),
                     names=names, levels=levels, people=people_f or None,
                     counts=counts, values=values,
-                    want_points=want_points, say=ch.info, **kw)
+                    want_points=want_points, say=ch.info,
+                    unit=_UNIT_SHORT.get(unit, unit), **kw)
         except BadNumber as bad:
             raise QgsProcessingException(str(bad))
         texts = describe(counts, values, kw["stats"], levels)

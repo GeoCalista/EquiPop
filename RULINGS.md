@@ -95,7 +95,7 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 | R-59 | A raster in degrees is used as it is: its pixels keep their values and true areas, and only their centres move | In force |
 | R-60 | A person on no pixel gathers the first pixel within that pixel's own disc | In force |
 | R-61 | A point counts in one area per level: inside it, else the first whose border it is on, else the nearest | In force |
-| R-62 | An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N | In force |
+| R-62 | An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N | In force, amended 28 Nov 2026 |
 | R-63 | What leaves the computer through the MCP server: descriptions and summaries, never rows; results to a new file | In force |
 
 ---
@@ -595,11 +595,11 @@ A ruling is decided by the method lead (today John Östh) and changes only throu
 **Status.** In force.
 
 ### R-62 · An area reports per person, with tool 2's statistics, and hides them below a threshold while keeping N
-**Rule.** With a people field every result of tool 1b is per person: N is the area's people, T_ sums a count field and R_ divides it by N, and each statistic of a value field is weighted by the people at each point, with tool 2's definitions (the variance over n - 1, the median interpolated, percentiles by weight). Every area of the layer is in the output, those with nobody in them as N = 0. An area with fewer people than the person's threshold keeps N and shows no other result (Hidden = 1).
-**Why.** John, 27 November 2026: the weighting "is perfect as you suggest", and the definitions are tool 2's so that a mean by area and a mean by neighbourhood mean the same thing. The threshold is "one of the main points of why we use equipop": an area can hold three people, a neighbourhood of k always holds k, and the help says so - with the caution that overlapping neighbourhoods can differ by a few people, so k reduces the risk of disclosure and does not remove it.
-**Source.** BACKLOG 521.
-**Pinned by.** `tests/test_areas_doors.py::test_the_statistics_are_tool_2_s_per_person`, `tests/test_areas_doors.py::test_few_people_hide_the_results_but_keep_n`, `tests/test_areas_doors.py::test_qgis_writes_the_shared_numbers_on_the_areas_and_points`, `tests/test_areas_doors.py::test_pro_writes_the_shared_numbers_on_copies_of_both_layers`
-**Status.** In force.
+**Rule.** With a people field every result of tool 1b is per person: N is the area's people, T_ sums a count field and R_ divides it by N, and each statistic of a value field is weighted by the people at each point, with tool 2's definitions (the variance over n - 1, the median interpolated, percentiles by weight). Every area of the layer is in the output, those with nobody in them as N = 0. An area with fewer people than the person's threshold keeps N and shows no other result - not Npts, not a count, not a statistic (Hidden = 1). The same threshold applies to each value field on its own: where the people holding a value are fewer than it, that field's statistics are hidden however many live in the area, and Nv_ (the people with a value) stays, as N does.
+**Why.** John, 27 November 2026: the weighting "is perfect as you suggest", and the definitions are tool 2's so that a mean by area and a mean by neighbourhood mean the same thing. The threshold is "one of the main points of why we use equipop": an area can hold three people, a neighbourhood of k always holds k, and the help says so - with the caution that overlapping neighbourhoods can differ by a few people, so k reduces the risk of disclosure and does not remove it. Amended 28 November 2026 after the 1.67.0 review, John choosing "per field too": nine people on two points said the nine lived in two houses, and an area of 100 people with one recorded income published that income as its mean.
+**Source.** BACKLOG 521; the amendment BACKLOG 523.
+**Pinned by.** `tests/test_areas_doors.py::test_the_statistics_are_tool_2_s_per_person`, `tests/test_areas_doors.py::test_few_people_hide_the_results_but_keep_n`, `tests/test_areas_doors.py::test_a_hidden_area_hides_npts_and_a_thin_value_hides_its_statistics`, `tests/test_areas_doors.py::test_qgis_writes_the_shared_numbers_on_the_areas_and_points`, `tests/test_areas_doors.py::test_pro_writes_the_shared_numbers_on_copies_of_both_layers`
+**Status.** In force, amended 28 November 2026.
 
 ## L. The MCP server (the fourth door)
 
